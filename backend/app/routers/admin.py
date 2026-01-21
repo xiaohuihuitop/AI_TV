@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.config import Settings
 from app.deps import admin_auth
+from app.db import delete_item
 from app.services.storage import save_article, save_video
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -33,3 +34,18 @@ def import_article(title: str = Form(...), content: str = Form(...)) -> dict:
     settings = Settings()
     info = save_article(settings.data_dir, title, content)
     return {"type": "article", "path": info["path"]}
+
+
+@router.delete("/items/{item_id}", dependencies=[Depends(admin_auth)])
+def remove_item(item_id: int) -> dict:
+    """!
+    @brief AI:删除指定内容记录。
+    @param item_id AI:内容记录 ID。
+    @return AI:删除结果状态。
+    """
+
+    settings = Settings()
+    ok = delete_item(settings.db_path, item_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="not found")
+    return {"status": "deleted"}

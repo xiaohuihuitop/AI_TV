@@ -1,3 +1,4 @@
+import os
 import sqlite3
 
 
@@ -50,3 +51,27 @@ def init_db(db_path: str) -> None:
     )
     conn.commit()
     conn.close()
+
+
+def delete_item(db_path: str, item_id: int) -> bool:
+    """!
+    @brief AI:软删除指定内容记录。
+    @param db_path AI:SQLite 数据库文件路径。
+    @param item_id AI:内容记录 ID。
+    @return AI:删除成功返回 True，否则返回 False。
+    """
+
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    init_db(db_path)
+    conn = sqlite3.connect(db_path)
+    cur = conn.execute("SELECT id FROM items WHERE id = ?", (item_id,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return False
+    conn.execute("UPDATE items SET status = 'deleted' WHERE id = ?", (item_id,))
+    conn.commit()
+    conn.close()
+    return True
