@@ -1,2 +1,6 @@
 /tv_data
 /.worktrees
+/backend/data
+/backend/db
+__pycache__/
+.pytest_cache/
