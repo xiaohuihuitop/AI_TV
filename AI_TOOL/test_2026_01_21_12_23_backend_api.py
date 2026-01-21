@@ -44,10 +44,15 @@ def run_curl(curl_path: str, args: list) -> Tuple[int, str, str]:
         status_text = (result.stdout or "").strip()
         body = ""
         if os.path.exists(temp_path):
-            try:
-                body = Path(temp_path).read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                body = Path(temp_path).read_text(encoding="utf-8", errors="replace")
+            size = os.path.getsize(temp_path)
+            if size > 1024 * 1024:
+                body = f"<binary:{size} bytes>"
+            else:
+                body_bytes = Path(temp_path).read_bytes()
+                try:
+                    body = body_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    body = f"<binary:{len(body_bytes)} bytes>"
         status = int(status_text) if status_text.isdigit() else 0
         return status, body, result.stderr
     finally:
@@ -147,6 +152,7 @@ def main() -> int:
         status, body, _ = run_curl(curl_path, ["-H", f"Authorization: Bearer {args.token}", f"{args.base_url}/admin/ping"])
         assert_status("管理端鉴权（有 Token）", 200, status, body, failed)
 
+        video_file_id = None
         status, body, _ = run_curl(
             curl_path,
             [
@@ -157,7 +163,19 @@ def main() -> int:
             ]
         )
         if assert_status("上传视频 /admin/videos", 200, status, body, failed):
-            assert_json_field("上传视频 /admin/videos", body, "type", "video", failed)
+            if assert_json_field("上传视频 /admin/videos", body, "type", "video", failed):
+                try:
+                    data = json.loads(body) if body else {}
+                except json.JSONDecodeError:
+                    write_fail(f"上传视频 /admin/videos JSON 解析失败。Body: {body}")
+                    failed.append(True)
+                else:
+                    file_id = data.get("file_id")
+                    if isinstance(file_id, int) and file_id > 0:
+                        video_file_id = file_id
+                    else:
+                        write_fail(f"上传视频 /admin/videos 未返回有效 file_id。Body: {body}")
+                        failed.append(True)
 
         status, body, _ = run_curl(
             curl_path,
@@ -186,9 +204,16 @@ def main() -> int:
         status, body, _ = run_curl(curl_path, [f"{args.base_url}/items"])
         assert_status("客户端列表 /items", 200, status, body, failed)
 
-        status, body, _ = run_curl(curl_path, [f"{args.base_url}/files/1/stream"])
-        if assert_status("流式读取 /files/1/stream", 404, status, body, failed):
-            assert_json_field("流式读取 /files/1/stream", body, "detail", "not found", failed)
+        status, body, _ = run_curl(curl_path, [f"{args.base_url}/files/999/stream"])
+        if assert_status("流式读取不存在 /files/999/stream", 404, status, body, failed):
+            assert_json_field("流式读取不存在 /files/999/stream", body, "detail", "not found", failed)
+
+        if video_file_id is not None:
+            status, body, _ = run_curl(
+                curl_path,
+                [f"{args.base_url}/files/{video_file_id}/stream"]
+            )
+            assert_status(f"流式读取已上传文件 /files/{video_file_id}/stream", 200, status, body, failed)
     finally:
         if proc is not None:
             proc.terminate()
