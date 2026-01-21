@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.config import Settings
 from app.deps import admin_auth
-from app.db import delete_item
+from app.db import create_file, create_item, delete_item
 from app.services.storage import save_article, save_video
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -19,7 +19,16 @@ def upload_video(file: UploadFile = File(...)) -> dict:
     settings = Settings()
     data = file.file.read()
     info = save_video(settings.data_dir, file.filename, data)
-    return {"type": "video", "path": info["path"]}
+    item_id = create_item(settings.db_path, "video", file.filename)
+    file_id = create_file(
+        settings.db_path,
+        item_id,
+        info["path"],
+        info["size"],
+        info["sha256"],
+        file.content_type or "video/mp4"
+    )
+    return {"type": "video", "path": info["path"], "item_id": item_id, "file_id": file_id}
 
 
 @router.post("/articles", dependencies=[Depends(admin_auth)])
@@ -33,7 +42,16 @@ def import_article(title: str = Form(...), content: str = Form(...)) -> dict:
 
     settings = Settings()
     info = save_article(settings.data_dir, title, content)
-    return {"type": "article", "path": info["path"]}
+    item_id = create_item(settings.db_path, "article", title)
+    file_id = create_file(
+        settings.db_path,
+        item_id,
+        info["path"],
+        info["size"],
+        info["sha256"],
+        "text/markdown"
+    )
+    return {"type": "article", "path": info["path"], "item_id": item_id, "file_id": file_id}
 
 
 @router.delete("/items/{item_id}", dependencies=[Depends(admin_auth)])
