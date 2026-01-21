@@ -135,12 +135,24 @@ def list_items(db_path: str, item_type: str | None) -> list:
     conn = get_connection(db_path)
     if item_type:
         cur = conn.execute(
-            "SELECT * FROM items WHERE status != 'deleted' AND type = ? ORDER BY id DESC",
+            """
+            SELECT items.*, files.id AS file_id
+            FROM items
+            LEFT JOIN files ON items.id = files.item_id
+            WHERE items.status != 'deleted' AND items.type = ?
+            ORDER BY items.id DESC
+            """,
             (item_type,)
         )
     else:
         cur = conn.execute(
-            "SELECT * FROM items WHERE status != 'deleted' ORDER BY id DESC"
+            """
+            SELECT items.*, files.id AS file_id
+            FROM items
+            LEFT JOIN files ON items.id = files.item_id
+            WHERE items.status != 'deleted'
+            ORDER BY items.id DESC
+            """
         )
     rows = cur.fetchall()
     conn.close()
@@ -158,7 +170,12 @@ def get_item(db_path: str, item_id: int) -> dict | None:
     _ensure_db(db_path)
     conn = get_connection(db_path)
     cur = conn.execute(
-        "SELECT * FROM items WHERE id = ? AND status != 'deleted'",
+        """
+        SELECT items.*, files.id AS file_id
+        FROM items
+        LEFT JOIN files ON items.id = files.item_id
+        WHERE items.id = ? AND items.status != 'deleted'
+        """,
         (item_id,)
     )
     row = cur.fetchone()
