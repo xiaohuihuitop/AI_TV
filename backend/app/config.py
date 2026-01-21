@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class Settings(BaseModel):
     """!
     @brief AI:应用基础配置。
-    @note AI:当前仅提供默认值，后续可扩展为环境变量读取。
+    @note AI:当前支持环境变量覆盖默认值。
     """
 
     data_dir: str = Field(default_factory=lambda: os.getenv("DATA_DIR", "data"))
