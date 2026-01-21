@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["client"])
 
@@ -11,3 +11,14 @@ def list_items() -> list:
     """
 
     return []
+
+
+@router.get("/files/{file_id}/stream")
+def stream_file(file_id: int) -> dict:
+    """!
+    @brief AI:根据文件 ID 获取流式内容（占位）。
+    @param file_id AI:文件 ID。
+    @return AI:抛出未找到错误。
+    """
+
+    raise HTTPException(status_code=404, detail="not found")
