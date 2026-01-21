@@ -1,0 +1,30 @@
+:root {
+  --color-bg: #f6f2e9;
+  --color-surface: #ffffff;
+  --color-text: #1f1b16;
+  --color-muted: #6b645d;
+  --color-accent: #d96c2f;
+  --radius-card: 14px;
+  --shadow-card: 0 10px 24px rgba(48, 40, 34, 0.12);
+}
+
+page {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Noto Serif SC", "Source Han Serif SC", serif;
+}
+
+.app-page {
+  padding: 20px 16px 32px;
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+.muted {
+  color: var(--color-muted);
+}

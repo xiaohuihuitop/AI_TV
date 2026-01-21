@@ -1,0 +1,46 @@
+{
+  "pages": [
+    {
+      "path": "pages/latest/index",
+      "style": {
+        "navigationBarTitleText": "最新"
+      }
+    },
+    {
+      "path": "pages/offline/index",
+      "style": {
+        "navigationBarTitleText": "离线"
+      }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarBackgroundColor": "#f6f2e9",
+    "backgroundColor": "#f6f2e9"
+  },
+  "tabBar": {
+    "color": "#6b645d",
+    "selectedColor": "#d96c2f",
+    "backgroundColor": "#f6f2e9",
+    "list": [
+      {
+        "pagePath": "pages/latest/index",
+        "text": "最新"
+      },
+      {
+        "pagePath": "pages/offline/index",
+        "text": "离线"
+      },
+      {
+        "pagePath": "pages/settings/index",
+        "text": "设置"
+      }
+    ]
+  }
+}
