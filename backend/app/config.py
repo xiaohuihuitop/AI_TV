@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+import os
+
+from pydantic import BaseModel, Field
 
 
 class Settings(BaseModel):
@@ -7,6 +9,6 @@ class Settings(BaseModel):
     @note AI:当前仅提供默认值，后续可扩展为环境变量读取。
     """
 
-    data_dir: str = "data"
-    db_path: str = "db/app.db"
-    admin_token: str = "dev-token"
+    data_dir: str = Field(default_factory=lambda: os.getenv("DATA_DIR", "data"))
+    db_path: str = Field(default_factory=lambda: os.getenv("DB_PATH", "db/app.db"))
+    admin_token: str = Field(default_factory=lambda: os.getenv("ADMIN_TOKEN", "dev-token"))
