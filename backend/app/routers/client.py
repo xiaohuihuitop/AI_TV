@@ -1,7 +1,10 @@
+import os
+
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 from app.config import Settings
-from app.db import get_item, list_items
+from app.db import get_file, get_item, list_items
 router = APIRouter(tags=["client"])
 
 
@@ -33,9 +36,14 @@ def get_item_api(item_id: int) -> dict:
 @router.get("/files/{file_id}/stream")
 def stream_file(file_id: int) -> dict:
     """!
-    @brief AI:根据文件 ID 获取流式内容（占位）。
+    @brief AI:根据文件 ID 获取流式内容。
     @param file_id AI:文件 ID。
-    @return AI:抛出未找到错误。
+    @return AI:文件响应。
     """
-
-    raise HTTPException(status_code=404, detail="not found")
+    settings = Settings()
+    file_info = get_file(settings.db_path, file_id)
+    if not file_info:
+        raise HTTPException(status_code=404, detail="not found")
+    if not os.path.exists(file_info["path"]):
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(file_info["path"], media_type=file_info["mime"])
