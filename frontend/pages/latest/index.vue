@@ -1,6 +1,6 @@
 <template>
   <view class="app-page">
-    <view class="header">
+    <view class="header hero">
       <text class="title">最新</text>
       <text class="subtitle muted">从清单加载内容</text>
     </view>
@@ -24,14 +24,22 @@
       <text class="error-text">{{ error }}</text>
     </view>
     <view class="columns">
-      <view class="column card">
+      <view class="column card cinematic-card">
         <text class="column-title">{{ activeLabel }}</text>
         <view v-if="activeItems.length === 0" class="placeholder muted">暂无数据</view>
-        <view v-for="item in activeItems" :key="item.id" class="item" @click="handleItemClick(item)">
+        <view
+          v-for="(item, index) in activeItems"
+          :key="item.id"
+          class="item item-card"
+          :style="{ '--delay': `${index * 60}ms` }"
+          @click="handleItemClick(item)"
+        >
           <view class="item-main">
             <text class="item-title">{{ item.title }}</text>
           </view>
-          <button class="download" size="mini" @click.stop="addDownload(item)">下载</button>
+          <button class="btn btn-primary download" size="mini" @click.stop="addDownload(item)">
+            下载
+          </button>
         </view>
       </view>
     </view>
@@ -266,38 +274,52 @@ export default {
 
 <style scoped>
 .header {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rise-fade 320ms ease-out both;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 
 .subtitle {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
+  letter-spacing: 0.08em;
 }
 
 .media-tabs {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 18px;
 }
 
 .media-tab {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(107, 100, 93, 0.3);
-  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   color: var(--color-muted);
+  transition: all var(--duration-fast) ease;
 }
 
 .media-tab.active {
-  background-color: #1f1b16;
-  color: #ffffff;
-  border-color: #1f1b16;
+  background-color: rgba(249, 115, 22, 0.18);
+  color: #fbd7b5;
+  border-color: rgba(249, 115, 22, 0.5);
+  box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
 }
 
 .columns {
@@ -309,17 +331,22 @@ export default {
   flex: 1;
 }
 
+.cinematic-card {
+  background: rgba(15, 18, 28, 0.9);
+}
+
 .column-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 12px;
-  gap: 8px;
+  gap: 10px;
 }
 
 .item-main {
@@ -327,18 +354,30 @@ export default {
 }
 
 .item-title {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.item-card {
+  margin-top: 12px;
+  padding: 14px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(12, 15, 22, 0.82);
+  box-shadow: var(--shadow-soft);
+  animation: rise-fade 360ms ease-out both;
+  animation-delay: var(--delay);
 }
 
 .download {
-  background-color: #d96c2f;
-  color: #ffffff;
-  border: 1px solid #d96c2f;
+  min-width: 84px;
 }
 
 .placeholder {
   margin-top: 12px;
   font-size: 12px;
+  letter-spacing: 0.04em;
 }
 
 .loading {
@@ -349,11 +388,12 @@ export default {
 
 .error-card {
   margin-bottom: 16px;
-  border: 1px solid rgba(217, 108, 47, 0.2);
+  background: rgba(32, 18, 14, 0.8);
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 
 .error-text {
-  color: #d96c2f;
+  color: #f2a56b;
   font-size: 12px;
 }
 </style>
