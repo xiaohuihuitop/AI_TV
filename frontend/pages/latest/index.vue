@@ -135,6 +135,21 @@ export default {
   onShow() {
     this.fetchIndex();
   },
+  /**
+   * AI:处理下拉刷新触发，拉取最新清单并结束刷新动画。
+   * @returns {void} AI:无返回值。
+   */
+  onPullDownRefresh() {
+    if (this.loading) {
+      uni.stopPullDownRefresh();
+      return;
+    }
+    Promise.resolve(this.fetchIndex())
+      .catch(() => {})
+      .finally(() => {
+        uni.stopPullDownRefresh();
+      });
+  },
   methods: {
     /**
      * AI:切换当前媒体类型。
@@ -194,7 +209,7 @@ export default {
     },
     /**
      * AI:拉取清单并更新页面数据。
-     * @returns {void} AI:无返回值。
+     * @returns {Promise<boolean>} AI:返回 Promise，用于结束加载状态。
      */
     fetchIndex() {
       const storage = createUniStorage();
@@ -204,26 +219,29 @@ export default {
         this.error = "请在设置中填写清单地址";
         this.videoItems = [];
         this.articleItems = [];
-        return;
+        return Promise.resolve(false);
       }
       this.loading = true;
       this.error = "";
-      uni.request({
-        url: indexUrl,
-        success: (res) => {
-          if (res.statusCode === 200 && res.data) {
-            adapter.setJson(indexCacheKey, res.data);
-            this.applyItems(res.data);
-            return;
+      return new Promise((resolve) => {
+        uni.request({
+          url: indexUrl,
+          success: (res) => {
+            if (res.statusCode === 200 && res.data) {
+              adapter.setJson(indexCacheKey, res.data);
+              this.applyItems(res.data);
+              return;
+            }
+            this.applyCache(adapter);
+          },
+          fail: () => {
+            this.applyCache(adapter);
+          },
+          complete: () => {
+            this.loading = false;
+            resolve(true);
           }
-          this.applyCache(adapter);
-        },
-        fail: () => {
-          this.applyCache(adapter);
-        },
-        complete: () => {
-          this.loading = false;
-        }
+        });
       });
     },
     /**
