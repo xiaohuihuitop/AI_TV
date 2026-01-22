@@ -1,28 +1,28 @@
 :root {
-  --color-bg: #0b0d12;
-  --color-bg-soft: #0f121a;
-  --color-surface: #141824;
-  --color-surface-strong: #1b2130;
-  --color-text: #f2f4f8;
-  --color-muted: #9aa3b2;
-  --color-accent: #f97316;
-  --color-accent-soft: #f6a469;
-  --color-border: rgba(255, 255, 255, 0.12);
-  --color-glow: rgba(249, 115, 22, 0.25);
+  --color-bg: #f7f2ea;
+  --color-bg-soft: #fdf8f1;
+  --color-surface: #ffffff;
+  --color-surface-strong: #f1ebe3;
+  --color-text: #1f1b16;
+  --color-muted: #6b645d;
+  --color-accent: #d96c2f;
+  --color-accent-soft: #f2b083;
+  --color-border: rgba(31, 27, 22, 0.12);
+  --color-glow: rgba(217, 108, 47, 0.2);
   --radius-card: 16px;
   --radius-pill: 999px;
-  --shadow-card: 0 18px 32px rgba(2, 6, 23, 0.45);
-  --shadow-soft: 0 8px 20px rgba(2, 6, 23, 0.3);
+  --shadow-card: 0 16px 28px rgba(31, 27, 22, 0.12);
+  --shadow-soft: 0 8px 18px rgba(31, 27, 22, 0.08);
   --duration-fast: 200ms;
-  --font-display: "Cormorant", "Noto Serif SC", "Source Han Serif SC", serif;
-  --font-body: "Montserrat", "Noto Sans SC", "PingFang SC", sans-serif;
+  --font-display: "Noto Serif SC", "Source Han Serif SC", serif;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 page {
   background-color: var(--color-bg);
-  background-image: radial-gradient(120% 80% at 85% -20%, rgba(249, 115, 22, 0.24), transparent 60%),
-    radial-gradient(120% 80% at -10% 10%, rgba(56, 189, 248, 0.12), transparent 55%),
-    linear-gradient(180deg, #0b0d12 0%, #0d111a 60%, #0a0c12 100%);
+  background-image: radial-gradient(120% 80% at 85% -20%, rgba(217, 108, 47, 0.18), transparent 60%),
+    radial-gradient(120% 80% at -10% 10%, rgba(94, 164, 238, 0.16), transparent 55%),
+    linear-gradient(180deg, #f7f2ea 0%, #fdf9f3 100%);
   color: var(--color-text);
   font-family: var(--font-body);
 }
@@ -32,7 +32,7 @@ page {
 }
 
 .card {
-  background: rgba(20, 24, 36, 0.92);
+  background: rgba(255, 255, 255, 0.92);
   border-radius: var(--radius-card);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-card);
@@ -40,9 +40,9 @@ page {
 }
 
 .panel {
-  background: rgba(20, 24, 36, 0.82);
+  background: rgba(255, 255, 255, 0.86);
   border-radius: var(--radius-card);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(31, 27, 22, 0.08);
   box-shadow: var(--shadow-soft);
   padding: 18px;
 }
@@ -52,7 +52,7 @@ page {
   padding: 0 16px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(31, 27, 22, 0.04);
   color: var(--color-text);
   font-size: 13px;
   letter-spacing: 0.02em;
@@ -65,15 +65,15 @@ page {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #f97316 0%, #f59e0b 100%);
-  border-color: rgba(249, 115, 22, 0.6);
-  color: #0b0d12;
-  box-shadow: 0 10px 22px rgba(249, 115, 22, 0.25);
+  background: linear-gradient(135deg, #d96c2f 0%, #f2a45f 100%);
+  border-color: rgba(217, 108, 47, 0.5);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(217, 108, 47, 0.25);
 }
 
 .btn-ghost {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.6);
+  border-color: rgba(31, 27, 22, 0.16);
   color: var(--color-text);
 }
 
@@ -91,3 +91,4 @@ page {
     transform: translateY(0);
   }
 }
+

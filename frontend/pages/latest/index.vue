@@ -299,8 +299,8 @@ export default {
   gap: 8px;
   padding: 6px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(31, 27, 22, 0.04);
+  border: 1px solid rgba(31, 27, 22, 0.12);
   box-shadow: var(--shadow-soft);
   margin-bottom: 18px;
 }
@@ -316,10 +316,10 @@ export default {
 }
 
 .media-tab.active {
-  background-color: rgba(249, 115, 22, 0.18);
-  color: #fbd7b5;
-  border-color: rgba(249, 115, 22, 0.5);
-  box-shadow: 0 0 12px rgba(249, 115, 22, 0.2);
+  background-color: rgba(217, 108, 47, 0.18);
+  color: #8f3d17;
+  border-color: rgba(217, 108, 47, 0.4);
+  box-shadow: 0 6px 14px rgba(217, 108, 47, 0.16);
 }
 
 .columns {
@@ -332,7 +332,7 @@ export default {
 }
 
 .cinematic-card {
-  background: rgba(15, 18, 28, 0.9);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .column-title {
@@ -363,8 +363,8 @@ export default {
   margin-top: 12px;
   padding: 14px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(12, 15, 22, 0.82);
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow: var(--shadow-soft);
   animation: rise-fade 360ms ease-out both;
   animation-delay: var(--delay);
@@ -388,12 +388,12 @@ export default {
 
 .error-card {
   margin-bottom: 16px;
-  background: rgba(32, 18, 14, 0.8);
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  background: rgba(255, 242, 233, 0.9);
+  border: 1px solid rgba(217, 108, 47, 0.25);
 }
 
 .error-text {
-  color: #f2a56b;
+  color: #b45309;
   font-size: 12px;
 }
 </style>

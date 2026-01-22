@@ -75,7 +75,7 @@ export default {
 
 .video-shell {
   padding: 12px;
-  background: rgba(15, 18, 28, 0.9);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .video-player {
@@ -83,7 +83,7 @@ export default {
   height: 220px;
   background: #000000;
   border-radius: 12px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 24px rgba(31, 27, 22, 0.18);
 }
 
 .actions {
@@ -98,12 +98,12 @@ export default {
 
 .error-card {
   margin-bottom: 16px;
-  background: rgba(32, 18, 14, 0.8);
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  background: rgba(255, 242, 233, 0.9);
+  border: 1px solid rgba(217, 108, 47, 0.25);
 }
 
 .error-text {
-  color: #f2a56b;
+  color: #b45309;
   font-size: 12px;
 }
 </style>

@@ -142,7 +142,7 @@ function normalizeLocalPath(filePath) {
 
 .content {
   margin-top: 12px;
-  background: rgba(15, 18, 28, 0.9);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .content-text {
@@ -167,12 +167,12 @@ function normalizeLocalPath(filePath) {
 
 .error-card {
   margin-top: 12px;
-  background: rgba(32, 18, 14, 0.8);
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  background: rgba(255, 242, 233, 0.9);
+  border: 1px solid rgba(217, 108, 47, 0.25);
 }
 
 .error-text {
-  color: #f2a56b;
+  color: #b45309;
   font-size: 12px;
 }
 </style>
