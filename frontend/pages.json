@@ -32,14 +32,14 @@
     }
   ],
   "globalStyle": {
-    "navigationBarTextStyle": "black",
-    "navigationBarBackgroundColor": "#f6f2e9",
-    "backgroundColor": "#f6f2e9"
+    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#0b0d12",
+    "backgroundColor": "#0b0d12"
   },
   "tabBar": {
-    "color": "#6b645d",
-    "selectedColor": "#d96c2f",
-    "backgroundColor": "#f6f2e9",
+    "color": "#9aa3b2",
+    "selectedColor": "#f97316",
+    "backgroundColor": "#0b0d12",
     "list": [
       {
         "pagePath": "pages/latest/index",
