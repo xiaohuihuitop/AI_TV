@@ -814,6 +814,24 @@ if (uni.restoreGlobal) {
         this.error = "缺少播放地址";
       }
     },
+    /**
+     * AI:进入播放页时锁定为横屏展示，便于横向观看。
+     * @returns {void} AI:无返回值。
+     */
+    onShow() {
+      if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
+        plus.screen.lockOrientation("landscape-primary");
+      }
+    },
+    /**
+     * AI:离开播放页后恢复竖屏，避免影响其他页面。
+     * @returns {void} AI:无返回值。
+     */
+    onUnload() {
+      if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
+        plus.screen.lockOrientation("portrait-primary");
+      }
+    },
     methods: {
       /**
        * AI:返回上一页。

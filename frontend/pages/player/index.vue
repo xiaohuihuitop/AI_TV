@@ -45,7 +45,30 @@ export default {
       this.error = "缺少播放地址";
     }
   },
+  /**
+   * AI:进入播放页时锁定为横屏展示，便于横向观看。
+   * @returns {void} AI:无返回值。
+   */
+  onShow() {
+    // #ifdef APP-PLUS
+    if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
+      plus.screen.lockOrientation("landscape-primary");
+    }
+    // #endif
+  },
+  /**
+   * AI:离开播放页后恢复竖屏，避免影响其他页面。
+   * @returns {void} AI:无返回值。
+   */
+  onUnload() {
+    // #ifdef APP-PLUS
+    if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
+      plus.screen.lockOrientation("portrait-primary");
+    }
+    // #endif
+  },
   methods: {
+
     /**
      * AI:返回上一页。
      * @returns {void} AI:无返回值。
@@ -86,7 +109,7 @@ export default {
 
 .video-player {
   width: 100%;
-  height: 320px;
+  height: 70vh;
   background: #000000;
   border-radius: 12px;
   box-shadow: 0 12px 24px rgba(31, 27, 22, 0.18);

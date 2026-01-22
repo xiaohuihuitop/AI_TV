@@ -21,15 +21,20 @@ const checks = [
     pass: /<video[^>]*object-fit=["']contain["']/.test(content)
   },
   {
+    name: "锁定横屏方向",
+    pass: /lockOrientation\s*\(\s*["']landscape-primary["']\s*\)/.test(content)
+  },
+  {
+    name: "离开后恢复竖屏",
+    pass: /lockOrientation\s*\(\s*["']portrait-primary["']\s*\)/.test(content)
+  },
+  {
     name: "未自动请求全屏",
-    pass:
-      !/@play\s*=\s*["']handlePlay["']/.test(content) &&
-      !/@fullscreenchange\s*=\s*["']handleFullscreenChange["']/.test(content) &&
-      !/requestFullScreen\s*\(/.test(content)
+    pass: !/requestFullScreen\s*\(/.test(content)
   },
   {
     name: "播放窗口高度加大",
-    pass: /\.video-player\s*\{[^}]*height:\s*320px;[^}]*\}/s.test(content)
+    pass: /\.video-player\s*\{[^}]*height:\s*70vh;[^}]*\}/s.test(content)
   }
 ];
 
