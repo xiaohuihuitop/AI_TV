@@ -57,13 +57,13 @@ function createUniStorage() {
 
 /**
  * AI:创建下载适配器，封装下载与保存流程。
- * @returns {{download: function(string): Promise<{tempFilePath: string}>, save: function(string): Promise<{savedFilePath: string}>}} AI:下载适配器。
+ * @returns {{download: function(string, function(number): void): Promise<{tempFilePath: string}>, save: function(string): Promise<{savedFilePath: string}>}} AI:下载适配器。
  */
 function createUniDownloader() {
   return {
-    download(url) {
+    download(url, onProgress) {
       return new Promise((resolve, reject) => {
-        uni.downloadFile({
+        const task = uni.downloadFile({
           url,
           success: (res) => {
             if (res.statusCode === 200) {
@@ -74,6 +74,13 @@ function createUniDownloader() {
           },
           fail: (error) => reject(error)
         });
+        if (task && typeof task.onProgressUpdate === "function") {
+          task.onProgressUpdate((res) => {
+            if (typeof onProgress === "function") {
+              onProgress(res.progress);
+            }
+          });
+        }
       });
     },
     save(tempFilePath) {

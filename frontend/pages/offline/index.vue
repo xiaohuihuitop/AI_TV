@@ -27,6 +27,10 @@
         <view v-for="item in activeItems" :key="item.id" class="item" @click="handleItemClick(item)">
           <view class="item-main">
             <text class="item-title">{{ item.title }}</text>
+            <view v-if="item.status !== 'done'" class="progress">
+              <view class="progress-bar" :style="{ width: `${item.progress}%` }"></view>
+            </view>
+            <text v-if="item.status !== 'done'" class="progress-text muted">{{ item.progress }}%</text>
           </view>
           <button class="remove" size="mini" @click.stop="removeDownload(item)">删除</button>
         </view>
@@ -258,10 +262,30 @@ export default {
 
 .item-main {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .item-title {
   font-size: 13px;
+}
+
+.progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(107, 100, 93, 0.15);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #d96c2f;
+}
+
+.progress-text {
+  font-size: 11px;
 }
 
 .remove {
