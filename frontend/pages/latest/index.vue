@@ -4,22 +4,30 @@
       <text class="title">最新</text>
       <text class="subtitle muted">从清单加载内容</text>
     </view>
+    <view class="media-tabs">
+      <view
+        class="media-tab"
+        :class="{ active: activeType === 'video' }"
+        @click="setActiveType('video')"
+      >
+        视频
+      </view>
+      <view
+        class="media-tab"
+        :class="{ active: activeType === 'article' }"
+        @click="setActiveType('article')"
+      >
+        图文
+      </view>
+    </view>
     <view v-if="error" class="error-card card">
       <text class="error-text">{{ error }}</text>
     </view>
     <view class="columns">
       <view class="column card">
-        <text class="column-title">视频</text>
-        <view v-if="videoItems.length === 0" class="placeholder muted">暂无数据</view>
-        <view v-for="item in videoItems" :key="item.id" class="item">
-          <text class="item-title">{{ item.title }}</text>
-          <button class="download" size="mini" @click="addDownload(item)">下载</button>
-        </view>
-      </view>
-      <view class="column card">
-        <text class="column-title">图文</text>
-        <view v-if="articleItems.length === 0" class="placeholder muted">暂无数据</view>
-        <view v-for="item in articleItems" :key="item.id" class="item">
+        <text class="column-title">{{ activeLabel }}</text>
+        <view v-if="activeItems.length === 0" class="placeholder muted">暂无数据</view>
+        <view v-for="item in activeItems" :key="item.id" class="item">
           <text class="item-title">{{ item.title }}</text>
           <button class="download" size="mini" @click="addDownload(item)">下载</button>
         </view>
@@ -86,14 +94,39 @@ export default {
     return {
       loading: false,
       error: "",
+      activeType: "video",
       videoItems: [],
       articleItems: []
     };
+  },
+  computed: {
+    /**
+     * AI:根据当前类型返回展示列表。
+     * @returns {Array} AI:当前展示数据。
+     */
+    activeItems() {
+      return this.activeType === "video" ? this.videoItems : this.articleItems;
+    },
+    /**
+     * AI:返回当前类型标签文本。
+     * @returns {string} AI:标签文本。
+     */
+    activeLabel() {
+      return this.activeType === "video" ? "视频" : "图文";
+    }
   },
   onShow() {
     this.fetchIndex();
   },
   methods: {
+    /**
+     * AI:切换当前媒体类型。
+     * @param {string} type AI:媒体类型。
+     * @returns {void} AI:无返回值。
+     */
+    setActiveType(type) {
+      this.activeType = type;
+    },
     /**
      * AI:拉取清单并更新页面数据。
      * @returns {void} AI:无返回值。
@@ -188,6 +221,26 @@ export default {
   display: block;
   margin-top: 6px;
   font-size: 12px;
+}
+
+.media-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.media-tab {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(107, 100, 93, 0.3);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.media-tab.active {
+  background-color: #1f1b16;
+  color: #ffffff;
+  border-color: #1f1b16;
 }
 
 .columns {

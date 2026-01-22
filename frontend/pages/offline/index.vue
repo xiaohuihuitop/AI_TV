@@ -4,19 +4,27 @@
       <text class="title">离线</text>
       <text class="subtitle muted">本地缓存的内容</text>
     </view>
+    <view class="media-tabs">
+      <view
+        class="media-tab"
+        :class="{ active: activeType === 'video' }"
+        @click="setActiveType('video')"
+      >
+        视频
+      </view>
+      <view
+        class="media-tab"
+        :class="{ active: activeType === 'article' }"
+        @click="setActiveType('article')"
+      >
+        图文
+      </view>
+    </view>
     <view class="columns">
       <view class="column card">
-        <text class="column-title">视频</text>
-        <view v-if="videoItems.length === 0" class="placeholder muted">暂无下载</view>
-        <view v-for="item in videoItems" :key="item.id" class="item">
-          <text class="item-title">{{ item.title }}</text>
-          <button class="remove" size="mini" @click="removeDownload(item)">删除</button>
-        </view>
-      </view>
-      <view class="column card">
-        <text class="column-title">图文</text>
-        <view v-if="articleItems.length === 0" class="placeholder muted">暂无下载</view>
-        <view v-for="item in articleItems" :key="item.id" class="item">
+        <text class="column-title">{{ activeLabel }}</text>
+        <view v-if="activeItems.length === 0" class="placeholder muted">暂无下载</view>
+        <view v-for="item in activeItems" :key="item.id" class="item">
           <text class="item-title">{{ item.title }}</text>
           <button class="remove" size="mini" @click="removeDownload(item)">删除</button>
         </view>
@@ -73,14 +81,39 @@ function removeLocalFile(filePath) {
 export default {
   data() {
     return {
+      activeType: "video",
       videoItems: [],
       articleItems: []
     };
+  },
+  computed: {
+    /**
+     * AI:根据当前类型返回展示列表。
+     * @returns {Array} AI:当前展示数据。
+     */
+    activeItems() {
+      return this.activeType === "video" ? this.videoItems : this.articleItems;
+    },
+    /**
+     * AI:返回当前类型标签文本。
+     * @returns {string} AI:标签文本。
+     */
+    activeLabel() {
+      return this.activeType === "video" ? "视频" : "图文";
+    }
   },
   onShow() {
     this.listDownloads();
   },
   methods: {
+    /**
+     * AI:切换当前媒体类型。
+     * @param {string} type AI:媒体类型。
+     * @returns {void} AI:无返回值。
+     */
+    setActiveType(type) {
+      this.activeType = type;
+    },
     /**
      * AI:加载离线下载列表并渲染。
      * @returns {void} AI:无返回值。
@@ -129,6 +162,26 @@ export default {
   display: block;
   margin-top: 6px;
   font-size: 12px;
+}
+
+.media-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.media-tab {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(107, 100, 93, 0.3);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.media-tab.active {
+  background-color: #1f1b16;
+  color: #ffffff;
+  border-color: #1f1b16;
 }
 
 .columns {
