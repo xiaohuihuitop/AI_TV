@@ -54,21 +54,51 @@ if (uni.restoreGlobal) {
     const key = "download_items";
     function listDownloads() {
       const value = storage.get(key);
-      return value ? JSON.parse(value) : [];
+      const list = value ? JSON.parse(value) : [];
+      return list.map((entry) => normalizeEntry(entry));
     }
     function saveList(list) {
       storage.set(key, JSON.stringify(list));
     }
-    async function addDownload(item) {
-      const result = await downloader.download(item.url);
-      const saved = await downloader.save(result.tempFilePath);
-      const list = listDownloads();
-      list.unshift({
+    async function addDownload(item, onProgress) {
+      if (!item || !item.id) {
+        throw new Error("缺少下载信息");
+      }
+      if (!item.url) {
+        throw new Error("缺少下载地址");
+      }
+      const list = listDownloads().filter((entry2) => entry2.id !== item.id);
+      const entry = normalizeEntry({
         ...item,
-        local_path: saved.savedFilePath,
-        downloaded_at: (/* @__PURE__ */ new Date()).toISOString()
+        status: "downloading",
+        progress: 0,
+        local_path: ""
       });
+      list.unshift(entry);
       saveList(list);
+      const updateEntry = (updates) => {
+        const target = list.find((current) => current.id === item.id);
+        if (!target) {
+          return;
+        }
+        Object.assign(target, updates);
+        saveList(list);
+      };
+      const handleProgress = (value) => {
+        const progress = normalizeProgress(value);
+        updateEntry({ progress, status: "downloading" });
+        if (typeof onProgress === "function") {
+          onProgress(progress);
+        }
+      };
+      const result = await downloader.download(item.url, handleProgress);
+      const saved = await downloader.save(result.tempFilePath);
+      updateEntry({
+        local_path: saved.savedFilePath,
+        downloaded_at: (/* @__PURE__ */ new Date()).toISOString(),
+        progress: 100,
+        status: "done"
+      });
     }
     async function removeDownload(id) {
       const list = listDownloads().filter((entry) => entry.id !== id);
@@ -79,6 +109,21 @@ if (uni.restoreGlobal) {
       addDownload,
       removeDownload
     };
+  }
+  function normalizeProgress(value) {
+    const progress = Number(value);
+    if (!Number.isFinite(progress)) {
+      return 0;
+    }
+    return Math.min(100, Math.max(0, progress));
+  }
+  function normalizeEntry(entry) {
+    const normalized = { ...entry };
+    const progress = typeof normalized.progress === "number" ? normalizeProgress(normalized.progress) : normalized.local_path ? 100 : 0;
+    const status = normalized.status || (progress >= 100 || normalized.local_path ? "done" : "downloading");
+    normalized.progress = progress;
+    normalized.status = status;
+    return normalized;
   }
   const _export_sfc = (sfc, props) => {
     const target = sfc.__vccOpts || sfc;
@@ -96,9 +141,9 @@ if (uni.restoreGlobal) {
   }
   function createUniDownloader() {
     return {
-      download(url) {
+      download(url, onProgress) {
         return new Promise((resolve, reject) => {
-          uni.downloadFile({
+          const task = uni.downloadFile({
             url,
             success: (res) => {
               if (res.statusCode === 200) {
@@ -109,6 +154,13 @@ if (uni.restoreGlobal) {
             },
             fail: (error) => reject(error)
           });
+          if (task && typeof task.onProgressUpdate === "function") {
+            task.onProgressUpdate((res) => {
+              if (typeof onProgress === "function") {
+                onProgress(res.progress);
+              }
+            });
+          }
         });
       },
       save(tempFilePath) {
@@ -124,19 +176,92 @@ if (uni.restoreGlobal) {
   }
   const indexUrlKey$1 = "index_url";
   const indexCacheKey = "index_cache";
-  const _sfc_main$3 = {
+  const _sfc_main$5 = {
     data() {
       return {
         loading: false,
         error: "",
+        activeType: "video",
         videoItems: [],
         articleItems: []
       };
+    },
+    computed: {
+      /**
+       * AI:根据当前类型返回展示列表。
+       * @returns {Array} AI:当前展示数据。
+       */
+      activeItems() {
+        return this.activeType === "video" ? this.videoItems : this.articleItems;
+      },
+      /**
+       * AI:返回当前类型标签文本。
+       * @returns {string} AI:标签文本。
+       */
+      activeLabel() {
+        return this.activeType === "video" ? "视频" : "图文";
+      }
     },
     onShow() {
       this.fetchIndex();
     },
     methods: {
+      /**
+       * AI:切换当前媒体类型。
+       * @param {string} type AI:媒体类型。
+       * @returns {void} AI:无返回值。
+       */
+      setActiveType(type) {
+        this.activeType = type;
+      },
+      /**
+       * AI:处理条目点击事件，按类型跳转。
+       * @param {Object} item AI:条目信息。
+       * @returns {void} AI:无返回值。
+       */
+      handleItemClick(item) {
+        if (item.type === "article") {
+          this.openArticle(item);
+          return;
+        }
+        this.openVideo(item);
+      },
+      /**
+       * AI:跳转到视频播放页。
+       * @param {Object} item AI:视频条目。
+       * @returns {void} AI:无返回值。
+       */
+      openVideo(item) {
+        const src = this.resolveItemSource(item);
+        if (!src) {
+          uni.showToast({ title: "缺少播放地址", icon: "none" });
+          return;
+        }
+        const title = item.title ? encodeURIComponent(item.title) : "";
+        uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
+      },
+      /**
+       * AI:跳转到图文阅读页。
+       * @param {Object} item AI:图文条目。
+       * @returns {void} AI:无返回值。
+       */
+      openArticle(item) {
+        const src = this.resolveItemSource(item);
+        if (!src) {
+          uni.showToast({ title: "缺少阅读地址", icon: "none" });
+          return;
+        }
+        const title = item.title ? encodeURIComponent(item.title) : "";
+        uni.navigateTo({ url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}` });
+      },
+      /**
+       * AI:解析条目可用地址。
+       * @param {Object} item AI:条目信息。
+       * @returns {string} AI:可用地址。
+       */
+      resolveItemSource(item) {
+        return item && item.url ? item.url : "";
+      },
       /**
        * AI:拉取清单并更新页面数据。
        * @returns {void} AI:无返回值。
@@ -212,11 +337,33 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "最新"),
         vue.createElementVNode("text", { class: "subtitle muted" }, "从清单加载内容")
+      ]),
+      vue.createElementVNode("view", { class: "media-tabs" }, [
+        vue.createElementVNode(
+          "view",
+          {
+            class: vue.normalizeClass(["media-tab", { active: $data.activeType === "video" }]),
+            onClick: _cache[0] || (_cache[0] = ($event) => $options.setActiveType("video"))
+          },
+          " 视频 ",
+          2
+          /* CLASS */
+        ),
+        vue.createElementVNode(
+          "view",
+          {
+            class: vue.normalizeClass(["media-tab", { active: $data.activeType === "article" }]),
+            onClick: _cache[1] || (_cache[1] = ($event) => $options.setActiveType("article"))
+          },
+          " 图文 ",
+          2
+          /* CLASS */
+        )
       ]),
       $data.error ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 0,
@@ -232,64 +379,41 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true),
       vue.createElementVNode("view", { class: "columns" }, [
         vue.createElementVNode("view", { class: "column card" }, [
-          vue.createElementVNode("text", { class: "column-title" }, "视频"),
-          $data.videoItems.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
+          vue.createElementVNode(
+            "text",
+            { class: "column-title" },
+            vue.toDisplayString($options.activeLabel),
+            1
+            /* TEXT */
+          ),
+          $options.activeItems.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
             key: 0,
             class: "placeholder muted"
           }, "暂无数据")) : vue.createCommentVNode("v-if", true),
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
-            vue.renderList($data.videoItems, (item) => {
+            vue.renderList($options.activeItems, (item) => {
               return vue.openBlock(), vue.createElementBlock("view", {
                 key: item.id,
-                class: "item"
+                class: "item",
+                onClick: ($event) => $options.handleItemClick(item)
               }, [
-                vue.createElementVNode(
-                  "text",
-                  { class: "item-title" },
-                  vue.toDisplayString(item.title),
-                  1
-                  /* TEXT */
-                ),
+                vue.createElementVNode("view", { class: "item-main" }, [
+                  vue.createElementVNode(
+                    "text",
+                    { class: "item-title" },
+                    vue.toDisplayString(item.title),
+                    1
+                    /* TEXT */
+                  )
+                ]),
                 vue.createElementVNode("button", {
                   class: "download",
                   size: "mini",
-                  onClick: ($event) => $options.addDownload(item)
+                  onClick: vue.withModifiers(($event) => $options.addDownload(item), ["stop"])
                 }, "下载", 8, ["onClick"])
-              ]);
-            }),
-            128
-            /* KEYED_FRAGMENT */
-          ))
-        ]),
-        vue.createElementVNode("view", { class: "column card" }, [
-          vue.createElementVNode("text", { class: "column-title" }, "图文"),
-          $data.articleItems.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
-            key: 0,
-            class: "placeholder muted"
-          }, "暂无数据")) : vue.createCommentVNode("v-if", true),
-          (vue.openBlock(true), vue.createElementBlock(
-            vue.Fragment,
-            null,
-            vue.renderList($data.articleItems, (item) => {
-              return vue.openBlock(), vue.createElementBlock("view", {
-                key: item.id,
-                class: "item"
-              }, [
-                vue.createElementVNode(
-                  "text",
-                  { class: "item-title" },
-                  vue.toDisplayString(item.title),
-                  1
-                  /* TEXT */
-                ),
-                vue.createElementVNode("button", {
-                  class: "download",
-                  size: "mini",
-                  onClick: ($event) => $options.addDownload(item)
-                }, "下载", 8, ["onClick"])
-              ]);
+              ], 8, ["onClick"]);
             }),
             128
             /* KEYED_FRAGMENT */
@@ -302,7 +426,7 @@ if (uni.restoreGlobal) {
       }, "加载中...")) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesLatestIndex = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["render", _sfc_render$2], ["__scopeId", "data-v-44f675e0"], ["__file", "D:/AI/AI_TV/frontend/pages/latest/index.vue"]]);
+  const PagesLatestIndex = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__scopeId", "data-v-44f675e0"], ["__file", "D:/AI/AI_TV/frontend/pages/latest/index.vue"]]);
   function createUniStorage$1() {
     return {
       get: (key) => uni.getStorageSync(key),
@@ -329,17 +453,90 @@ if (uni.restoreGlobal) {
       });
     });
   }
-  const _sfc_main$2 = {
+  const _sfc_main$4 = {
     data() {
       return {
+        activeType: "video",
         videoItems: [],
         articleItems: []
       };
+    },
+    computed: {
+      /**
+       * AI:根据当前类型返回展示列表。
+       * @returns {Array} AI:当前展示数据。
+       */
+      activeItems() {
+        return this.activeType === "video" ? this.videoItems : this.articleItems;
+      },
+      /**
+       * AI:返回当前类型标签文本。
+       * @returns {string} AI:标签文本。
+       */
+      activeLabel() {
+        return this.activeType === "video" ? "视频" : "图文";
+      }
     },
     onShow() {
       this.listDownloads();
     },
     methods: {
+      /**
+       * AI:切换当前媒体类型。
+       * @param {string} type AI:媒体类型。
+       * @returns {void} AI:无返回值。
+       */
+      setActiveType(type) {
+        this.activeType = type;
+      },
+      /**
+       * AI:处理条目点击事件，按类型跳转。
+       * @param {Object} item AI:条目信息。
+       * @returns {void} AI:无返回值。
+       */
+      handleItemClick(item) {
+        if (item.type === "article") {
+          this.openArticle(item);
+          return;
+        }
+        this.openVideo(item);
+      },
+      /**
+       * AI:跳转到视频播放页。
+       * @param {Object} item AI:视频条目。
+       * @returns {void} AI:无返回值。
+       */
+      openVideo(item) {
+        const src = this.resolveItemSource(item);
+        if (!src) {
+          uni.showToast({ title: "尚未下载完成", icon: "none" });
+          return;
+        }
+        const title = item.title ? encodeURIComponent(item.title) : "";
+        uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
+      },
+      /**
+       * AI:跳转到图文阅读页。
+       * @param {Object} item AI:图文条目。
+       * @returns {void} AI:无返回值。
+       */
+      openArticle(item) {
+        const src = this.resolveItemSource(item);
+        if (!src) {
+          uni.showToast({ title: "尚未下载完成", icon: "none" });
+          return;
+        }
+        const title = item.title ? encodeURIComponent(item.title) : "";
+        uni.navigateTo({ url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}` });
+      },
+      /**
+       * AI:解析条目可用地址。
+       * @param {Object} item AI:条目信息。
+       * @returns {string} AI:可用地址。
+       */
+      resolveItemSource(item) {
+        return item && item.local_path ? item.local_path : "";
+      },
       /**
        * AI:加载离线下载列表并渲染。
        * @returns {void} AI:无返回值。
@@ -368,72 +565,96 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$3(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "离线"),
         vue.createElementVNode("text", { class: "subtitle muted" }, "本地缓存的内容")
       ]),
+      vue.createElementVNode("view", { class: "media-tabs" }, [
+        vue.createElementVNode(
+          "view",
+          {
+            class: vue.normalizeClass(["media-tab", { active: $data.activeType === "video" }]),
+            onClick: _cache[0] || (_cache[0] = ($event) => $options.setActiveType("video"))
+          },
+          " 视频 ",
+          2
+          /* CLASS */
+        ),
+        vue.createElementVNode(
+          "view",
+          {
+            class: vue.normalizeClass(["media-tab", { active: $data.activeType === "article" }]),
+            onClick: _cache[1] || (_cache[1] = ($event) => $options.setActiveType("article"))
+          },
+          " 图文 ",
+          2
+          /* CLASS */
+        )
+      ]),
       vue.createElementVNode("view", { class: "columns" }, [
         vue.createElementVNode("view", { class: "column card" }, [
-          vue.createElementVNode("text", { class: "column-title" }, "视频"),
-          $data.videoItems.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
+          vue.createElementVNode(
+            "text",
+            { class: "column-title" },
+            vue.toDisplayString($options.activeLabel),
+            1
+            /* TEXT */
+          ),
+          $options.activeItems.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
             key: 0,
             class: "placeholder muted"
           }, "暂无下载")) : vue.createCommentVNode("v-if", true),
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
-            vue.renderList($data.videoItems, (item) => {
+            vue.renderList($options.activeItems, (item) => {
               return vue.openBlock(), vue.createElementBlock("view", {
                 key: item.id,
-                class: "item"
+                class: "item",
+                onClick: ($event) => $options.handleItemClick(item)
               }, [
-                vue.createElementVNode(
-                  "text",
-                  { class: "item-title" },
-                  vue.toDisplayString(item.title),
-                  1
-                  /* TEXT */
-                ),
+                vue.createElementVNode("view", { class: "item-main" }, [
+                  vue.createElementVNode(
+                    "text",
+                    { class: "item-title" },
+                    vue.toDisplayString(item.title),
+                    1
+                    /* TEXT */
+                  ),
+                  item.status !== "done" ? (vue.openBlock(), vue.createElementBlock("view", {
+                    key: 0,
+                    class: "progress"
+                  }, [
+                    vue.createElementVNode(
+                      "view",
+                      {
+                        class: "progress-bar",
+                        style: vue.normalizeStyle({ width: `${item.progress}%` })
+                      },
+                      null,
+                      4
+                      /* STYLE */
+                    )
+                  ])) : vue.createCommentVNode("v-if", true),
+                  item.status !== "done" ? (vue.openBlock(), vue.createElementBlock(
+                    "text",
+                    {
+                      key: 1,
+                      class: "progress-text muted"
+                    },
+                    vue.toDisplayString(item.progress) + "%",
+                    1
+                    /* TEXT */
+                  )) : vue.createCommentVNode("v-if", true)
+                ]),
                 vue.createElementVNode("button", {
                   class: "remove",
                   size: "mini",
-                  onClick: ($event) => $options.removeDownload(item)
+                  onClick: vue.withModifiers(($event) => $options.removeDownload(item), ["stop"])
                 }, "删除", 8, ["onClick"])
-              ]);
-            }),
-            128
-            /* KEYED_FRAGMENT */
-          ))
-        ]),
-        vue.createElementVNode("view", { class: "column card" }, [
-          vue.createElementVNode("text", { class: "column-title" }, "图文"),
-          $data.articleItems.length === 0 ? (vue.openBlock(), vue.createElementBlock("view", {
-            key: 0,
-            class: "placeholder muted"
-          }, "暂无下载")) : vue.createCommentVNode("v-if", true),
-          (vue.openBlock(true), vue.createElementBlock(
-            vue.Fragment,
-            null,
-            vue.renderList($data.articleItems, (item) => {
-              return vue.openBlock(), vue.createElementBlock("view", {
-                key: item.id,
-                class: "item"
-              }, [
-                vue.createElementVNode(
-                  "text",
-                  { class: "item-title" },
-                  vue.toDisplayString(item.title),
-                  1
-                  /* TEXT */
-                ),
-                vue.createElementVNode("button", {
-                  class: "remove",
-                  size: "mini",
-                  onClick: ($event) => $options.removeDownload(item)
-                }, "删除", 8, ["onClick"])
-              ]);
+              ], 8, ["onClick"]);
             }),
             128
             /* KEYED_FRAGMENT */
@@ -442,7 +663,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesOfflineIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$1], ["__scopeId", "data-v-f97a8d65"], ["__file", "D:/AI/AI_TV/frontend/pages/offline/index.vue"]]);
+  const PagesOfflineIndex = /* @__PURE__ */ _export_sfc(_sfc_main$4, [["render", _sfc_render$3], ["__scopeId", "data-v-f97a8d65"], ["__file", "D:/AI/AI_TV/frontend/pages/offline/index.vue"]]);
   function createUniStorage() {
     return {
       get: (key) => uni.getStorageSync(key),
@@ -451,7 +672,7 @@ if (uni.restoreGlobal) {
     };
   }
   const indexUrlKey = "index_url";
-  const _sfc_main$1 = {
+  const _sfc_main$3 = {
     data() {
       return {
         indexUrl: "",
@@ -475,7 +696,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
       vue.createElementVNode("view", { class: "header" }, [
         vue.createElementVNode("text", { class: "title" }, "设置"),
@@ -513,10 +734,240 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesSettingsIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__scopeId", "data-v-a11b3e9a"], ["__file", "D:/AI/AI_TV/frontend/pages/settings/index.vue"]]);
+  const PagesSettingsIndex = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["render", _sfc_render$2], ["__scopeId", "data-v-a11b3e9a"], ["__file", "D:/AI/AI_TV/frontend/pages/settings/index.vue"]]);
+  const _sfc_main$2 = {
+    data() {
+      return {
+        source: "",
+        title: "",
+        error: ""
+      };
+    },
+    /**
+     * AI:读取页面参数，初始化播放信息。
+     * @param {{src?: string, title?: string}} query AI:路由参数。
+     * @returns {void} AI:无返回值。
+     */
+    onLoad(query) {
+      const source = query && query.src ? decodeURIComponent(query.src) : "";
+      const title = query && query.title ? decodeURIComponent(query.title) : "";
+      this.source = source;
+      this.title = title;
+      if (!source) {
+        this.error = "缺少播放地址";
+      }
+    },
+    methods: {
+      /**
+       * AI:返回上一页。
+       * @returns {void} AI:无返回值。
+       */
+      goBack() {
+        uni.navigateBack();
+      }
+    }
+  };
+  function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
+      vue.createElementVNode("view", { class: "header" }, [
+        vue.createElementVNode(
+          "text",
+          { class: "title" },
+          vue.toDisplayString($data.title || "播放"),
+          1
+          /* TEXT */
+        ),
+        vue.createElementVNode("text", { class: "subtitle muted" }, "视频播放预览")
+      ]),
+      $data.error ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "error-card card"
+      }, [
+        vue.createElementVNode(
+          "text",
+          { class: "error-text" },
+          vue.toDisplayString($data.error),
+          1
+          /* TEXT */
+        )
+      ])) : (vue.openBlock(), vue.createElementBlock("video", {
+        key: 1,
+        class: "video-player",
+        src: $data.source,
+        controls: ""
+      }, null, 8, ["src"])),
+      vue.createElementVNode("view", { class: "actions" }, [
+        vue.createElementVNode("button", {
+          class: "back",
+          size: "mini",
+          onClick: _cache[0] || (_cache[0] = (...args) => $options.goBack && $options.goBack(...args))
+        }, "返回")
+      ])
+    ]);
+  }
+  const PagesPlayerIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$1], ["__scopeId", "data-v-eb444998"], ["__file", "D:/AI/AI_TV/frontend/pages/player/index.vue"]]);
+  async function readTextContent(src, adapter) {
+    if (!src) {
+      return "";
+    }
+    const isRemote = /^https?:\/\//i.test(src);
+    if (!isRemote && adapter && typeof adapter.read === "function") {
+      return adapter.read(src);
+    }
+    if (!isRemote && typeof uni !== "undefined" && typeof uni.getFileSystemManager === "function") {
+      return readLocalText(src);
+    }
+    return requestText(src);
+  }
+  function readLocalText(filePath) {
+    return new Promise((resolve, reject) => {
+      const manager = uni.getFileSystemManager();
+      manager.readFile({
+        filePath: normalizeLocalPath$1(filePath),
+        encoding: "utf8",
+        success: (res) => resolve(res.data),
+        fail: (error) => reject(error)
+      });
+    });
+  }
+  function requestText(url) {
+    return new Promise((resolve, reject) => {
+      uni.request({
+        url,
+        success: (res) => {
+          if (res.statusCode === 200) {
+            const data = res.data;
+            resolve(typeof data === "string" ? data : JSON.stringify(data));
+            return;
+          }
+          reject(new Error(`读取失败: ${res.statusCode}`));
+        },
+        fail: (error) => reject(error)
+      });
+    });
+  }
+  function normalizeLocalPath$1(filePath) {
+    return String(filePath || "").replace(/^file:\/\//, "");
+  }
+  const _sfc_main$1 = {
+    data() {
+      return {
+        source: "",
+        title: "",
+        content: "",
+        loading: false,
+        error: ""
+      };
+    },
+    /**
+     * AI:读取路由参数并加载内容。
+     * @param {{src?: string, title?: string}} query AI:路由参数。
+     * @returns {void} AI:无返回值。
+     */
+    onLoad(query) {
+      const source = query && query.src ? decodeURIComponent(query.src) : "";
+      const title = query && query.title ? decodeURIComponent(query.title) : "";
+      this.source = source;
+      this.title = title;
+      if (!source) {
+        this.error = "缺少阅读地址";
+        return;
+      }
+      this.loadContent();
+    },
+    methods: {
+      /**
+       * AI:加载图文文本内容。
+       * @returns {void} AI:无返回值。
+       */
+      loadContent() {
+        this.loading = true;
+        this.error = "";
+        readTextContent(this.source, createUniFileAdapter()).then((text) => {
+          this.content = text || "";
+        }).catch(() => {
+          this.error = "内容加载失败";
+        }).finally(() => {
+          this.loading = false;
+        });
+      }
+    }
+  };
+  function createUniFileAdapter() {
+    return {
+      read(filePath) {
+        return new Promise((resolve, reject) => {
+          const manager = typeof uni !== "undefined" && typeof uni.getFileSystemManager === "function" ? uni.getFileSystemManager() : null;
+          if (!manager || typeof manager.readFile !== "function") {
+            reject(new Error("当前环境不支持本地读取"));
+            return;
+          }
+          manager.readFile({
+            filePath: normalizeLocalPath(filePath),
+            encoding: "utf8",
+            success: (res) => resolve(res.data),
+            fail: (error) => reject(error)
+          });
+        });
+      }
+    };
+  }
+  function normalizeLocalPath(filePath) {
+    return String(filePath || "").replace(/^file:\/\//, "");
+  }
+  function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
+      vue.createElementVNode("view", { class: "header" }, [
+        vue.createElementVNode(
+          "text",
+          { class: "title" },
+          vue.toDisplayString($data.title || "图文"),
+          1
+          /* TEXT */
+        ),
+        vue.createElementVNode("text", { class: "subtitle muted" }, "阅读内容")
+      ]),
+      $data.loading ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "loading muted"
+      }, "加载中...")) : $data.error ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 1,
+        class: "error-card card"
+      }, [
+        vue.createElementVNode(
+          "text",
+          { class: "error-text" },
+          vue.toDisplayString($data.error),
+          1
+          /* TEXT */
+        )
+      ])) : (vue.openBlock(), vue.createElementBlock("view", {
+        key: 2,
+        class: "content card"
+      }, [
+        $data.content ? (vue.openBlock(), vue.createElementBlock(
+          "text",
+          {
+            key: 0,
+            class: "content-text",
+            selectable: ""
+          },
+          vue.toDisplayString($data.content),
+          1
+          /* TEXT */
+        )) : (vue.openBlock(), vue.createElementBlock("view", {
+          key: 1,
+          class: "placeholder muted"
+        }, "暂无内容"))
+      ]))
+    ]);
+  }
+  const PagesReaderIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__scopeId", "data-v-d1222e64"], ["__file", "D:/AI/AI_TV/frontend/pages/reader/index.vue"]]);
   __definePage("pages/latest/index", PagesLatestIndex);
   __definePage("pages/offline/index", PagesOfflineIndex);
   __definePage("pages/settings/index", PagesSettingsIndex);
+  __definePage("pages/player/index", PagesPlayerIndex);
+  __definePage("pages/reader/index", PagesReaderIndex);
   const _sfc_main = {
     onLaunch() {
     }

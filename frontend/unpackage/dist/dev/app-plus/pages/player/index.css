@@ -1,0 +1,34 @@
+
+.header[data-v-eb444998] {
+  margin-bottom: 16px;
+}
+.title[data-v-eb444998] {
+  font-size: 22px;
+  font-weight: 600;
+}
+.subtitle[data-v-eb444998] {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.video-player[data-v-eb444998] {
+  width: 100%;
+  height: 220px;
+  background: #000000;
+  border-radius: 8px;
+}
+.actions[data-v-eb444998] {
+  margin-top: 16px;
+}
+.back[data-v-eb444998] {
+  background-color: #1f1b16;
+  color: #ffffff;
+}
+.error-card[data-v-eb444998] {
+  margin-bottom: 16px;
+  border: 1px solid rgba(217, 108, 47, 0.2);
+}
+.error-text[data-v-eb444998] {
+  color: #d96c2f;
+  font-size: 12px;
+}

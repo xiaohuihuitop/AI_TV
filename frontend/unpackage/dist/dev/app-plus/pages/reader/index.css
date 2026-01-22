@@ -1,0 +1,36 @@
+
+.header[data-v-d1222e64] {
+  margin-bottom: 16px;
+}
+.title[data-v-d1222e64] {
+  font-size: 22px;
+  font-weight: 600;
+}
+.subtitle[data-v-d1222e64] {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.loading[data-v-d1222e64] {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.content[data-v-d1222e64] {
+  margin-top: 12px;
+}
+.content-text[data-v-d1222e64] {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.placeholder[data-v-d1222e64] {
+  font-size: 12px;
+}
+.error-card[data-v-d1222e64] {
+  margin-top: 12px;
+  border: 1px solid rgba(217, 108, 47, 0.2);
+}
+.error-text[data-v-d1222e64] {
+  color: #d96c2f;
+  font-size: 12px;
+}

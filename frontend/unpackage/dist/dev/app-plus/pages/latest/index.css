@@ -11,6 +11,23 @@
   margin-top: 6px;
   font-size: 12px;
 }
+.media-tabs[data-v-44f675e0] {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.media-tab[data-v-44f675e0] {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(107, 100, 93, 0.3);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+.media-tab.active[data-v-44f675e0] {
+  background-color: #1f1b16;
+  color: #ffffff;
+  border-color: #1f1b16;
+}
 .columns[data-v-44f675e0] {
   display: flex;
   gap: 12px;
@@ -29,8 +46,10 @@
   margin-top: 12px;
   gap: 8px;
 }
-.item-title[data-v-44f675e0] {
+.item-main[data-v-44f675e0] {
   flex: 1;
+}
+.item-title[data-v-44f675e0] {
   font-size: 13px;
 }
 .download[data-v-44f675e0] {
