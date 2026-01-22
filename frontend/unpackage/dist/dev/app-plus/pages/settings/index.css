@@ -1,34 +1,44 @@
 
 .header[data-v-a11b3e9a] {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rise-fade 320ms ease-out both;
 }
 .title[data-v-a11b3e9a] {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 .subtitle[data-v-a11b3e9a] {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
+  letter-spacing: 0.08em;
 }
 .label[data-v-a11b3e9a] {
   font-size: 12px;
+  letter-spacing: 0.08em;
 }
 .input[data-v-a11b3e9a] {
-  margin-top: 8px;
-  padding: 8px 10px;
-  border: 1px solid rgba(107, 100, 93, 0.3);
-  border-radius: 8px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
   font-size: 14px;
+  background: rgba(9, 12, 18, 0.7);
+  color: var(--color-text);
 }
 .actions[data-v-a11b3e9a] {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 16px;
 }
 .save[data-v-a11b3e9a] {
-  background-color: #d96c2f;
-  color: #ffffff;
-  border: 1px solid #d96c2f;
+  min-width: 96px;
+}
+.hint[data-v-a11b3e9a] {
+  font-size: 12px;
 }

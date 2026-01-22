@@ -1,15 +1,21 @@
 
 .header[data-v-d1222e64] {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rise-fade 320ms ease-out both;
 }
 .title[data-v-d1222e64] {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 .subtitle[data-v-d1222e64] {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
+  letter-spacing: 0.08em;
 }
 .loading[data-v-d1222e64] {
   margin-top: 12px;
@@ -17,6 +23,7 @@
 }
 .content[data-v-d1222e64] {
   margin-top: 12px;
+  background: rgba(15, 18, 28, 0.9);
 }
 .content-text[data-v-d1222e64] {
   font-size: 13px;
@@ -26,11 +33,20 @@
 .placeholder[data-v-d1222e64] {
   font-size: 12px;
 }
+.actions[data-v-d1222e64] {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
+}
+.back[data-v-d1222e64] {
+  min-width: 96px;
+}
 .error-card[data-v-d1222e64] {
   margin-top: 12px;
-  border: 1px solid rgba(217, 108, 47, 0.2);
+  background: rgba(32, 18, 14, 0.8);
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 .error-text[data-v-d1222e64] {
-  color: #d96c2f;
+  color: #f2a56b;
   font-size: 12px;
 }

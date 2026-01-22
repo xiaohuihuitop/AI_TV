@@ -339,7 +339,7 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
-      vue.createElementVNode("view", { class: "header" }, [
+      vue.createElementVNode("view", { class: "header hero" }, [
         vue.createElementVNode("text", { class: "title" }, "最新"),
         vue.createElementVNode("text", { class: "subtitle muted" }, "从清单加载内容")
       ]),
@@ -378,7 +378,7 @@ if (uni.restoreGlobal) {
         )
       ])) : vue.createCommentVNode("v-if", true),
       vue.createElementVNode("view", { class: "columns" }, [
-        vue.createElementVNode("view", { class: "column card" }, [
+        vue.createElementVNode("view", { class: "column card cinematic-card" }, [
           vue.createElementVNode(
             "text",
             { class: "column-title" },
@@ -393,10 +393,11 @@ if (uni.restoreGlobal) {
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
-            vue.renderList($options.activeItems, (item) => {
+            vue.renderList($options.activeItems, (item, index) => {
               return vue.openBlock(), vue.createElementBlock("view", {
                 key: item.id,
-                class: "item",
+                class: "item item-card",
+                style: vue.normalizeStyle({ "--delay": `${index * 60}ms` }),
                 onClick: ($event) => $options.handleItemClick(item)
               }, [
                 vue.createElementVNode("view", { class: "item-main" }, [
@@ -409,11 +410,11 @@ if (uni.restoreGlobal) {
                   )
                 ]),
                 vue.createElementVNode("button", {
-                  class: "download",
+                  class: "btn btn-primary download",
                   size: "mini",
                   onClick: vue.withModifiers(($event) => $options.addDownload(item), ["stop"])
-                }, "下载", 8, ["onClick"])
-              ], 8, ["onClick"]);
+                }, " 下载 ", 8, ["onClick"])
+              ], 12, ["onClick"]);
             }),
             128
             /* KEYED_FRAGMENT */
@@ -567,7 +568,7 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$3(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
-      vue.createElementVNode("view", { class: "header" }, [
+      vue.createElementVNode("view", { class: "header hero" }, [
         vue.createElementVNode("text", { class: "title" }, "离线"),
         vue.createElementVNode("text", { class: "subtitle muted" }, "本地缓存的内容")
       ]),
@@ -594,7 +595,7 @@ if (uni.restoreGlobal) {
         )
       ]),
       vue.createElementVNode("view", { class: "columns" }, [
-        vue.createElementVNode("view", { class: "column card" }, [
+        vue.createElementVNode("view", { class: "column card cinematic-card" }, [
           vue.createElementVNode(
             "text",
             { class: "column-title" },
@@ -609,10 +610,11 @@ if (uni.restoreGlobal) {
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
-            vue.renderList($options.activeItems, (item) => {
+            vue.renderList($options.activeItems, (item, index) => {
               return vue.openBlock(), vue.createElementBlock("view", {
                 key: item.id,
-                class: "item",
+                class: "item item-card",
+                style: vue.normalizeStyle({ "--delay": `${index * 60}ms` }),
                 onClick: ($event) => $options.handleItemClick(item)
               }, [
                 vue.createElementVNode("view", { class: "item-main" }, [
@@ -650,11 +652,11 @@ if (uni.restoreGlobal) {
                   )) : vue.createCommentVNode("v-if", true)
                 ]),
                 vue.createElementVNode("button", {
-                  class: "remove",
+                  class: "btn btn-ghost remove",
                   size: "mini",
                   onClick: vue.withModifiers(($event) => $options.removeDownload(item), ["stop"])
-                }, "删除", 8, ["onClick"])
-              ], 8, ["onClick"]);
+                }, " 删除 ", 8, ["onClick"])
+              ], 12, ["onClick"]);
             }),
             128
             /* KEYED_FRAGMENT */
@@ -698,11 +700,11 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$2(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
-      vue.createElementVNode("view", { class: "header" }, [
+      vue.createElementVNode("view", { class: "header hero" }, [
         vue.createElementVNode("text", { class: "title" }, "设置"),
         vue.createElementVNode("text", { class: "subtitle muted" }, "清单地址")
       ]),
-      vue.createElementVNode("view", { class: "card" }, [
+      vue.createElementVNode("view", { class: "panel" }, [
         vue.createElementVNode("text", { class: "label muted" }, "清单地址"),
         vue.withDirectives(vue.createElementVNode(
           "input",
@@ -719,13 +721,13 @@ if (uni.restoreGlobal) {
         ]),
         vue.createElementVNode("view", { class: "actions" }, [
           vue.createElementVNode("button", {
-            class: "save",
+            class: "btn btn-primary save",
             size: "mini",
             onClick: _cache[1] || (_cache[1] = (...args) => $options.saveIndexUrl && $options.saveIndexUrl(...args))
           }, "保存"),
           vue.createElementVNode(
             "text",
-            { class: "muted" },
+            { class: "hint muted" },
             vue.toDisplayString($data.savedHint),
             1
             /* TEXT */
@@ -769,7 +771,7 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
-      vue.createElementVNode("view", { class: "header" }, [
+      vue.createElementVNode("view", { class: "header hero" }, [
         vue.createElementVNode(
           "text",
           { class: "title" },
@@ -790,15 +792,19 @@ if (uni.restoreGlobal) {
           1
           /* TEXT */
         )
-      ])) : (vue.openBlock(), vue.createElementBlock("video", {
+      ])) : (vue.openBlock(), vue.createElementBlock("view", {
         key: 1,
-        class: "video-player",
-        src: $data.source,
-        controls: ""
-      }, null, 8, ["src"])),
+        class: "video-shell card"
+      }, [
+        vue.createElementVNode("video", {
+          class: "video-player",
+          src: $data.source,
+          controls: ""
+        }, null, 8, ["src"])
+      ])),
       vue.createElementVNode("view", { class: "actions" }, [
         vue.createElementVNode("button", {
-          class: "back",
+          class: "btn btn-ghost back",
           size: "mini",
           onClick: _cache[0] || (_cache[0] = (...args) => $options.goBack && $options.goBack(...args))
         }, "返回")
@@ -890,6 +896,13 @@ if (uni.restoreGlobal) {
         }).finally(() => {
           this.loading = false;
         });
+      },
+      /**
+       * AI:返回上一页。
+       * @returns {void} AI:无返回值。
+       */
+      goBack() {
+        uni.navigateBack();
       }
     }
   };
@@ -917,7 +930,7 @@ if (uni.restoreGlobal) {
   }
   function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
-      vue.createElementVNode("view", { class: "header" }, [
+      vue.createElementVNode("view", { class: "header hero" }, [
         vue.createElementVNode(
           "text",
           { class: "title" },
@@ -959,7 +972,14 @@ if (uni.restoreGlobal) {
           key: 1,
           class: "placeholder muted"
         }, "暂无内容"))
-      ]))
+      ])),
+      vue.createElementVNode("view", { class: "actions" }, [
+        vue.createElementVNode("button", {
+          class: "btn btn-ghost back",
+          size: "mini",
+          onClick: _cache[0] || (_cache[0] = (...args) => $options.goBack && $options.goBack(...args))
+        }, "返回")
+      ])
     ]);
   }
   const PagesReaderIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__scopeId", "data-v-d1222e64"], ["__file", "D:/AI/AI_TV/frontend/pages/reader/index.vue"]]);

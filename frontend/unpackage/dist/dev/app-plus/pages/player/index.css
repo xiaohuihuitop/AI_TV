@@ -1,34 +1,47 @@
 
 .header[data-v-eb444998] {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rise-fade 320ms ease-out both;
 }
 .title[data-v-eb444998] {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 .subtitle[data-v-eb444998] {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
+  letter-spacing: 0.08em;
+}
+.video-shell[data-v-eb444998] {
+  padding: 12px;
+  background: rgba(15, 18, 28, 0.9);
 }
 .video-player[data-v-eb444998] {
   width: 100%;
   height: 220px;
   background: #000000;
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
 }
 .actions[data-v-eb444998] {
   margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
 }
 .back[data-v-eb444998] {
-  background-color: #1f1b16;
-  color: #ffffff;
+  min-width: 96px;
 }
 .error-card[data-v-eb444998] {
   margin-bottom: 16px;
-  border: 1px solid rgba(217, 108, 47, 0.2);
+  background: rgba(32, 18, 14, 0.8);
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 .error-text[data-v-eb444998] {
-  color: #d96c2f;
+  color: #f2a56b;
   font-size: 12px;
 }
