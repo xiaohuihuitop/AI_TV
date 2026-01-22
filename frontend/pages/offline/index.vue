@@ -24,9 +24,11 @@
       <view class="column card">
         <text class="column-title">{{ activeLabel }}</text>
         <view v-if="activeItems.length === 0" class="placeholder muted">暂无下载</view>
-        <view v-for="item in activeItems" :key="item.id" class="item">
-          <text class="item-title">{{ item.title }}</text>
-          <button class="remove" size="mini" @click="removeDownload(item)">删除</button>
+        <view v-for="item in activeItems" :key="item.id" class="item" @click="handleItemClick(item)">
+          <view class="item-main">
+            <text class="item-title">{{ item.title }}</text>
+          </view>
+          <button class="remove" size="mini" @click.stop="removeDownload(item)">删除</button>
         </view>
       </view>
     </view>
@@ -113,6 +115,54 @@ export default {
      */
     setActiveType(type) {
       this.activeType = type;
+    },
+    /**
+     * AI:处理条目点击事件，按类型跳转。
+     * @param {Object} item AI:条目信息。
+     * @returns {void} AI:无返回值。
+     */
+    handleItemClick(item) {
+      if (item.type === "article") {
+        this.openArticle(item);
+        return;
+      }
+      this.openVideo(item);
+    },
+    /**
+     * AI:跳转到视频播放页。
+     * @param {Object} item AI:视频条目。
+     * @returns {void} AI:无返回值。
+     */
+    openVideo(item) {
+      const src = this.resolveItemSource(item);
+      if (!src) {
+        uni.showToast({ title: "尚未下载完成", icon: "none" });
+        return;
+      }
+      const title = item.title ? encodeURIComponent(item.title) : "";
+      uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
+    },
+    /**
+     * AI:跳转到图文阅读页。
+     * @param {Object} item AI:图文条目。
+     * @returns {void} AI:无返回值。
+     */
+    openArticle(item) {
+      const src = this.resolveItemSource(item);
+      if (!src) {
+        uni.showToast({ title: "尚未下载完成", icon: "none" });
+        return;
+      }
+      const title = item.title ? encodeURIComponent(item.title) : "";
+      uni.navigateTo({ url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}` });
+    },
+    /**
+     * AI:解析条目可用地址。
+     * @param {Object} item AI:条目信息。
+     * @returns {string} AI:可用地址。
+     */
+    resolveItemSource(item) {
+      return item && item.local_path ? item.local_path : "";
     },
     /**
      * AI:加载离线下载列表并渲染。
@@ -206,8 +256,11 @@ export default {
   gap: 8px;
 }
 
-.item-title {
+.item-main {
   flex: 1;
+}
+
+.item-title {
   font-size: 13px;
 }
 
