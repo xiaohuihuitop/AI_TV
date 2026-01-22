@@ -97,7 +97,8 @@ export default {
     return {
       activeType: "video",
       videoItems: [],
-      articleItems: []
+      articleItems: [],
+      refreshTimer: null
     };
   },
   computed: {
@@ -117,7 +118,16 @@ export default {
     }
   },
   onShow() {
-    this.listDownloads();
+    const hasDownloading = this.refreshDownloads();
+    if (hasDownloading) {
+      this.startProgressWatcher();
+    }
+  },
+  onHide() {
+    this.stopProgressWatcher();
+  },
+  onUnload() {
+    this.stopProgressWatcher();
   },
   methods: {
     /**
@@ -178,14 +188,39 @@ export default {
     },
     /**
      * AI:加载离线下载列表并渲染。
-     * @returns {void} AI:无返回值。
+     * @returns {boolean} AI:是否存在下载中条目。
      */
-    listDownloads() {
+    refreshDownloads() {
       const storage = createUniStorage();
       const service = createOfflineService(storage, createEmptyDownloader());
       const list = service.listDownloads();
       this.videoItems = list.filter((item) => item.type === "video");
       this.articleItems = list.filter((item) => item.type === "article");
+      return list.some((item) => item.status !== "done");
+    },
+    /**
+     * AI:启动下载进度刷新定时器。
+     * @returns {void} AI:无返回值。
+     */
+    startProgressWatcher() {
+      this.stopProgressWatcher();
+      this.refreshTimer = setInterval(() => {
+        const hasDownloading = this.refreshDownloads();
+        if (!hasDownloading) {
+          this.stopProgressWatcher();
+        }
+      }, 500);
+    },
+    /**
+     * AI:停止下载进度刷新定时器。
+     * @returns {void} AI:无返回值。
+     */
+    stopProgressWatcher() {
+      if (!this.refreshTimer) {
+        return;
+      }
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
     },
     /**
      * AI:删除离线记录并清理本地文件。
@@ -199,7 +234,10 @@ export default {
         .catch(() => null)
         .then(() => service.removeDownload(item.id))
         .then(() => {
-          this.listDownloads();
+          const hasDownloading = this.refreshDownloads();
+          if (!hasDownloading) {
+            this.stopProgressWatcher();
+          }
           uni.showToast({ title: "已删除", icon: "success" });
         })
         .catch(() => {

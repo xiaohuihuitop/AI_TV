@@ -54,11 +54,11 @@
     "statusbar": {
       "immersed": "supportedDevice",
       "style": "dark",
-      "background": "#f6f2e9"
+      "background": "#f7f2ea"
     },
     "allowsInlineMediaPlayback": true,
     "safearea": {
-      "background": "#f6f2e9",
+      "background": "#f7f2ea",
       "bottom": {
         "offset": "auto"
       }
@@ -101,7 +101,7 @@
           "text": "设置"
         }
       ],
-      "backgroundColor": "#f6f2e9",
+      "backgroundColor": "#f7f2ea",
       "selectedIndex": 0,
       "shown": true,
       "child": [
@@ -116,7 +116,7 @@
       "concatenate": true
     },
     "safearea": {
-      "background": "#f6f2e9",
+      "background": "#f7f2ea",
       "bottom": {
         "offset": "auto"
       }

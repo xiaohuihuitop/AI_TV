@@ -205,6 +205,20 @@ if (uni.restoreGlobal) {
     onShow() {
       this.fetchIndex();
     },
+    /**
+     * AI:处理下拉刷新触发，拉取最新清单并结束刷新动画。
+     * @returns {void} AI:无返回值。
+     */
+    onPullDownRefresh() {
+      if (this.loading) {
+        uni.stopPullDownRefresh();
+        return;
+      }
+      Promise.resolve(this.fetchIndex()).catch(() => {
+      }).finally(() => {
+        uni.stopPullDownRefresh();
+      });
+    },
     methods: {
       /**
        * AI:切换当前媒体类型。
@@ -264,7 +278,7 @@ if (uni.restoreGlobal) {
       },
       /**
        * AI:拉取清单并更新页面数据。
-       * @returns {void} AI:无返回值。
+       * @returns {Promise<boolean>} AI:返回 Promise，用于结束加载状态。
        */
       fetchIndex() {
         const storage = createUniStorage$2();
@@ -274,26 +288,29 @@ if (uni.restoreGlobal) {
           this.error = "请在设置中填写清单地址";
           this.videoItems = [];
           this.articleItems = [];
-          return;
+          return Promise.resolve(false);
         }
         this.loading = true;
         this.error = "";
-        uni.request({
-          url: indexUrl,
-          success: (res) => {
-            if (res.statusCode === 200 && res.data) {
-              adapter.setJson(indexCacheKey, res.data);
-              this.applyItems(res.data);
-              return;
+        return new Promise((resolve) => {
+          uni.request({
+            url: indexUrl,
+            success: (res) => {
+              if (res.statusCode === 200 && res.data) {
+                adapter.setJson(indexCacheKey, res.data);
+                this.applyItems(res.data);
+                return;
+              }
+              this.applyCache(adapter);
+            },
+            fail: () => {
+              this.applyCache(adapter);
+            },
+            complete: () => {
+              this.loading = false;
+              resolve(true);
             }
-            this.applyCache(adapter);
-          },
-          fail: () => {
-            this.applyCache(adapter);
-          },
-          complete: () => {
-            this.loading = false;
-          }
+          });
         });
       },
       /**
@@ -459,7 +476,8 @@ if (uni.restoreGlobal) {
       return {
         activeType: "video",
         videoItems: [],
-        articleItems: []
+        articleItems: [],
+        refreshTimer: null
       };
     },
     computed: {
@@ -479,7 +497,16 @@ if (uni.restoreGlobal) {
       }
     },
     onShow() {
-      this.listDownloads();
+      const hasDownloading = this.refreshDownloads();
+      if (hasDownloading) {
+        this.startProgressWatcher();
+      }
+    },
+    onHide() {
+      this.stopProgressWatcher();
+    },
+    onUnload() {
+      this.stopProgressWatcher();
     },
     methods: {
       /**
@@ -540,14 +567,39 @@ if (uni.restoreGlobal) {
       },
       /**
        * AI:加载离线下载列表并渲染。
-       * @returns {void} AI:无返回值。
+       * @returns {boolean} AI:是否存在下载中条目。
        */
-      listDownloads() {
+      refreshDownloads() {
         const storage = createUniStorage$1();
         const service = createOfflineService(storage, createEmptyDownloader());
         const list = service.listDownloads();
         this.videoItems = list.filter((item) => item.type === "video");
         this.articleItems = list.filter((item) => item.type === "article");
+        return list.some((item) => item.status !== "done");
+      },
+      /**
+       * AI:启动下载进度刷新定时器。
+       * @returns {void} AI:无返回值。
+       */
+      startProgressWatcher() {
+        this.stopProgressWatcher();
+        this.refreshTimer = setInterval(() => {
+          const hasDownloading = this.refreshDownloads();
+          if (!hasDownloading) {
+            this.stopProgressWatcher();
+          }
+        }, 500);
+      },
+      /**
+       * AI:停止下载进度刷新定时器。
+       * @returns {void} AI:无返回值。
+       */
+      stopProgressWatcher() {
+        if (!this.refreshTimer) {
+          return;
+        }
+        clearInterval(this.refreshTimer);
+        this.refreshTimer = null;
       },
       /**
        * AI:删除离线记录并清理本地文件。
@@ -558,7 +610,10 @@ if (uni.restoreGlobal) {
         const storage = createUniStorage$1();
         const service = createOfflineService(storage, createEmptyDownloader());
         removeLocalFile(item.local_path).catch(() => null).then(() => service.removeDownload(item.id)).then(() => {
-          this.listDownloads();
+          const hasDownloading = this.refreshDownloads();
+          if (!hasDownloading) {
+            this.stopProgressWatcher();
+          }
           uni.showToast({ title: "已删除", icon: "success" });
         }).catch(() => {
           uni.showToast({ title: "删除失败", icon: "none" });
