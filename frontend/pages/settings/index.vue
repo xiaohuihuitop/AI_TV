@@ -1,15 +1,15 @@
 <template>
   <view class="app-page">
-    <view class="header">
+    <view class="header hero">
       <text class="title">设置</text>
       <text class="subtitle muted">清单地址</text>
     </view>
-    <view class="card">
+    <view class="panel">
       <text class="label muted">清单地址</text>
       <input class="input" v-model="indexUrl" placeholder="https://.../index.json" />
       <view class="actions">
-        <button class="save" size="mini" @click="saveIndexUrl">保存</button>
-        <text class="muted">{{ savedHint }}</text>
+        <button class="btn btn-primary save" size="mini" @click="saveIndexUrl">保存</button>
+        <text class="hint muted">{{ savedHint }}</text>
       </view>
     </view>
   </view>
@@ -58,42 +58,53 @@ export default {
 
 <style scoped>
 .header {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rise-fade 320ms ease-out both;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 
 .subtitle {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
+  letter-spacing: 0.08em;
 }
 
 .label {
   font-size: 12px;
+  letter-spacing: 0.08em;
 }
 
 .input {
-  margin-top: 8px;
-  padding: 8px 10px;
-  border: 1px solid rgba(107, 100, 93, 0.3);
-  border-radius: 8px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
   font-size: 14px;
+  background: rgba(9, 12, 18, 0.7);
+  color: var(--color-text);
 }
 
 .actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 16px;
 }
 
 .save {
-  background-color: #d96c2f;
-  color: #ffffff;
-  border: 1px solid #d96c2f;
+  min-width: 96px;
+}
+
+.hint {
+  font-size: 12px;
 }
 </style>
