@@ -13,7 +13,8 @@ function fail(message) {
 const pages = JSON.parse(fs.readFileSync(pagesPath, "utf-8"));
 const latestPage = (pages.pages || []).find((page) => page.path === "pages/latest/index");
 if (!latestPage) fail("未找到最新页面配置");
-if (latestPage.enablePullDownRefresh !== true) {
+const latestStyle = latestPage.style || {};
+if (latestStyle.enablePullDownRefresh !== true) {
   fail("最新页面需开启 enablePullDownRefresh");
 }
 
