@@ -8,7 +8,13 @@
       <text class="error-text">{{ error }}</text>
     </view>
     <view v-else class="video-shell card">
-      <video class="video-player" :src="source" controls></video>
+      <video
+        class="video-player"
+        :src="source"
+        controls
+        object-fit="contain"
+        :show-fullscreen-btn="false"
+      ></video>
     </view>
     <view class="actions">
       <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
@@ -74,16 +80,17 @@ export default {
 }
 
 .video-shell {
-  padding: 12px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.95);
 }
 
 .video-player {
   width: 100%;
-  height: 220px;
+  height: 320px;
   background: #000000;
   border-radius: 12px;
   box-shadow: 0 12px 24px rgba(31, 27, 22, 0.18);
+  object-fit: contain;
 }
 
 .actions {
