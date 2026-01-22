@@ -17,6 +17,18 @@
       "style": {
         "navigationBarTitleText": "设置"
       }
+    },
+    {
+      "path": "pages/player/index",
+      "style": {
+        "navigationBarTitleText": "播放"
+      }
+    },
+    {
+      "path": "pages/reader/index",
+      "style": {
+        "navigationBarTitleText": "图文"
+      }
     }
   ],
   "globalStyle": {
