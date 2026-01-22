@@ -1,15 +1,17 @@
 <template>
   <view class="app-page">
-    <view class="header">
+    <view class="header hero">
       <text class="title">{{ title || "播放" }}</text>
       <text class="subtitle muted">视频播放预览</text>
     </view>
     <view v-if="error" class="error-card card">
       <text class="error-text">{{ error }}</text>
     </view>
-    <video v-else class="video-player" :src="source" controls></video>
+    <view v-else class="video-shell card">
+      <video class="video-player" :src="source" controls></video>
+    </view>
     <view class="actions">
-      <button class="back" size="mini" @click="goBack">返回</button>
+      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
     </view>
   </view>
 </template>
@@ -51,43 +53,57 @@ export default {
 
 <style scoped>
 .header {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rise-fade 320ms ease-out both;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 
 .subtitle {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.video-shell {
+  padding: 12px;
+  background: rgba(15, 18, 28, 0.9);
 }
 
 .video-player {
   width: 100%;
   height: 220px;
   background: #000000;
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
 }
 
 .actions {
   margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .back {
-  background-color: #1f1b16;
-  color: #ffffff;
+  min-width: 96px;
 }
 
 .error-card {
   margin-bottom: 16px;
-  border: 1px solid rgba(217, 108, 47, 0.2);
+  background: rgba(32, 18, 14, 0.8);
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 
 .error-text {
-  color: #d96c2f;
+  color: #f2a56b;
   font-size: 12px;
 }
 </style>

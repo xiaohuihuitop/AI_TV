@@ -1,6 +1,6 @@
 <template>
   <view class="app-page">
-    <view class="header">
+    <view class="header hero">
       <text class="title">{{ title || "图文" }}</text>
       <text class="subtitle muted">阅读内容</text>
     </view>
@@ -11,6 +11,9 @@
     <view v-else class="content card">
       <text v-if="content" class="content-text" selectable>{{ content }}</text>
       <view v-else class="placeholder muted">暂无内容</view>
+    </view>
+    <view class="actions">
+      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
     </view>
   </view>
 </template>
@@ -62,6 +65,13 @@ export default {
         .finally(() => {
           this.loading = false;
         });
+    },
+    /**
+     * AI:返回上一页。
+     * @returns {void} AI:无返回值。
+     */
+    goBack() {
+      uni.navigateBack();
     }
   }
 };
@@ -105,18 +115,24 @@ function normalizeLocalPath(filePath) {
 
 <style scoped>
 .header {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: rise-fade 320ms ease-out both;
 }
 
 .title {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  font-family: var(--font-display);
 }
 
 .subtitle {
   display: block;
-  margin-top: 6px;
   font-size: 12px;
+  letter-spacing: 0.08em;
 }
 
 .loading {
@@ -126,6 +142,7 @@ function normalizeLocalPath(filePath) {
 
 .content {
   margin-top: 12px;
+  background: rgba(15, 18, 28, 0.9);
 }
 
 .content-text {
@@ -138,13 +155,24 @@ function normalizeLocalPath(filePath) {
   font-size: 12px;
 }
 
+.actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.back {
+  min-width: 96px;
+}
+
 .error-card {
   margin-top: 12px;
-  border: 1px solid rgba(217, 108, 47, 0.2);
+  background: rgba(32, 18, 14, 0.8);
+  border: 1px solid rgba(249, 115, 22, 0.3);
 }
 
 .error-text {
-  color: #d96c2f;
+  color: #f2a56b;
   font-size: 12px;
 }
 </style>
