@@ -30,8 +30,8 @@
 </template>
 
 <script>
-const { normalizeIndexItems, createStorageAdapter } = require("../../utils/indexService.js");
-const { createOfflineService } = require("../../utils/offlineService.js");
+import { normalizeIndexItems, createStorageAdapter } from "../../utils/indexService.js";
+import { createOfflineService } from "../../utils/offlineService.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。

@@ -1,0 +1,33 @@
+
+.header[data-v-a11b3e9a] {
+  margin-bottom: 16px;
+}
+.title[data-v-a11b3e9a] {
+  font-size: 22px;
+  font-weight: 600;
+}
+.subtitle[data-v-a11b3e9a] {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.label[data-v-a11b3e9a] {
+  font-size: 12px;
+}
+.input[data-v-a11b3e9a] {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(107, 100, 93, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.actions[data-v-a11b3e9a] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.save[data-v-a11b3e9a] {
+  background: var(--color-accent);
+  color: #ffffff;
+}
