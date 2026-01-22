@@ -9,7 +9,15 @@
       <text class="error-text">{{ error }}</text>
     </view>
     <view v-else class="content card">
-      <text v-if="content" class="content-text" selectable>{{ content }}</text>
+      <mp-html
+        v-if="content"
+        class="content-html"
+        :content="content"
+        :markdown="true"
+        :selectable="true"
+        :preview-img="true"
+        :domain="contentDomain"
+      ></mp-html>
       <view v-else class="placeholder muted">暂无内容</view>
     </view>
     <view class="actions">
@@ -20,13 +28,18 @@
 
 <script>
 import { readTextContent } from "../../utils/fileService.js";
+import MpHtml from "../../uni_modules/mp-html/components/mp-html/mp-html.vue";
 
 export default {
+  components: {
+    MpHtml
+  },
   data() {
     return {
       source: "",
       title: "",
       content: "",
+      contentDomain: "",
       loading: false,
       error: ""
     };
@@ -55,6 +68,7 @@ export default {
     loadContent() {
       this.loading = true;
       this.error = "";
+      this.contentDomain = this.computeContentDomain();
       readTextContent(this.source, createUniFileAdapter())
         .then((text) => {
           this.content = text || "";
@@ -72,6 +86,24 @@ export default {
      */
     goBack() {
       uni.navigateBack();
+    },
+    /**
+     * AI:计算 Markdown 相对资源的基础域名。
+     * @returns {string} AI:基础域名或空字符串。
+     */
+    computeContentDomain() {
+      const source = String(this.source || "");
+      if (!/^https?:\/\//i.test(source)) {
+        return "";
+      }
+      const match = source.match(/^(https?:\/\/[^/]+)(\/.*)?$/i);
+      if (!match) {
+        return "";
+      }
+      const origin = match[1];
+      const pathname = match[2] || "/";
+      const basePath = pathname.replace(/\/[^/]*$/, "/");
+      return `${origin}${basePath}`;
     }
   }
 };
@@ -143,6 +175,66 @@ function normalizeLocalPath(filePath) {
 .content {
   margin-top: 12px;
   background: rgba(255, 255, 255, 0.95);
+}
+
+.content-html {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text);
+}
+
+.content-html :deep(h1),
+.content-html :deep(h2),
+.content-html :deep(h3),
+.content-html :deep(h4) {
+  margin: 16px 0 8px;
+  font-family: var(--font-display);
+  color: var(--color-text);
+}
+
+.content-html :deep(.md-p) {
+  margin: 10px 0;
+}
+
+.content-html :deep(.md-blockquote) {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border-left: 4px solid rgba(217, 108, 47, 0.35);
+  background: rgba(217, 108, 47, 0.08);
+  border-radius: 10px;
+  color: var(--color-muted);
+}
+
+.content-html :deep(.md-code) {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: rgba(31, 27, 22, 0.08);
+}
+
+.content-html :deep(.md-pre) {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f3ede6;
+  overflow: auto;
+}
+
+.content-html :deep(.md-table) {
+  margin: 12px 0;
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.content-html :deep(.md-th),
+.content-html :deep(.md-td) {
+  padding: 6px 10px;
+  border: 1px solid rgba(31, 27, 22, 0.12);
+}
+
+.content-html :deep(a) {
+  color: #b45309;
 }
 
 .content-text {
