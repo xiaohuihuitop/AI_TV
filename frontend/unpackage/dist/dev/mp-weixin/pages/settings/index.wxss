@@ -1,0 +1,34 @@
+
+.header.data-v-0250619f {
+  margin-bottom: 16px;
+}
+.title.data-v-0250619f {
+  font-size: 22px;
+  font-weight: 600;
+}
+.subtitle.data-v-0250619f {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.label.data-v-0250619f {
+  font-size: 12px;
+}
+.input.data-v-0250619f {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(107, 100, 93, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.actions.data-v-0250619f {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.save.data-v-0250619f {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+

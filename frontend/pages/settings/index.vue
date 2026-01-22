@@ -2,7 +2,7 @@
   <view class="app-page">
     <view class="header">
       <text class="title">设置</text>
-      <text class="subtitle muted">配置清单地址</text>
+      <text class="subtitle muted">清单地址</text>
     </view>
     <view class="card">
       <text class="label muted">清单地址</text>
