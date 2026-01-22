@@ -28,6 +28,7 @@
   margin-top: 10px;
 }
 .save[data-v-a11b3e9a] {
-  background: var(--color-accent);
+  background-color: #d96c2f;
   color: #ffffff;
+  border: 1px solid #d96c2f;
 }

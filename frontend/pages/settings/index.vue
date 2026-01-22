@@ -92,7 +92,8 @@ export default {
 }
 
 .save {
-  background: var(--color-accent);
+  background-color: #d96c2f;
   color: #ffffff;
+  border: 1px solid #d96c2f;
 }
 </style>

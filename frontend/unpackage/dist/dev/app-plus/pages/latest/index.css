@@ -34,8 +34,9 @@
   font-size: 13px;
 }
 .download[data-v-44f675e0] {
-  background: var(--color-accent);
+  background-color: #d96c2f;
   color: #ffffff;
+  border: 1px solid #d96c2f;
 }
 .placeholder[data-v-44f675e0] {
   margin-top: 12px;
@@ -51,6 +52,6 @@
   border: 1px solid rgba(217, 108, 47, 0.2);
 }
 .error-text[data-v-44f675e0] {
-  color: var(--color-accent);
+  color: #d96c2f;
   font-size: 12px;
 }

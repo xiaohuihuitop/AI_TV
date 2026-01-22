@@ -218,8 +218,9 @@ export default {
 }
 
 .download {
-  background: var(--color-accent);
+  background-color: #d96c2f;
   color: #ffffff;
+  border: 1px solid #d96c2f;
 }
 
 .placeholder {
@@ -239,7 +240,7 @@ export default {
 }
 
 .error-text {
-  color: var(--color-accent);
+  color: #d96c2f;
   font-size: 12px;
 }
 </style>
