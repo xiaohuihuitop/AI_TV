@@ -3,7 +3,9 @@
     {
       "path": "pages/latest/index",
       "style": {
-        "navigationBarTitleText": "最新"
+        "navigationBarTitleText": "最新",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
       }
     },
     {
@@ -56,4 +58,3 @@
     ]
   }
 }
-
