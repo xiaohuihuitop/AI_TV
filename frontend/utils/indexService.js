@@ -3,7 +3,7 @@
  * @param {Object} raw AI:原始清单对象。
  * @returns {{items: Array}} AI:排序后的清单对象。
  */
-function normalizeIndexItems(raw) {
+export function normalizeIndexItems(raw) {
   const items = Array.isArray(raw && raw.items) ? raw.items.slice() : [];
   items.sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")));
   return { items };
@@ -14,7 +14,7 @@ function normalizeIndexItems(raw) {
  * @param {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} storage AI:底层存储读写函数。
  * @returns {{getJson: function(string): Object|null, setJson: function(string, Object): void, remove: function(string): void}} AI:适配器实例。
  */
-function createStorageAdapter(storage) {
+export function createStorageAdapter(storage) {
   return {
     getJson(key) {
       const value = storage.get(key);
@@ -29,4 +29,3 @@ function createStorageAdapter(storage) {
   };
 }
 
-module.exports = { normalizeIndexItems, createStorageAdapter };

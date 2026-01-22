@@ -4,7 +4,7 @@
  * @param {{download: function(string): Promise<{tempFilePath: string}>, save: function(string): Promise<{savedFilePath: string}>}} downloader AI:下载与保存实现。
  * @returns {{listDownloads: function(): Array, addDownload: function(Object): Promise<void>, removeDownload: function(string): Promise<void>}} AI:离线服务实例。
  */
-function createOfflineService(storage, downloader) {
+export function createOfflineService(storage, downloader) {
   const key = "download_items";
 
   function listDownloads() {
@@ -40,4 +40,3 @@ function createOfflineService(storage, downloader) {
   };
 }
 
-module.exports = { createOfflineService };

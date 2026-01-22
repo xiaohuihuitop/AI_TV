@@ -7,7 +7,7 @@
 在项目根目录执行：
 
 ```powershell
-node AI_TOOL/test_2026_01_21_14_53_offline_service.js
+node AI_TOOL/test_2026_01_21_14_53_offline_service.mjs
 ```
 
 ## 预期结果

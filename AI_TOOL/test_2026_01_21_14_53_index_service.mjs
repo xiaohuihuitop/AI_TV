@@ -1,4 +1,4 @@
-const { normalizeIndexItems, createStorageAdapter } = require("../frontend/utils/indexService.js");
+import { normalizeIndexItems, createStorageAdapter } from "../frontend/utils/indexService.js";
 
 const raw = {
   items: [

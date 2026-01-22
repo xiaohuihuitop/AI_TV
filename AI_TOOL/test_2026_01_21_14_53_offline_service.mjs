@@ -1,4 +1,4 @@
-const { createOfflineService } = require("../frontend/utils/offlineService.js");
+import { createOfflineService } from "../frontend/utils/offlineService.js";
 
 const memory = new Map();
 const storage = {

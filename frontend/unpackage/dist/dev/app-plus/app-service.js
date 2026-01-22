@@ -31,6 +31,55 @@ if (uni.restoreGlobal) {
 }
 (function(vue) {
   "use strict";
+  function normalizeIndexItems(raw) {
+    const items = Array.isArray(raw && raw.items) ? raw.items.slice() : [];
+    items.sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")));
+    return { items };
+  }
+  function createStorageAdapter(storage) {
+    return {
+      getJson(key) {
+        const value = storage.get(key);
+        return value ? JSON.parse(value) : null;
+      },
+      setJson(key, value) {
+        storage.set(key, JSON.stringify(value));
+      },
+      remove(key) {
+        storage.remove(key);
+      }
+    };
+  }
+  function createOfflineService(storage, downloader) {
+    const key = "download_items";
+    function listDownloads() {
+      const value = storage.get(key);
+      return value ? JSON.parse(value) : [];
+    }
+    function saveList(list) {
+      storage.set(key, JSON.stringify(list));
+    }
+    async function addDownload(item) {
+      const result = await downloader.download(item.url);
+      const saved = await downloader.save(result.tempFilePath);
+      const list = listDownloads();
+      list.unshift({
+        ...item,
+        local_path: saved.savedFilePath,
+        downloaded_at: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      saveList(list);
+    }
+    async function removeDownload(id) {
+      const list = listDownloads().filter((entry) => entry.id !== id);
+      saveList(list);
+    }
+    return {
+      listDownloads,
+      addDownload,
+      removeDownload
+    };
+  }
   const _export_sfc = (sfc, props) => {
     const target = sfc.__vccOpts || sfc;
     for (const [key, val] of props) {
@@ -38,8 +87,6 @@ if (uni.restoreGlobal) {
     }
     return target;
   };
-  const { normalizeIndexItems, createStorageAdapter } = require("../../utils/indexService.js");
-  const { createOfflineService: createOfflineService$1 } = require("../../utils/offlineService.js");
   function createUniStorage$2() {
     return {
       get: (key) => uni.getStorageSync(key),
@@ -156,7 +203,7 @@ if (uni.restoreGlobal) {
        */
       addDownload(item) {
         const storage = createUniStorage$2();
-        const service = createOfflineService$1(storage, createUniDownloader());
+        const service = createOfflineService(storage, createUniDownloader());
         service.addDownload(item).then(() => {
           uni.showToast({ title: "已加入离线", icon: "success" });
         }).catch(() => {
@@ -256,7 +303,6 @@ if (uni.restoreGlobal) {
     ]);
   }
   const PagesLatestIndex = /* @__PURE__ */ _export_sfc(_sfc_main$3, [["render", _sfc_render$2], ["__scopeId", "data-v-44f675e0"], ["__file", "D:/AI/AI_TV/frontend/pages/latest/index.vue"]]);
-  const { createOfflineService } = require("../../utils/offlineService.js");
   function createUniStorage$1() {
     return {
       get: (key) => uni.getStorageSync(key),
