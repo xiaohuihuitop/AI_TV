@@ -3,7 +3,7 @@
  * Include marked (https://github.com/markedjs/marked)
  * Include github-markdown-css (https://github.com/sindresorhus/github-markdown-css)
  */
-import { marked } from './marked.min.js'
+import { marked } from './marked.esm.js'
 let index = 0
 
 function Markdown (vm) {
