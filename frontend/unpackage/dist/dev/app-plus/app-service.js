@@ -870,26 +870,13 @@ if (uni.restoreGlobal) {
       };
     },
     computed: {
-      /**
-       * AI:????????????
-       * @returns {boolean} AI:?????????
-       */
       hasPrev() {
         return this.currentIndex > 0;
       },
-      /**
-       * AI:????????????
-       * @returns {boolean} AI:?????????
-       */
       hasNext() {
         return this.currentIndex >= 0 && this.currentIndex < this.playlist.length - 1;
       }
     },
-    /**
-     * AI:???????????????
-     * @param {{src?: string, title?: string}} query AI:?????
-     * @returns {void} AI:?????
-     */
     onLoad(query) {
       const source = query && query.src ? decodeURIComponent(query.src) : "";
       const title = query && query.title ? decodeURIComponent(query.title) : "";
@@ -905,10 +892,6 @@ if (uni.restoreGlobal) {
       this.videoContext = uni.createVideoContext("playerVideo", this);
     },
     methods: {
-      /**
-       * AI:????????????????????????
-       * @returns {void} AI:?????
-       */
       updateVideoSize() {
         const info = uni.getSystemInfoSync();
         const width = Number(info.windowWidth || info.screenWidth || 0);
@@ -920,10 +903,6 @@ if (uni.restoreGlobal) {
         const maxHeight = Math.max(220, safeHeight - reservedHeight);
         this.videoHeight = Math.max(baseHeight, maxHeight);
       },
-      /**
-       * AI:??????????????????
-       * @returns {void} AI:?????
-       */
       loadPlaylist() {
         const storage = createUniStorage();
         const { list, index } = loadPlayerQueue(storage);
@@ -940,23 +919,12 @@ if (uni.restoreGlobal) {
           this.applyItem(list[matchedIndex], matchedIndex);
         }
       },
-      /**
-       * AI:??????????????
-       * @param {Object} item AI:?????
-       * @returns {string} AI:??????
-       */
       resolveItemSource(item) {
         if (!item) {
           return "";
         }
         return item.local_path || item.url || "";
       },
-      /**
-       * AI:????????????
-       * @param {Object} item AI:?????
-       * @param {number} index AI:?????
-       * @returns {void} AI:?????
-       */
       applyItem(item, index) {
         const src = this.resolveItemSource(item);
         if (!src) {
@@ -972,10 +940,6 @@ if (uni.restoreGlobal) {
           updatePlayerIndex(createUniStorage(), index);
         }
       },
-      /**
-       * AI:????????
-       * @returns {void} AI:?????
-       */
       playPrev() {
         if (!this.hasPrev) {
           return;
@@ -983,10 +947,6 @@ if (uni.restoreGlobal) {
         const targetIndex = this.currentIndex - 1;
         this.applyItem(this.playlist[targetIndex], targetIndex);
       },
-      /**
-       * AI:????????
-       * @returns {void} AI:?????
-       */
       playNext() {
         if (!this.hasNext) {
           return;
@@ -994,24 +954,12 @@ if (uni.restoreGlobal) {
         const targetIndex = this.currentIndex + 1;
         this.applyItem(this.playlist[targetIndex], targetIndex);
       },
-      /**
-       * AI:?????????
-       * @returns {void} AI:?????
-       */
       handleEnded() {
         this.hasEnded = true;
       },
-      /**
-       * AI:????????????????
-       * @returns {void} AI:?????
-       */
       handlePlay() {
         this.hasEnded = false;
       },
-      /**
-       * AI:?????????
-       * @returns {void} AI:?????
-       */
       replay() {
         if (!this.videoContext) {
           this.videoContext = uni.createVideoContext("playerVideo", this);
@@ -1020,10 +968,6 @@ if (uni.restoreGlobal) {
         this.videoContext.play();
         this.hasEnded = false;
       },
-      /**
-       * AI:??????
-       * @returns {void} AI:?????
-       */
       goBack() {
         uni.navigateBack();
       }
