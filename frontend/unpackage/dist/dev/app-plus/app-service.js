@@ -587,7 +587,9 @@ if (uni.restoreGlobal) {
         const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
         savePlayerQueue(storage, queue, safeIndex);
         const title = item.title ? encodeURIComponent(item.title) : "";
-        uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
+        uni.navigateTo({
+          url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}&autoplay=1`
+        });
       },
       /**
        * AI:跳转到图文阅读页。
@@ -852,6 +854,7 @@ if (uni.restoreGlobal) {
         title: "",
         error: "",
         videoHeight: 220,
+        autoPlay: false,
         playlist: [],
         currentIndex: -1,
         hasEnded: false,
@@ -869,8 +872,10 @@ if (uni.restoreGlobal) {
     onLoad(query) {
       const source = query && query.src ? decodeURIComponent(query.src) : "";
       const title = query && query.title ? decodeURIComponent(query.title) : "";
+      const autoPlay = query && query.autoplay === "1";
       this.source = source;
       this.title = title;
+      this.autoPlay = autoPlay;
       this.loadPlaylist();
       if (!this.source) {
         this.error = "缺少播放地址";
@@ -879,6 +884,7 @@ if (uni.restoreGlobal) {
     },
     onReady() {
       this.videoContext = uni.createVideoContext("playerVideo", this);
+      this.playIfAuto();
     },
     methods: {
       updateVideoSize() {
@@ -928,6 +934,7 @@ if (uni.restoreGlobal) {
           this.currentIndex = index;
           updatePlayerIndex(createUniStorage(), index);
         }
+        this.playIfAuto();
       },
       playPrev() {
         if (!this.hasPrev) {
@@ -956,6 +963,17 @@ if (uni.restoreGlobal) {
         this.videoContext.seek(0);
         this.videoContext.play();
         this.hasEnded = false;
+      },
+      playIfAuto() {
+        if (!this.autoPlay || !this.source) {
+          return;
+        }
+        this.$nextTick(() => {
+          if (!this.videoContext) {
+            this.videoContext = uni.createVideoContext("playerVideo", this);
+          }
+          this.videoContext.play();
+        });
       },
       goBack() {
         uni.navigateBack();
@@ -994,6 +1012,7 @@ if (uni.restoreGlobal) {
           id: "playerVideo",
           src: $data.source,
           controls: true,
+          autoplay: $data.autoPlay,
           "object-fit": "contain",
           "show-fullscreen-btn": false,
           "show-center-play-btn": true,
@@ -1001,14 +1020,13 @@ if (uni.restoreGlobal) {
           style: vue.normalizeStyle({ height: `${$data.videoHeight}px` }),
           onEnded: _cache[0] || (_cache[0] = (...args) => $options.handleEnded && $options.handleEnded(...args)),
           onPlay: _cache[1] || (_cache[1] = (...args) => $options.handlePlay && $options.handlePlay(...args))
-        }, null, 44, ["src"]),
-        $data.hasEnded ? (vue.openBlock(), vue.createElementBlock("view", {
+        }, null, 44, ["src", "autoplay"]),
+        $data.hasEnded ? (vue.openBlock(), vue.createElementBlock("cover-view", {
           key: 0,
           class: "replay-overlay"
         }, [
-          vue.createElementVNode("button", {
-            class: "btn btn-primary replay replay-center",
-            size: "mini",
+          vue.createElementVNode("cover-view", {
+            class: "replay-btn",
             onClick: _cache[2] || (_cache[2] = (...args) => $options.replay && $options.replay(...args))
           }, "重播")
         ])) : vue.createCommentVNode("v-if", true)

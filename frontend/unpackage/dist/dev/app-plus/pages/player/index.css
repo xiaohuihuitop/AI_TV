@@ -1,4 +1,3 @@
-
 .header[data-v-eb444998] {
   display: none;
 }
@@ -33,9 +32,17 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.35);
+  z-index: 2;
 }
-.replay-center[data-v-eb444998] {
+.replay-btn[data-v-eb444998] {
   min-width: 96px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(217, 108, 47, 0.95);
+  color: #ffffff;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-align: center;
 }
 .actions[data-v-eb444998] {
   margin-top: 16px;

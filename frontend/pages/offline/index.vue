@@ -172,7 +172,9 @@ export default {
       const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
       savePlayerQueue(storage, queue, safeIndex);
       const title = item.title ? encodeURIComponent(item.title) : "";
-      uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
+      uni.navigateTo({
+        url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}&autoplay=1`
+      });
     },
     /**
      * AI:跳转到图文阅读页。

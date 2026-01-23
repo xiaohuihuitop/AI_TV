@@ -13,6 +13,7 @@
         id="playerVideo"
         :src="source"
         :controls="true"
+        :autoplay="autoPlay"
         object-fit="contain"
         :show-fullscreen-btn="false"
         :show-center-play-btn="true"
@@ -21,11 +22,9 @@
         @ended="handleEnded"
         @play="handlePlay"
       ></video>
-      <view v-if="hasEnded" class="replay-overlay">
-        <button class="btn btn-primary replay replay-center" size="mini" @click="replay">
-          重播
-        </button>
-      </view>
+      <cover-view v-if="hasEnded" class="replay-overlay">
+        <cover-view class="replay-btn" @click="replay">重播</cover-view>
+      </cover-view>
     </view>
     <view class="actions">
       <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
@@ -61,6 +60,7 @@ export default {
       title: "",
       error: "",
       videoHeight: 220,
+      autoPlay: false,
       playlist: [],
       currentIndex: -1,
       hasEnded: false,
@@ -91,8 +91,10 @@ export default {
   onLoad(query) {
     const source = query && query.src ? decodeURIComponent(query.src) : "";
     const title = query && query.title ? decodeURIComponent(query.title) : "";
+    const autoPlay = query && query.autoplay === "1";
     this.source = source;
     this.title = title;
+    this.autoPlay = autoPlay;
     this.loadPlaylist();
     if (!this.source) {
       this.error = "缺少播放地址";
@@ -101,6 +103,7 @@ export default {
   },
   onReady() {
     this.videoContext = uni.createVideoContext("playerVideo", this);
+    this.playIfAuto();
   },
   methods: {
     /**
@@ -174,6 +177,7 @@ export default {
         this.currentIndex = index;
         updatePlayerIndex(createUniStorage(), index);
       }
+      this.playIfAuto();
     },
 
     /**
@@ -230,6 +234,22 @@ export default {
     },
 
     /**
+     * AI:自动播放启用时触发播放。
+     * @returns {void} AI:无返回值。
+     */
+    playIfAuto() {
+      if (!this.autoPlay || !this.source) {
+        return;
+      }
+      this.$nextTick(() => {
+        if (!this.videoContext) {
+          this.videoContext = uni.createVideoContext("playerVideo", this);
+        }
+        this.videoContext.play();
+      });
+    },
+
+    /**
      * AI:返回上一页。
      * @returns {void} AI:无返回值。
      */
@@ -281,9 +301,17 @@ export default {
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.35);
+  z-index: 2;
 }
 
-.replay-center {
+.replay-btn {
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(217, 108, 47, 0.95);
+  color: #ffffff;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-align: center;
   min-width: 96px;
 }
 
