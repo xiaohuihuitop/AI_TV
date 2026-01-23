@@ -125,38 +125,20 @@ if (uni.restoreGlobal) {
     normalized.status = status;
     return normalized;
   }
-  /**
-   * AI:读取播放器队列与当前索引。
-   * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:本地存储适配器。
-   * @returns {{list: Array, index: number}} AI:播放队列与索引。
-   */
   function loadPlayerQueue(storage) {
-    const list = parsePlayerQueueList(storage.get("player_queue"));
-    const index = parsePlayerQueueIndex(storage.get("player_queue_index"));
-    return { list, index };
+    const list = parseList(storage.get("player_queue"));
+    const index2 = parseIndex(storage.get("player_queue_index"));
+    return { list, index: index2 };
   }
-  /**
-   * AI:保存播放器队列与当前索引。
-   * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:本地存储适配器。
-   * @param {Array} list AI:播放队列。
-   * @param {number} index AI:当前索引。
-   * @returns {void} AI:无返回值。
-   */
-  function savePlayerQueue(storage, list, index) {
+  function savePlayerQueue(storage, list, index2) {
     const safeList = Array.isArray(list) ? list : [];
     storage.set("player_queue", JSON.stringify(safeList));
-    storage.set("player_queue_index", String(normalizePlayerQueueIndex(index)));
+    storage.set("player_queue_index", String(normalizeIndex(index2)));
   }
-  /**
-   * AI:更新播放器队列的当前索引。
-   * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:本地存储适配器。
-   * @param {number} index AI:当前索引。
-   * @returns {void} AI:无返回值。
-   */
-  function updatePlayerIndex(storage, index) {
-    storage.set("player_queue_index", String(normalizePlayerQueueIndex(index)));
+  function updatePlayerIndex(storage, index2) {
+    storage.set("player_queue_index", String(normalizeIndex(index2)));
   }
-  function parsePlayerQueueList(value) {
+  function parseList(value) {
     if (!value) {
       return [];
     }
@@ -167,12 +149,12 @@ if (uni.restoreGlobal) {
       return [];
     }
   }
-  function parsePlayerQueueIndex(value) {
-    const index = Number(value);
-    return Number.isFinite(index) ? index : -1;
+  function parseIndex(value) {
+    const index2 = Number(value);
+    return Number.isFinite(index2) ? index2 : -1;
   }
-  function normalizePlayerQueueIndex(index) {
-    const value = Number(index);
+  function normalizeIndex(index2) {
+    const value = Number(index2);
     return Number.isFinite(value) ? value : -1;
   }
   const _export_sfc = (sfc, props) => {
@@ -182,7 +164,7 @@ if (uni.restoreGlobal) {
     }
     return target;
   };
-  function createUniStorage$2() {
+  function createUniStorage$3() {
     return {
       get: (key) => uni.getStorageSync(key),
       set: (key, value) => uni.setStorageSync(key, value),
@@ -284,12 +266,12 @@ if (uni.restoreGlobal) {
        * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      handleItemClick(item, index) {
+      handleItemClick(item, index2) {
         if (item.type === "article") {
           this.openArticle(item);
           return;
         }
-        this.openVideo(item, index);
+        this.openVideo(item, index2);
       },
       /**
        * AI:跳转到视频播放页。
@@ -297,15 +279,15 @@ if (uni.restoreGlobal) {
        * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      openVideo(item, index) {
+      openVideo(item, index2) {
         const src = this.resolveItemSource(item);
         if (!src) {
           uni.showToast({ title: "缺少播放地址", icon: "none" });
           return;
         }
-        const storage = createUniStorage$2();
+        const storage = createUniStorage$3();
         const queue = Array.isArray(this.videoItems) ? this.videoItems.slice() : [];
-        const resolvedIndex = Number.isFinite(index) ? index : queue.findIndex((entry) => entry.id === item.id);
+        const resolvedIndex = Number.isFinite(index2) ? index2 : queue.findIndex((entry) => entry.id === item.id);
         const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
         savePlayerQueue(storage, queue, safeIndex);
         const title = item.title ? encodeURIComponent(item.title) : "";
@@ -338,7 +320,7 @@ if (uni.restoreGlobal) {
        * @returns {Promise<boolean>} AI:返回 Promise，用于结束加载状态。
        */
       fetchIndex() {
-        const storage = createUniStorage$2();
+        const storage = createUniStorage$3();
         const adapter = createStorageAdapter(storage);
         const indexUrl = storage.get(indexUrlKey$1);
         if (!indexUrl) {
@@ -401,7 +383,7 @@ if (uni.restoreGlobal) {
        * @returns {void} AI:无返回值。
        */
       addDownload(item) {
-        const storage = createUniStorage$2();
+        const storage = createUniStorage$3();
         const service = createOfflineService(storage, createUniDownloader());
         service.addDownload(item).then(() => {
           uni.showToast({ title: "已加入离线", icon: "success" });
@@ -472,7 +454,7 @@ if (uni.restoreGlobal) {
                 key: item.id,
                 class: "item item-card",
                 style: vue.normalizeStyle({ "--delay": `${index2 * 60}ms` }),
-                onClick: ($event) => $options.handleItemClick(item)
+                onClick: ($event) => $options.handleItemClick(item, index2)
               }, [
                 vue.createElementVNode("view", { class: "item-main" }, [
                   vue.createElementVNode(
@@ -502,7 +484,7 @@ if (uni.restoreGlobal) {
     ]);
   }
   const PagesLatestIndex = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-44f675e0"], ["__file", "D:/AI/AI_TV/frontend/pages/latest/index.vue"]]);
-  function createUniStorage$1() {
+  function createUniStorage$2() {
     return {
       get: (key) => uni.getStorageSync(key),
       set: (key, value) => uni.setStorageSync(key, value),
@@ -580,12 +562,12 @@ if (uni.restoreGlobal) {
        * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      handleItemClick(item, index) {
+      handleItemClick(item, index2) {
         if (item.type === "article") {
           this.openArticle(item);
           return;
         }
-        this.openVideo(item, index);
+        this.openVideo(item, index2);
       },
       /**
        * AI:跳转到视频播放页。
@@ -593,13 +575,13 @@ if (uni.restoreGlobal) {
        * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      openVideo(item, index) {
+      openVideo(item, index2) {
         const src = this.resolveItemSource(item);
         if (!src) {
           uni.showToast({ title: "尚未下载完成", icon: "none" });
           return;
         }
-        const storage = createUniStorage$1();
+        const storage = createUniStorage$2();
         const queue = Array.isArray(this.videoItems) ? this.videoItems.filter((entry) => entry.status === "done" && entry.local_path) : [];
         const resolvedIndex = queue.findIndex((entry) => entry.id === item.id);
         const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
@@ -634,7 +616,7 @@ if (uni.restoreGlobal) {
        * @returns {boolean} AI:是否存在下载中条目。
        */
       refreshDownloads() {
-        const storage = createUniStorage$1();
+        const storage = createUniStorage$2();
         const service = createOfflineService(storage, createEmptyDownloader());
         const list = service.listDownloads();
         this.videoItems = list.filter((item) => item.type === "video");
@@ -671,7 +653,7 @@ if (uni.restoreGlobal) {
        * @returns {void} AI:无返回值。
        */
       removeDownload(item) {
-        const storage = createUniStorage$1();
+        const storage = createUniStorage$2();
         const service = createOfflineService(storage, createEmptyDownloader());
         removeLocalFile(item.local_path).catch(() => null).then(() => service.removeDownload(item.id)).then(() => {
           const hasDownloading = this.refreshDownloads();
@@ -734,7 +716,7 @@ if (uni.restoreGlobal) {
                 key: item.id,
                 class: "item item-card",
                 style: vue.normalizeStyle({ "--delay": `${index2 * 60}ms` }),
-                onClick: ($event) => $options.handleItemClick(item)
+                onClick: ($event) => $options.handleItemClick(item, index2)
               }, [
                 vue.createElementVNode("view", { class: "item-main" }, [
                   vue.createElementVNode(
@@ -785,7 +767,7 @@ if (uni.restoreGlobal) {
     ]);
   }
   const PagesOfflineIndex = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["render", _sfc_render$5], ["__scopeId", "data-v-f97a8d65"], ["__file", "D:/AI/AI_TV/frontend/pages/offline/index.vue"]]);
-  function createUniStorage() {
+  function createUniStorage$1() {
     return {
       get: (key) => uni.getStorageSync(key),
       set: (key, value) => uni.setStorageSync(key, value),
@@ -801,7 +783,7 @@ if (uni.restoreGlobal) {
       };
     },
     onShow() {
-      const storage = createUniStorage();
+      const storage = createUniStorage$1();
       this.indexUrl = storage.get(indexUrlKey) || "";
     },
     methods: {
@@ -810,7 +792,7 @@ if (uni.restoreGlobal) {
        * @returns {void} AI:无返回值。
        */
       saveIndexUrl() {
-        const storage = createUniStorage();
+        const storage = createUniStorage$1();
         storage.set(indexUrlKey, String(this.indexUrl || "").trim());
         this.savedHint = "已保存";
         uni.showToast({ title: "已保存", icon: "success" });
@@ -856,6 +838,13 @@ if (uni.restoreGlobal) {
     ]);
   }
   const PagesSettingsIndex = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__scopeId", "data-v-a11b3e9a"], ["__file", "D:/AI/AI_TV/frontend/pages/settings/index.vue"]]);
+  function createUniStorage() {
+    return {
+      get: (key) => uni.getStorageSync(key),
+      set: (key, value) => uni.setStorageSync(key, value),
+      remove: (key) => uni.removeStorageSync(key)
+    };
+  }
   const _sfc_main$4 = {
     data() {
       return {
@@ -884,7 +873,7 @@ if (uni.restoreGlobal) {
       this.title = title;
       this.loadPlaylist();
       if (!this.source) {
-        this.error = "??????";
+        this.error = "缺少播放地址";
       }
       this.updateVideoSize();
     },
@@ -928,7 +917,7 @@ if (uni.restoreGlobal) {
       applyItem(item, index) {
         const src = this.resolveItemSource(item);
         if (!src) {
-          this.error = "??????";
+          this.error = "缺少播放地址";
           return;
         }
         this.source = src;
@@ -979,11 +968,11 @@ if (uni.restoreGlobal) {
         vue.createElementVNode(
           "text",
           { class: "title" },
-          vue.toDisplayString($data.title || "??"),
+          vue.toDisplayString($data.title || "播放"),
           1
           /* TEXT */
         ),
-        vue.createElementVNode("text", { class: "subtitle muted" }, "??????")
+        vue.createElementVNode("text", { class: "subtitle muted" }, "视频播放预览")
       ]),
       $data.error ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 0,
@@ -1012,32 +1001,36 @@ if (uni.restoreGlobal) {
           style: vue.normalizeStyle({ height: `${$data.videoHeight}px` }),
           onEnded: _cache[0] || (_cache[0] = (...args) => $options.handleEnded && $options.handleEnded(...args)),
           onPlay: _cache[1] || (_cache[1] = (...args) => $options.handlePlay && $options.handlePlay(...args))
-        }, null, 44, ["src"])
+        }, null, 44, ["src"]),
+        $data.hasEnded ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "replay-overlay"
+        }, [
+          vue.createElementVNode("button", {
+            class: "btn btn-primary replay replay-center",
+            size: "mini",
+            onClick: _cache[2] || (_cache[2] = (...args) => $options.replay && $options.replay(...args))
+          }, "重播")
+        ])) : vue.createCommentVNode("v-if", true)
       ])),
       vue.createElementVNode("view", { class: "actions" }, [
         vue.createElementVNode("button", {
           class: "btn btn-ghost back",
           size: "mini",
-          onClick: _cache[2] || (_cache[2] = (...args) => $options.goBack && $options.goBack(...args))
-        }, "??"),
+          onClick: _cache[3] || (_cache[3] = (...args) => $options.goBack && $options.goBack(...args))
+        }, "返回"),
         vue.createElementVNode("button", {
           class: "btn btn-ghost nav",
           size: "mini",
           disabled: !$options.hasPrev,
-          onClick: _cache[3] || (_cache[3] = (...args) => $options.playPrev && $options.playPrev(...args))
-        }, "???"),
+          onClick: _cache[4] || (_cache[4] = (...args) => $options.playPrev && $options.playPrev(...args))
+        }, "上一个"),
         vue.createElementVNode("button", {
           class: "btn btn-ghost nav",
           size: "mini",
           disabled: !$options.hasNext,
-          onClick: _cache[4] || (_cache[4] = (...args) => $options.playNext && $options.playNext(...args))
-        }, "???"),
-        $data.hasEnded ? (vue.openBlock(), vue.createElementBlock("button", {
-          key: 0,
-          class: "btn btn-primary replay",
-          size: "mini",
-          onClick: _cache[5] || (_cache[5] = (...args) => $options.replay && $options.replay(...args))
-        }, "??")) : vue.createCommentVNode("v-if", true)
+          onClick: _cache[5] || (_cache[5] = (...args) => $options.playNext && $options.playNext(...args))
+        }, "下一个")
       ])
     ]);
   }

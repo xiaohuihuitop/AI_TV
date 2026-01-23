@@ -1,3 +1,4 @@
+
 .header[data-v-eb444998] {
   display: none;
 }
@@ -17,12 +18,24 @@
 }
 .video-shell[data-v-eb444998] {
   margin-bottom: 16px;
+  position: relative;
   background: #000000;
 }
 .video-player[data-v-eb444998] {
   width: 100%;
   display: block;
   background: #000000;
+}
+.replay-overlay[data-v-eb444998] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.replay-center[data-v-eb444998] {
+  min-width: 96px;
 }
 .actions[data-v-eb444998] {
   margin-top: 16px;
@@ -38,10 +51,7 @@
 .nav[data-v-eb444998] {
   min-width: 88px;
 }
-.replay[data-v-eb444998] {
-  min-width: 96px;
-}
-.actions[data-v-eb444998] .btn[disabled] {
+.actions .btn[disabled][data-v-eb444998] {
   opacity: 0.45;
 }
 .error-card[data-v-eb444998] {

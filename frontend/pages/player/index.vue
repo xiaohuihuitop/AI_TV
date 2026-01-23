@@ -1,8 +1,8 @@
 <template>
   <view class="app-page player-page">
     <view class="header hero">
-      <text class="title">{{ title || "??" }}</text>
-      <text class="subtitle muted">??????</text>
+      <text class="title">{{ title || "播放" }}</text>
+      <text class="subtitle muted">视频播放预览</text>
     </view>
     <view v-if="error" class="error-card card">
       <text class="error-text">{{ error }}</text>
@@ -21,17 +21,19 @@
         @ended="handleEnded"
         @play="handlePlay"
       ></video>
+      <view v-if="hasEnded" class="replay-overlay">
+        <button class="btn btn-primary replay replay-center" size="mini" @click="replay">
+          重播
+        </button>
+      </view>
     </view>
     <view class="actions">
-      <button class="btn btn-ghost back" size="mini" @click="goBack">??</button>
+      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
       <button class="btn btn-ghost nav" size="mini" :disabled="!hasPrev" @click="playPrev">
-        ???
+        上一个
       </button>
       <button class="btn btn-ghost nav" size="mini" :disabled="!hasNext" @click="playNext">
-        ???
-      </button>
-      <button v-if="hasEnded" class="btn btn-primary replay" size="mini" @click="replay">
-        ??
+        下一个
       </button>
     </view>
   </view>
@@ -41,8 +43,8 @@
 import { loadPlayerQueue, updatePlayerIndex } from "../../utils/playerQueue.js";
 
 /**
- * AI:?? uniapp ????????
- * @returns {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} AI:????????
+ * AI:创建 uniapp 存储读写适配器。
+ * @returns {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} AI:存储读写适配器。
  */
 function createUniStorage() {
   return {
@@ -67,24 +69,24 @@ export default {
   },
   computed: {
     /**
-     * AI:????????????
-     * @returns {boolean} AI:?????????
+     * AI:判断是否存在上一个视频。
+     * @returns {boolean} AI:是否可切换上一条。
      */
     hasPrev() {
       return this.currentIndex > 0;
     },
     /**
-     * AI:????????????
-     * @returns {boolean} AI:?????????
+     * AI:判断是否存在下一个视频。
+     * @returns {boolean} AI:是否可切换下一条。
      */
     hasNext() {
       return this.currentIndex >= 0 && this.currentIndex < this.playlist.length - 1;
     }
   },
   /**
-   * AI:???????????????
-   * @param {{src?: string, title?: string}} query AI:?????
-   * @returns {void} AI:?????
+   * AI:读取页面参数，初始化播放信息。
+   * @param {{src?: string, title?: string}} query AI:路由参数。
+   * @returns {void} AI:无返回值。
    */
   onLoad(query) {
     const source = query && query.src ? decodeURIComponent(query.src) : "";
@@ -93,7 +95,7 @@ export default {
     this.title = title;
     this.loadPlaylist();
     if (!this.source) {
-      this.error = "??????";
+      this.error = "缺少播放地址";
     }
     this.updateVideoSize();
   },
@@ -102,8 +104,8 @@ export default {
   },
   methods: {
     /**
-     * AI:????????????????????????
-     * @returns {void} AI:?????
+     * AI:根据屏幕高度计算视频区域，并为底部按钮留出空间。
+     * @returns {void} AI:无返回值。
      */
     updateVideoSize() {
       const info = uni.getSystemInfoSync();
@@ -118,8 +120,8 @@ export default {
     },
 
     /**
-     * AI:??????????????????
-     * @returns {void} AI:?????
+     * AI:读取缓存的播放列表并同步当前播放项。
+     * @returns {void} AI:无返回值。
      */
     loadPlaylist() {
       const storage = createUniStorage();
@@ -141,9 +143,9 @@ export default {
     },
 
     /**
-     * AI:??????????????
-     * @param {Object} item AI:?????
-     * @returns {string} AI:??????
+     * AI:解析播放条目对应的视频地址。
+     * @param {Object} item AI:播放条目。
+     * @returns {string} AI:可播放地址。
      */
     resolveItemSource(item) {
       if (!item) {
@@ -153,15 +155,15 @@ export default {
     },
 
     /**
-     * AI:????????????
-     * @param {Object} item AI:?????
-     * @param {number} index AI:?????
-     * @returns {void} AI:?????
+     * AI:应用播放条目并刷新状态。
+     * @param {Object} item AI:播放条目。
+     * @param {number} index AI:条目索引。
+     * @returns {void} AI:无返回值。
      */
     applyItem(item, index) {
       const src = this.resolveItemSource(item);
       if (!src) {
-        this.error = "??????";
+        this.error = "缺少播放地址";
         return;
       }
       this.source = src;
@@ -175,8 +177,8 @@ export default {
     },
 
     /**
-     * AI:????????
-     * @returns {void} AI:?????
+     * AI:播放上一个视频。
+     * @returns {void} AI:无返回值。
      */
     playPrev() {
       if (!this.hasPrev) {
@@ -187,8 +189,8 @@ export default {
     },
 
     /**
-     * AI:????????
-     * @returns {void} AI:?????
+     * AI:播放下一个视频。
+     * @returns {void} AI:无返回值。
      */
     playNext() {
       if (!this.hasNext) {
@@ -199,24 +201,24 @@ export default {
     },
 
     /**
-     * AI:?????????
-     * @returns {void} AI:?????
+     * AI:处理播放结束事件。
+     * @returns {void} AI:无返回值。
      */
     handleEnded() {
       this.hasEnded = true;
     },
 
     /**
-     * AI:????????????????
-     * @returns {void} AI:?????
+     * AI:处理播放开始事件，重置结束状态。
+     * @returns {void} AI:无返回值。
      */
     handlePlay() {
       this.hasEnded = false;
     },
 
     /**
-     * AI:?????????
-     * @returns {void} AI:?????
+     * AI:从头重播当前视频。
+     * @returns {void} AI:无返回值。
      */
     replay() {
       if (!this.videoContext) {
@@ -228,8 +230,8 @@ export default {
     },
 
     /**
-     * AI:??????
-     * @returns {void} AI:?????
+     * AI:返回上一页。
+     * @returns {void} AI:无返回值。
      */
     goBack() {
       uni.navigateBack();
@@ -262,6 +264,7 @@ export default {
 
 .video-shell {
   margin-bottom: 16px;
+  position: relative;
   background: #000000;
 }
 
@@ -269,6 +272,19 @@ export default {
   width: 100%;
   display: block;
   background: #000000;
+}
+
+.replay-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.replay-center {
+  min-width: 96px;
 }
 
 .actions {
@@ -286,10 +302,6 @@ export default {
 
 .nav {
   min-width: 88px;
-}
-
-.replay {
-  min-width: 96px;
 }
 
 .actions .btn[disabled] {
