@@ -53,10 +53,19 @@ const checks = [
     pass: /:style=/.test(content) && /videoHeight/.test(content)
   },
   {
-    name: "模式切换按钮",
+    name: "切换上一/下一",
+    pass: /playPrev/.test(content) && /playNext/.test(content)
+  },
+  {
+    name: "重播入口",
+    pass: /replay/.test(content) && /hasEnded/.test(content)
+  },
+  {
+    name: "移除完整铺满切换",
     pass:
-      /setFit\(['"]contain['"]\)/.test(content) &&
-      /setFit\(['"]cover['"]\)/.test(content)
+      !/setFit\(['"]contain['"]\)/.test(content) &&
+      !/setFit\(['"]cover['"]\)/.test(content) &&
+      !/videoFit/.test(content)
   }
 ];
 
