@@ -1,5 +1,5 @@
 <template>
-  <view class="app-page">
+  <view class="app-page player-page">
     <view class="header hero">
       <text class="title">{{ title || "播放" }}</text>
       <text class="subtitle muted">视频播放预览</text>
@@ -7,13 +7,16 @@
     <view v-if="error" class="error-card card">
       <text class="error-text">{{ error }}</text>
     </view>
-    <view v-else class="video-shell card">
+    <view v-else class="video-shell">
       <video
         class="video-player"
         :src="source"
-        controls
-        object-fit="contain"
+        :controls="true"
+        :object-fit="videoFit"
         :show-fullscreen-btn="false"
+        :show-center-play-btn="true"
+        :show-play-btn="true"
+        :style="{ height: `${videoHeight}px` }"
       ></video>
     </view>
     <view class="actions">
@@ -28,7 +31,9 @@ export default {
     return {
       source: "",
       title: "",
-      error: ""
+      error: "",
+      videoHeight: 220,
+      videoFit: "contain"
     };
   },
   /**
@@ -44,30 +49,26 @@ export default {
     if (!source) {
       this.error = "缺少播放地址";
     }
-  },
-  /**
-   * AI:进入播放页时锁定为横屏展示，便于横向观看。
-   * @returns {void} AI:无返回值。
-   */
-  onShow() {
-    // #ifdef APP-PLUS
-    if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
-      plus.screen.lockOrientation("landscape-primary");
-    }
-    // #endif
-  },
-  /**
-   * AI:离开播放页后恢复竖屏，避免影响其他页面。
-   * @returns {void} AI:无返回值。
-   */
-  onUnload() {
-    // #ifdef APP-PLUS
-    if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
-      plus.screen.lockOrientation("portrait-primary");
-    }
-    // #endif
+    this.updateVideoSize();
   },
   methods: {
+    /**
+     * AI:根据屏幕高度尽量放大播放窗口，仅为底部按钮保留空间。
+     * @returns {void} AI:无返回值。
+     */
+    updateVideoSize() {
+      const info = uni.getSystemInfoSync();
+      const width = Number(info.windowWidth || info.screenWidth || 0);
+      const height = Number(info.windowHeight || info.screenHeight || 0);
+      const safeWidth = Number.isFinite(width) && width > 0 ? width : 360;
+      const safeHeight = Number.isFinite(height) && height > 0 ? height : 640;
+      const baseHeight = Math.round(safeWidth * 9 / 16);
+      const reservedHeight = 96;
+      const maxHeight = Math.max(220, safeHeight - reservedHeight);
+      const finalHeight = Math.max(baseHeight, maxHeight);
+      this.videoHeight = finalHeight;
+      this.videoFit = this.videoHeight > baseHeight ? "cover" : "contain";
+    },
 
     /**
      * AI:返回上一页。
@@ -82,11 +83,7 @@ export default {
 
 <style scoped>
 .header {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  animation: rise-fade 320ms ease-out both;
+  display: none;
 }
 
 .title {
@@ -102,24 +99,26 @@ export default {
   letter-spacing: 0.08em;
 }
 
+.player-page {
+  padding: 12px 0 24px;
+}
+
 .video-shell {
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.95);
+  margin-bottom: 16px;
+  background: #000000;
 }
 
 .video-player {
   width: 100%;
-  height: 70vh;
+  display: block;
   background: #000000;
-  border-radius: 12px;
-  box-shadow: 0 12px 24px rgba(31, 27, 22, 0.18);
-  object-fit: contain;
 }
 
 .actions {
   margin-top: 16px;
   display: flex;
   justify-content: flex-start;
+  padding: 0 16px;
 }
 
 .back {
@@ -127,7 +126,7 @@ export default {
 }
 
 .error-card {
-  margin-bottom: 16px;
+  margin: 0 16px 16px;
   background: rgba(255, 242, 233, 0.9);
   border: 1px solid rgba(217, 108, 47, 0.25);
 }

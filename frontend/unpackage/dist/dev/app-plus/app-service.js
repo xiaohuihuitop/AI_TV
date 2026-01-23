@@ -1,4 +1,4 @@
-if (typeof Promise !== "undefined" && !Promise.prototype.finally) {
+﻿if (typeof Promise !== "undefined" && !Promise.prototype.finally) {
   Promise.prototype.finally = function(callback) {
     const promise = this.constructor;
     return this.then(
@@ -797,7 +797,9 @@ if (uni.restoreGlobal) {
       return {
         source: "",
         title: "",
-        error: ""
+        error: "",
+        videoHeight: 220,
+        videoFit: "contain"
       };
     },
     /**
@@ -813,26 +815,26 @@ if (uni.restoreGlobal) {
       if (!source) {
         this.error = "缺少播放地址";
       }
-    },
-    /**
-     * AI:进入播放页时锁定为横屏展示，便于横向观看。
-     * @returns {void} AI:无返回值。
-     */
-    onShow() {
-      if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
-        plus.screen.lockOrientation("landscape-primary");
-      }
-    },
-    /**
-     * AI:离开播放页后恢复竖屏，避免影响其他页面。
-     * @returns {void} AI:无返回值。
-     */
-    onUnload() {
-      if (typeof plus !== "undefined" && plus.screen && plus.screen.lockOrientation) {
-        plus.screen.lockOrientation("portrait-primary");
-      }
+      this.updateVideoSize();
     },
     methods: {
+      /**
+       * AI:根据屏幕高度尽量放大播放窗口，仅为底部按钮保留空间。
+       * @returns {void} AI:无返回值。
+       */
+      updateVideoSize() {
+        const info = uni.getSystemInfoSync();
+        const width = Number(info.windowWidth || info.screenWidth || 0);
+        const height = Number(info.windowHeight || info.screenHeight || 0);
+        const safeWidth = Number.isFinite(width) && width > 0 ? width : 360;
+        const safeHeight = Number.isFinite(height) && height > 0 ? height : 640;
+        const baseHeight = Math.round(safeWidth * 9 / 16);
+        const reservedHeight = 96;
+        const maxHeight = Math.max(220, safeHeight - reservedHeight);
+        const finalHeight = Math.max(baseHeight, maxHeight);
+        this.videoHeight = finalHeight;
+        this.videoFit = this.videoHeight > baseHeight ? "cover" : "contain";
+      },
       /**
        * AI:返回上一页。
        * @returns {void} AI:无返回值。
@@ -843,7 +845,7 @@ if (uni.restoreGlobal) {
     }
   };
   function _sfc_render$3(_ctx, _cache, $props, $setup, $data, $options) {
-    return vue.openBlock(), vue.createElementBlock("view", { class: "app-page" }, [
+    return vue.openBlock(), vue.createElementBlock("view", { class: "app-page player-page" }, [
       vue.createElementVNode("view", { class: "header hero" }, [
         vue.createElementVNode(
           "text",
@@ -867,15 +869,18 @@ if (uni.restoreGlobal) {
         )
       ])) : (vue.openBlock(), vue.createElementBlock("view", {
         key: 1,
-        class: "video-shell card"
+        class: "video-shell"
       }, [
         vue.createElementVNode("video", {
           class: "video-player",
           src: $data.source,
-          controls: "",
-          "object-fit": "contain",
-          "show-fullscreen-btn": false
-        }, null, 8, ["src"])
+          controls: true,
+          "object-fit": $data.videoFit,
+          "show-fullscreen-btn": false,
+          "show-center-play-btn": true,
+          "show-play-btn": true,
+          style: vue.normalizeStyle({ height: `${$data.videoHeight}px` })
+        }, null, 12, ["src", "object-fit"])
       ])),
       vue.createElementVNode("view", { class: "actions" }, [
         vue.createElementVNode("button", {
@@ -3781,3 +3786,5 @@ if (uni.restoreGlobal) {
   };
   __app__.mount("#app");
 })(Vue);
+
+

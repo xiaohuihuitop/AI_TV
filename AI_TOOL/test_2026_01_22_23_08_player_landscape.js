@@ -18,23 +18,39 @@ const checks = [
   },
   {
     name: "横向显示适配",
-    pass: /<video[^>]*object-fit=["']contain["']/.test(content)
+    pass:
+      /<video[^>]*:object-fit=/.test(content) ||
+      /<video[^>]*object-fit=["'](contain|cover)["']/.test(content)
   },
   {
-    name: "锁定横屏方向",
-    pass: /lockOrientation\s*\(\s*["']landscape-primary["']\s*\)/.test(content)
+    name: "不锁定横屏",
+    pass:
+      !/setScreenOrientation\s*\(/.test(content) &&
+      !/lockOrientation\s*\(\s*["']landscape-primary["']\s*\)/.test(content)
   },
   {
-    name: "离开后恢复竖屏",
-    pass: /lockOrientation\s*\(\s*["']portrait-primary["']\s*\)/.test(content)
+    name: "不强制恢复竖屏",
+    pass:
+      !/setScreenOrientation\s*\(\s*\{\s*orientation\s*:\s*["']portrait["']\s*\}\s*\)/.test(
+        content
+      ) &&
+      !/lockOrientation\s*\(\s*["']portrait-primary["']\s*\)/.test(content)
   },
   {
     name: "未自动请求全屏",
     pass: !/requestFullScreen\s*\(/.test(content)
   },
   {
-    name: "播放窗口高度加大",
-    pass: /\.video-player\s*\{[^}]*height:\s*70vh;[^}]*\}/s.test(content)
+    name: "播放窗口使用像素高度",
+    pass: /videoHeight/.test(content) && /getSystemInfoSync/.test(content)
+  },
+  {
+    name: "播放按钮可见",
+    pass: /show-center-play-btn/.test(content) && /show-play-btn/.test(content)
+  },
+  {
+    name: "样式绑定高度",
+    pass: /:style=/.test(content) && /videoHeight/.test(content)
   }
 ];
 
