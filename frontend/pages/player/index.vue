@@ -1,8 +1,8 @@
 <template>
   <view class="app-page player-page">
     <view class="header hero">
-      <text class="title">{{ title || "播放" }}</text>
-      <text class="subtitle muted">视频播放预览</text>
+      <text class="title">{{ title || "??" }}</text>
+      <text class="subtitle muted">??????</text>
     </view>
     <view v-if="error" class="error-card card">
       <text class="error-text">{{ error }}</text>
@@ -10,38 +10,48 @@
     <view v-else class="video-shell">
       <video
         class="video-player"
+        id="playerVideo"
         :src="source"
         :controls="true"
-        :object-fit="videoFit"
+        object-fit="contain"
         :show-fullscreen-btn="false"
         :show-center-play-btn="true"
         :show-play-btn="true"
         :style="{ height: `${videoHeight}px` }"
+        @ended="handleEnded"
+        @play="handlePlay"
       ></video>
     </view>
     <view class="actions">
-      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
-      <button
-        class="btn mode"
-        :class="videoFit === 'contain' ? 'btn-primary' : 'btn-ghost'"
-        size="mini"
-        @click="setFit('contain')"
-      >
-        完整
+      <button class="btn btn-ghost back" size="mini" @click="goBack">??</button>
+      <button class="btn btn-ghost nav" size="mini" :disabled="!hasPrev" @click="playPrev">
+        ???
       </button>
-      <button
-        class="btn mode"
-        :class="videoFit === 'cover' ? 'btn-primary' : 'btn-ghost'"
-        size="mini"
-        @click="setFit('cover')"
-      >
-        铺满
+      <button class="btn btn-ghost nav" size="mini" :disabled="!hasNext" @click="playNext">
+        ???
+      </button>
+      <button v-if="hasEnded" class="btn btn-primary replay" size="mini" @click="replay">
+        ??
       </button>
     </view>
   </view>
 </template>
 
 <script>
+import { loadPlayerQueue, updatePlayerIndex } from "../../utils/playerQueue.js";
+
+/**
+ * AI:?? uniapp ????????
+ * @returns {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} AI:????????
+ */
+function createUniStorage() {
+  return {
+    get: (key) => uni.getStorageSync(key),
+    set: (key, value) => uni.setStorageSync(key, value),
+    remove: (key) => uni.removeStorageSync(key)
+  };
+}
+
 export default {
   data() {
     return {
@@ -49,28 +59,51 @@ export default {
       title: "",
       error: "",
       videoHeight: 220,
-      videoFit: "cover"
+      playlist: [],
+      currentIndex: -1,
+      hasEnded: false,
+      videoContext: null
     };
   },
+  computed: {
+    /**
+     * AI:????????????
+     * @returns {boolean} AI:?????????
+     */
+    hasPrev() {
+      return this.currentIndex > 0;
+    },
+    /**
+     * AI:????????????
+     * @returns {boolean} AI:?????????
+     */
+    hasNext() {
+      return this.currentIndex >= 0 && this.currentIndex < this.playlist.length - 1;
+    }
+  },
   /**
-   * AI:读取页面参数，初始化播放信息。
-   * @param {{src?: string, title?: string}} query AI:路由参数。
-   * @returns {void} AI:无返回值。
+   * AI:???????????????
+   * @param {{src?: string, title?: string}} query AI:?????
+   * @returns {void} AI:?????
    */
   onLoad(query) {
     const source = query && query.src ? decodeURIComponent(query.src) : "";
     const title = query && query.title ? decodeURIComponent(query.title) : "";
     this.source = source;
     this.title = title;
-    if (!source) {
-      this.error = "缺少播放地址";
+    this.loadPlaylist();
+    if (!this.source) {
+      this.error = "??????";
     }
     this.updateVideoSize();
   },
+  onReady() {
+    this.videoContext = uni.createVideoContext("playerVideo", this);
+  },
   methods: {
     /**
-     * AI:根据显示模式计算视频高度，并为底部按钮留出空间。
-     * @returns {void} AI:无返回值。
+     * AI:????????????????????????
+     * @returns {void} AI:?????
      */
     updateVideoSize() {
       const info = uni.getSystemInfoSync();
@@ -78,32 +111,125 @@ export default {
       const height = Number(info.windowHeight || info.screenHeight || 0);
       const safeWidth = Number.isFinite(width) && width > 0 ? width : 360;
       const safeHeight = Number.isFinite(height) && height > 0 ? height : 640;
-      const baseHeight = Math.round(safeWidth * 9 / 16);
+      const baseHeight = Math.round((safeWidth * 9) / 16);
       const reservedHeight = 96;
       const maxHeight = Math.max(220, safeHeight - reservedHeight);
-      if (this.videoFit === "contain") {
-        this.videoHeight = Math.min(maxHeight, baseHeight);
-        return;
-      }
       this.videoHeight = Math.max(baseHeight, maxHeight);
     },
 
     /**
-     * AI:切换显示模式并刷新布局。
-     * @param {"contain"|"cover"} mode AI:显示模式。
-     * @returns {void} AI:无返回值。
+     * AI:??????????????????
+     * @returns {void} AI:?????
      */
-    setFit(mode) {
-      if (this.videoFit === mode) {
+    loadPlaylist() {
+      const storage = createUniStorage();
+      const { list, index } = loadPlayerQueue(storage);
+      if (!Array.isArray(list) || list.length === 0) {
         return;
       }
-      this.videoFit = mode;
-      this.updateVideoSize();
+      this.playlist = list;
+      if (index >= 0 && index < list.length) {
+        this.applyItem(list[index], index);
+        return;
+      }
+      const matchedIndex = list.findIndex(
+        (item) => this.resolveItemSource(item) === this.source
+      );
+      if (matchedIndex >= 0) {
+        this.applyItem(list[matchedIndex], matchedIndex);
+      }
     },
 
     /**
-     * AI:返回上一页。
-     * @returns {void} AI:无返回值。
+     * AI:??????????????
+     * @param {Object} item AI:?????
+     * @returns {string} AI:??????
+     */
+    resolveItemSource(item) {
+      if (!item) {
+        return "";
+      }
+      return item.local_path || item.url || "";
+    },
+
+    /**
+     * AI:????????????
+     * @param {Object} item AI:?????
+     * @param {number} index AI:?????
+     * @returns {void} AI:?????
+     */
+    applyItem(item, index) {
+      const src = this.resolveItemSource(item);
+      if (!src) {
+        this.error = "??????";
+        return;
+      }
+      this.source = src;
+      this.title = item && item.title ? item.title : "";
+      this.error = "";
+      this.hasEnded = false;
+      if (typeof index === "number") {
+        this.currentIndex = index;
+        updatePlayerIndex(createUniStorage(), index);
+      }
+    },
+
+    /**
+     * AI:????????
+     * @returns {void} AI:?????
+     */
+    playPrev() {
+      if (!this.hasPrev) {
+        return;
+      }
+      const targetIndex = this.currentIndex - 1;
+      this.applyItem(this.playlist[targetIndex], targetIndex);
+    },
+
+    /**
+     * AI:????????
+     * @returns {void} AI:?????
+     */
+    playNext() {
+      if (!this.hasNext) {
+        return;
+      }
+      const targetIndex = this.currentIndex + 1;
+      this.applyItem(this.playlist[targetIndex], targetIndex);
+    },
+
+    /**
+     * AI:?????????
+     * @returns {void} AI:?????
+     */
+    handleEnded() {
+      this.hasEnded = true;
+    },
+
+    /**
+     * AI:????????????????
+     * @returns {void} AI:?????
+     */
+    handlePlay() {
+      this.hasEnded = false;
+    },
+
+    /**
+     * AI:?????????
+     * @returns {void} AI:?????
+     */
+    replay() {
+      if (!this.videoContext) {
+        this.videoContext = uni.createVideoContext("playerVideo", this);
+      }
+      this.videoContext.seek(0);
+      this.videoContext.play();
+      this.hasEnded = false;
+    },
+
+    /**
+     * AI:??????
+     * @returns {void} AI:?????
      */
     goBack() {
       uni.navigateBack();
@@ -158,8 +284,16 @@ export default {
   min-width: 96px;
 }
 
-.mode {
-  min-width: 80px;
+.nav {
+  min-width: 88px;
+}
+
+.replay {
+  min-width: 96px;
+}
+
+.actions .btn[disabled] {
+  opacity: 0.45;
 }
 
 .error-card {
