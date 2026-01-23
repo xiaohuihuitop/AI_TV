@@ -51,6 +51,12 @@ const checks = [
   {
     name: "样式绑定高度",
     pass: /:style=/.test(content) && /videoHeight/.test(content)
+  },
+  {
+    name: "模式切换按钮",
+    pass:
+      /setFit\(['"]contain['"]\)/.test(content) &&
+      /setFit\(['"]cover['"]\)/.test(content)
   }
 ];
 

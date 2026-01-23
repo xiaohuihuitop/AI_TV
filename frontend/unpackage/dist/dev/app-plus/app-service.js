@@ -1,4 +1,4 @@
-﻿if (typeof Promise !== "undefined" && !Promise.prototype.finally) {
+if (typeof Promise !== "undefined" && !Promise.prototype.finally) {
   Promise.prototype.finally = function(callback) {
     const promise = this.constructor;
     return this.then(
@@ -799,7 +799,7 @@ if (uni.restoreGlobal) {
         title: "",
         error: "",
         videoHeight: 220,
-        videoFit: "contain"
+        videoFit: "cover"
       };
     },
     /**
@@ -819,7 +819,7 @@ if (uni.restoreGlobal) {
     },
     methods: {
       /**
-       * AI:根据屏幕高度尽量放大播放窗口，仅为底部按钮保留空间。
+       * AI:根据显示模式计算视频高度，并为底部按钮留出空间。
        * @returns {void} AI:无返回值。
        */
       updateVideoSize() {
@@ -831,9 +831,23 @@ if (uni.restoreGlobal) {
         const baseHeight = Math.round(safeWidth * 9 / 16);
         const reservedHeight = 96;
         const maxHeight = Math.max(220, safeHeight - reservedHeight);
-        const finalHeight = Math.max(baseHeight, maxHeight);
-        this.videoHeight = finalHeight;
-        this.videoFit = this.videoHeight > baseHeight ? "cover" : "contain";
+        if (this.videoFit === "contain") {
+          this.videoHeight = Math.min(maxHeight, baseHeight);
+          return;
+        }
+        this.videoHeight = Math.max(baseHeight, maxHeight);
+      },
+      /**
+       * AI:切换显示模式并刷新布局。
+       * @param {"contain"|"cover"} mode AI:显示模式。
+       * @returns {void} AI:无返回值。
+       */
+      setFit(mode) {
+        if (this.videoFit === mode) {
+          return;
+        }
+        this.videoFit = mode;
+        this.updateVideoSize();
       },
       /**
        * AI:返回上一页。
@@ -887,7 +901,29 @@ if (uni.restoreGlobal) {
           class: "btn btn-ghost back",
           size: "mini",
           onClick: _cache[0] || (_cache[0] = (...args) => $options.goBack && $options.goBack(...args))
-        }, "返回")
+        }, "返回"),
+        vue.createElementVNode(
+          "button",
+          {
+            class: vue.normalizeClass(["btn mode", $data.videoFit === "contain" ? "btn-primary" : "btn-ghost"]),
+            size: "mini",
+            onClick: _cache[1] || (_cache[1] = ($event) => $options.setFit("contain"))
+          },
+          " 完整 ",
+          2
+          /* CLASS */
+        ),
+        vue.createElementVNode(
+          "button",
+          {
+            class: vue.normalizeClass(["btn mode", $data.videoFit === "cover" ? "btn-primary" : "btn-ghost"]),
+            size: "mini",
+            onClick: _cache[2] || (_cache[2] = ($event) => $options.setFit("cover"))
+          },
+          " 铺满 ",
+          2
+          /* CLASS */
+        )
       ])
     ]);
   }
@@ -3786,5 +3822,3 @@ if (uni.restoreGlobal) {
   };
   __app__.mount("#app");
 })(Vue);
-
-

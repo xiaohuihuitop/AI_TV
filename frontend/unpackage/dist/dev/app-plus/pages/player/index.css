@@ -29,10 +29,15 @@
   margin-top: 16px;
   display: flex;
   justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 0 16px;
 }
 .back[data-v-eb444998] {
   min-width: 96px;
+}
+.mode[data-v-eb444998] {
+  min-width: 80px;
 }
 .error-card[data-v-eb444998] {
   margin: 0 16px 16px;

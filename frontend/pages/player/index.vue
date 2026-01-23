@@ -21,6 +21,22 @@
     </view>
     <view class="actions">
       <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
+      <button
+        class="btn mode"
+        :class="videoFit === 'contain' ? 'btn-primary' : 'btn-ghost'"
+        size="mini"
+        @click="setFit('contain')"
+      >
+        完整
+      </button>
+      <button
+        class="btn mode"
+        :class="videoFit === 'cover' ? 'btn-primary' : 'btn-ghost'"
+        size="mini"
+        @click="setFit('cover')"
+      >
+        铺满
+      </button>
     </view>
   </view>
 </template>
@@ -33,7 +49,7 @@ export default {
       title: "",
       error: "",
       videoHeight: 220,
-      videoFit: "contain"
+      videoFit: "cover"
     };
   },
   /**
@@ -53,7 +69,7 @@ export default {
   },
   methods: {
     /**
-     * AI:根据屏幕高度尽量放大播放窗口，仅为底部按钮保留空间。
+     * AI:根据显示模式计算视频高度，并为底部按钮留出空间。
      * @returns {void} AI:无返回值。
      */
     updateVideoSize() {
@@ -65,9 +81,24 @@ export default {
       const baseHeight = Math.round(safeWidth * 9 / 16);
       const reservedHeight = 96;
       const maxHeight = Math.max(220, safeHeight - reservedHeight);
-      const finalHeight = Math.max(baseHeight, maxHeight);
-      this.videoHeight = finalHeight;
-      this.videoFit = this.videoHeight > baseHeight ? "cover" : "contain";
+      if (this.videoFit === "contain") {
+        this.videoHeight = Math.min(maxHeight, baseHeight);
+        return;
+      }
+      this.videoHeight = Math.max(baseHeight, maxHeight);
+    },
+
+    /**
+     * AI:切换显示模式并刷新布局。
+     * @param {"contain"|"cover"} mode AI:显示模式。
+     * @returns {void} AI:无返回值。
+     */
+    setFit(mode) {
+      if (this.videoFit === mode) {
+        return;
+      }
+      this.videoFit = mode;
+      this.updateVideoSize();
     },
 
     /**
@@ -118,11 +149,17 @@ export default {
   margin-top: 16px;
   display: flex;
   justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 0 16px;
 }
 
 .back {
   min-width: 96px;
+}
+
+.mode {
+  min-width: 80px;
 }
 
 .error-card {
