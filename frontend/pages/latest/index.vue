@@ -32,7 +32,7 @@
           :key="item.id"
           class="item item-card"
           :style="{ '--delay': `${index * 60}ms` }"
-          @click="handleItemClick(item)"
+        @click="handleItemClick(item, index)"
         >
           <view class="item-main">
             <text class="item-title">{{ item.title }}</text>
@@ -50,6 +50,7 @@
 <script>
 import { normalizeIndexItems, createStorageAdapter } from "../../utils/indexService.js";
 import { createOfflineService } from "../../utils/offlineService.js";
+import { savePlayerQueue } from "../../utils/playerQueue.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -162,26 +163,35 @@ export default {
     /**
      * AI:处理条目点击事件，按类型跳转。
      * @param {Object} item AI:条目信息。
+     * @param {number} index AI:条目索引。
      * @returns {void} AI:无返回值。
      */
-    handleItemClick(item) {
+    handleItemClick(item, index) {
       if (item.type === "article") {
         this.openArticle(item);
         return;
       }
-      this.openVideo(item);
+      this.openVideo(item, index);
     },
     /**
      * AI:跳转到视频播放页。
      * @param {Object} item AI:视频条目。
+     * @param {number} index AI:条目索引。
      * @returns {void} AI:无返回值。
      */
-    openVideo(item) {
+    openVideo(item, index) {
       const src = this.resolveItemSource(item);
       if (!src) {
         uni.showToast({ title: "缺少播放地址", icon: "none" });
         return;
       }
+      const storage = createUniStorage();
+      const queue = Array.isArray(this.videoItems) ? this.videoItems.slice() : [];
+      const resolvedIndex = Number.isFinite(index)
+        ? index
+        : queue.findIndex((entry) => entry.id === item.id);
+      const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+      savePlayerQueue(storage, queue, safeIndex);
       const title = item.title ? encodeURIComponent(item.title) : "";
       uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
     },
