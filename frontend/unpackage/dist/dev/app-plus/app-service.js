@@ -125,6 +125,56 @@ if (uni.restoreGlobal) {
     normalized.status = status;
     return normalized;
   }
+  /**
+   * AI:读取播放器队列与当前索引。
+   * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:本地存储适配器。
+   * @returns {{list: Array, index: number}} AI:播放队列与索引。
+   */
+  function loadPlayerQueue(storage) {
+    const list = parsePlayerQueueList(storage.get("player_queue"));
+    const index = parsePlayerQueueIndex(storage.get("player_queue_index"));
+    return { list, index };
+  }
+  /**
+   * AI:保存播放器队列与当前索引。
+   * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:本地存储适配器。
+   * @param {Array} list AI:播放队列。
+   * @param {number} index AI:当前索引。
+   * @returns {void} AI:无返回值。
+   */
+  function savePlayerQueue(storage, list, index) {
+    const safeList = Array.isArray(list) ? list : [];
+    storage.set("player_queue", JSON.stringify(safeList));
+    storage.set("player_queue_index", String(normalizePlayerQueueIndex(index)));
+  }
+  /**
+   * AI:更新播放器队列的当前索引。
+   * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:本地存储适配器。
+   * @param {number} index AI:当前索引。
+   * @returns {void} AI:无返回值。
+   */
+  function updatePlayerIndex(storage, index) {
+    storage.set("player_queue_index", String(normalizePlayerQueueIndex(index)));
+  }
+  function parsePlayerQueueList(value) {
+    if (!value) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+  function parsePlayerQueueIndex(value) {
+    const index = Number(value);
+    return Number.isFinite(index) ? index : -1;
+  }
+  function normalizePlayerQueueIndex(index) {
+    const value = Number(index);
+    return Number.isFinite(value) ? value : -1;
+  }
   const _export_sfc = (sfc, props) => {
     const target = sfc.__vccOpts || sfc;
     for (const [key, val] of props) {
@@ -231,26 +281,33 @@ if (uni.restoreGlobal) {
       /**
        * AI:处理条目点击事件，按类型跳转。
        * @param {Object} item AI:条目信息。
+       * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      handleItemClick(item) {
+      handleItemClick(item, index) {
         if (item.type === "article") {
           this.openArticle(item);
           return;
         }
-        this.openVideo(item);
+        this.openVideo(item, index);
       },
       /**
        * AI:跳转到视频播放页。
        * @param {Object} item AI:视频条目。
+       * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      openVideo(item) {
+      openVideo(item, index) {
         const src = this.resolveItemSource(item);
         if (!src) {
           uni.showToast({ title: "缺少播放地址", icon: "none" });
           return;
         }
+        const storage = createUniStorage$2();
+        const queue = Array.isArray(this.videoItems) ? this.videoItems.slice() : [];
+        const resolvedIndex = Number.isFinite(index) ? index : queue.findIndex((entry) => entry.id === item.id);
+        const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+        savePlayerQueue(storage, queue, safeIndex);
         const title = item.title ? encodeURIComponent(item.title) : "";
         uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
       },
@@ -520,26 +577,33 @@ if (uni.restoreGlobal) {
       /**
        * AI:处理条目点击事件，按类型跳转。
        * @param {Object} item AI:条目信息。
+       * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      handleItemClick(item) {
+      handleItemClick(item, index) {
         if (item.type === "article") {
           this.openArticle(item);
           return;
         }
-        this.openVideo(item);
+        this.openVideo(item, index);
       },
       /**
        * AI:跳转到视频播放页。
        * @param {Object} item AI:视频条目。
+       * @param {number} index AI:条目索引。
        * @returns {void} AI:无返回值。
        */
-      openVideo(item) {
+      openVideo(item, index) {
         const src = this.resolveItemSource(item);
         if (!src) {
           uni.showToast({ title: "尚未下载完成", icon: "none" });
           return;
         }
+        const storage = createUniStorage$1();
+        const queue = Array.isArray(this.videoItems) ? this.videoItems.filter((entry) => entry.status === "done" && entry.local_path) : [];
+        const resolvedIndex = queue.findIndex((entry) => entry.id === item.id);
+        const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+        savePlayerQueue(storage, queue, safeIndex);
         const title = item.title ? encodeURIComponent(item.title) : "";
         uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
       },
@@ -799,28 +863,51 @@ if (uni.restoreGlobal) {
         title: "",
         error: "",
         videoHeight: 220,
-        videoFit: "cover"
+        playlist: [],
+        currentIndex: -1,
+        hasEnded: false,
+        videoContext: null
       };
     },
+    computed: {
+      /**
+       * AI:????????????
+       * @returns {boolean} AI:?????????
+       */
+      hasPrev() {
+        return this.currentIndex > 0;
+      },
+      /**
+       * AI:????????????
+       * @returns {boolean} AI:?????????
+       */
+      hasNext() {
+        return this.currentIndex >= 0 && this.currentIndex < this.playlist.length - 1;
+      }
+    },
     /**
-     * AI:读取页面参数，初始化播放信息。
-     * @param {{src?: string, title?: string}} query AI:路由参数。
-     * @returns {void} AI:无返回值。
+     * AI:???????????????
+     * @param {{src?: string, title?: string}} query AI:?????
+     * @returns {void} AI:?????
      */
     onLoad(query) {
       const source = query && query.src ? decodeURIComponent(query.src) : "";
       const title = query && query.title ? decodeURIComponent(query.title) : "";
       this.source = source;
       this.title = title;
-      if (!source) {
-        this.error = "缺少播放地址";
+      this.loadPlaylist();
+      if (!this.source) {
+        this.error = "??????";
       }
       this.updateVideoSize();
     },
+    onReady() {
+      this.videoContext = uni.createVideoContext("playerVideo", this);
+    },
     methods: {
       /**
-       * AI:根据显示模式计算视频高度，并为底部按钮留出空间。
-       * @returns {void} AI:无返回值。
+       * AI:????????????????????????
+       * @returns {void} AI:?????
        */
       updateVideoSize() {
         const info = uni.getSystemInfoSync();
@@ -831,27 +918,111 @@ if (uni.restoreGlobal) {
         const baseHeight = Math.round(safeWidth * 9 / 16);
         const reservedHeight = 96;
         const maxHeight = Math.max(220, safeHeight - reservedHeight);
-        if (this.videoFit === "contain") {
-          this.videoHeight = Math.min(maxHeight, baseHeight);
-          return;
-        }
         this.videoHeight = Math.max(baseHeight, maxHeight);
       },
       /**
-       * AI:切换显示模式并刷新布局。
-       * @param {"contain"|"cover"} mode AI:显示模式。
-       * @returns {void} AI:无返回值。
+       * AI:??????????????????
+       * @returns {void} AI:?????
        */
-      setFit(mode) {
-        if (this.videoFit === mode) {
+      loadPlaylist() {
+        const storage = createUniStorage();
+        const { list, index } = loadPlayerQueue(storage);
+        if (!Array.isArray(list) || list.length === 0) {
           return;
         }
-        this.videoFit = mode;
-        this.updateVideoSize();
+        this.playlist = list;
+        if (index >= 0 && index < list.length) {
+          this.applyItem(list[index], index);
+          return;
+        }
+        const matchedIndex = list.findIndex((item) => this.resolveItemSource(item) === this.source);
+        if (matchedIndex >= 0) {
+          this.applyItem(list[matchedIndex], matchedIndex);
+        }
       },
       /**
-       * AI:返回上一页。
-       * @returns {void} AI:无返回值。
+       * AI:??????????????
+       * @param {Object} item AI:?????
+       * @returns {string} AI:??????
+       */
+      resolveItemSource(item) {
+        if (!item) {
+          return "";
+        }
+        return item.local_path || item.url || "";
+      },
+      /**
+       * AI:????????????
+       * @param {Object} item AI:?????
+       * @param {number} index AI:?????
+       * @returns {void} AI:?????
+       */
+      applyItem(item, index) {
+        const src = this.resolveItemSource(item);
+        if (!src) {
+          this.error = "??????";
+          return;
+        }
+        this.source = src;
+        this.title = item && item.title ? item.title : "";
+        this.error = "";
+        this.hasEnded = false;
+        if (typeof index === "number") {
+          this.currentIndex = index;
+          updatePlayerIndex(createUniStorage(), index);
+        }
+      },
+      /**
+       * AI:????????
+       * @returns {void} AI:?????
+       */
+      playPrev() {
+        if (!this.hasPrev) {
+          return;
+        }
+        const targetIndex = this.currentIndex - 1;
+        this.applyItem(this.playlist[targetIndex], targetIndex);
+      },
+      /**
+       * AI:????????
+       * @returns {void} AI:?????
+       */
+      playNext() {
+        if (!this.hasNext) {
+          return;
+        }
+        const targetIndex = this.currentIndex + 1;
+        this.applyItem(this.playlist[targetIndex], targetIndex);
+      },
+      /**
+       * AI:?????????
+       * @returns {void} AI:?????
+       */
+      handleEnded() {
+        this.hasEnded = true;
+      },
+      /**
+       * AI:????????????????
+       * @returns {void} AI:?????
+       */
+      handlePlay() {
+        this.hasEnded = false;
+      },
+      /**
+       * AI:?????????
+       * @returns {void} AI:?????
+       */
+      replay() {
+        if (!this.videoContext) {
+          this.videoContext = uni.createVideoContext("playerVideo", this);
+        }
+        this.videoContext.seek(0);
+        this.videoContext.play();
+        this.hasEnded = false;
+      },
+      /**
+       * AI:??????
+       * @returns {void} AI:?????
        */
       goBack() {
         uni.navigateBack();
@@ -864,11 +1035,11 @@ if (uni.restoreGlobal) {
         vue.createElementVNode(
           "text",
           { class: "title" },
-          vue.toDisplayString($data.title || "播放"),
+          vue.toDisplayString($data.title || "??"),
           1
           /* TEXT */
         ),
-        vue.createElementVNode("text", { class: "subtitle muted" }, "视频播放预览")
+        vue.createElementVNode("text", { class: "subtitle muted" }, "??????")
       ]),
       $data.error ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 0,
@@ -887,43 +1058,42 @@ if (uni.restoreGlobal) {
       }, [
         vue.createElementVNode("video", {
           class: "video-player",
+          id: "playerVideo",
           src: $data.source,
           controls: true,
-          "object-fit": $data.videoFit,
+          "object-fit": "contain",
           "show-fullscreen-btn": false,
           "show-center-play-btn": true,
           "show-play-btn": true,
-          style: vue.normalizeStyle({ height: `${$data.videoHeight}px` })
-        }, null, 12, ["src", "object-fit"])
+          style: vue.normalizeStyle({ height: `${$data.videoHeight}px` }),
+          onEnded: _cache[0] || (_cache[0] = (...args) => $options.handleEnded && $options.handleEnded(...args)),
+          onPlay: _cache[1] || (_cache[1] = (...args) => $options.handlePlay && $options.handlePlay(...args))
+        }, null, 44, ["src"])
       ])),
       vue.createElementVNode("view", { class: "actions" }, [
         vue.createElementVNode("button", {
           class: "btn btn-ghost back",
           size: "mini",
-          onClick: _cache[0] || (_cache[0] = (...args) => $options.goBack && $options.goBack(...args))
-        }, "返回"),
-        vue.createElementVNode(
-          "button",
-          {
-            class: vue.normalizeClass(["btn mode", $data.videoFit === "contain" ? "btn-primary" : "btn-ghost"]),
-            size: "mini",
-            onClick: _cache[1] || (_cache[1] = ($event) => $options.setFit("contain"))
-          },
-          " 完整 ",
-          2
-          /* CLASS */
-        ),
-        vue.createElementVNode(
-          "button",
-          {
-            class: vue.normalizeClass(["btn mode", $data.videoFit === "cover" ? "btn-primary" : "btn-ghost"]),
-            size: "mini",
-            onClick: _cache[2] || (_cache[2] = ($event) => $options.setFit("cover"))
-          },
-          " 铺满 ",
-          2
-          /* CLASS */
-        )
+          onClick: _cache[2] || (_cache[2] = (...args) => $options.goBack && $options.goBack(...args))
+        }, "??"),
+        vue.createElementVNode("button", {
+          class: "btn btn-ghost nav",
+          size: "mini",
+          disabled: !$options.hasPrev,
+          onClick: _cache[3] || (_cache[3] = (...args) => $options.playPrev && $options.playPrev(...args))
+        }, "???"),
+        vue.createElementVNode("button", {
+          class: "btn btn-ghost nav",
+          size: "mini",
+          disabled: !$options.hasNext,
+          onClick: _cache[4] || (_cache[4] = (...args) => $options.playNext && $options.playNext(...args))
+        }, "???"),
+        $data.hasEnded ? (vue.openBlock(), vue.createElementBlock("button", {
+          key: 0,
+          class: "btn btn-primary replay",
+          size: "mini",
+          onClick: _cache[5] || (_cache[5] = (...args) => $options.replay && $options.replay(...args))
+        }, "??")) : vue.createCommentVNode("v-if", true)
       ])
     ]);
   }
