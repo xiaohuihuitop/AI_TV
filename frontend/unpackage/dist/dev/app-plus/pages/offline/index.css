@@ -75,6 +75,21 @@
   line-height: 1.4;
   color: var(--color-text);
 }
+.item-cover[data-v-f97a8d65] {
+  width: 96px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(217, 108, 47, 0.18), rgba(31, 27, 22, 0.08));
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+.item-cover-image[data-v-f97a8d65] {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 .item-card[data-v-f97a8d65] {
   margin-top: 12px;
   padding: 14px 14px;

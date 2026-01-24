@@ -34,6 +34,9 @@
           :style="{ '--delay': `${index * 60}ms` }"
         @click="handleItemClick(item, index)"
         >
+          <view class="item-cover">
+            <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
+          </view>
           <view class="item-main">
             <text class="item-title">{{ item.title }}</text>
           </view>
@@ -379,12 +382,32 @@ export default {
 
 .item-main {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .item-title {
   font-size: 14px;
   line-height: 1.4;
   color: var(--color-text);
+}
+
+.item-cover {
+  width: 96px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(217, 108, 47, 0.18), rgba(31, 27, 22, 0.08));
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.item-cover-image {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .item-card {

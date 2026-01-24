@@ -33,8 +33,37 @@ if (uni.restoreGlobal) {
   "use strict";
   function normalizeIndexItems(raw) {
     const items = Array.isArray(raw && raw.items) ? raw.items.slice() : [];
-    items.sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")));
-    return { items };
+    const normalized = items.map((item) => ({
+      ...item,
+      cover: resolveCoverUrl(item)
+    }));
+    normalized.sort(
+      (a, b) => String(b.published_at || "").localeCompare(String(a.published_at || ""))
+    );
+    return { items: normalized };
+  }
+  function resolveCoverUrl(item) {
+    if (!item) {
+      return "";
+    }
+    const cover = typeof item.cover === "string" ? item.cover.trim() : typeof item.cover_url === "string" ? item.cover_url.trim() : "";
+    if (cover) {
+      return cover;
+    }
+    const url = typeof item.url === "string" ? item.url.trim() : "";
+    return deriveCoverUrl(url);
+  }
+  function deriveCoverUrl(url) {
+    if (!url) {
+      return "";
+    }
+    const cleaned = url.split("#")[0].split("?")[0];
+    const lastSlash = cleaned.lastIndexOf("/");
+    const lastDot = cleaned.lastIndexOf(".");
+    if (lastDot <= lastSlash) {
+      return "";
+    }
+    return `${cleaned.slice(0, lastDot)}.jpg`;
   }
   function createStorageAdapter(storage) {
     return {
@@ -456,6 +485,14 @@ if (uni.restoreGlobal) {
                 style: vue.normalizeStyle({ "--delay": `${index2 * 60}ms` }),
                 onClick: ($event) => $options.handleItemClick(item, index2)
               }, [
+                vue.createElementVNode("view", { class: "item-cover" }, [
+                  item.cover ? (vue.openBlock(), vue.createElementBlock("image", {
+                    key: 0,
+                    class: "item-cover-image",
+                    src: item.cover,
+                    mode: "aspectFill"
+                  }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
+                ]),
                 vue.createElementVNode("view", { class: "item-main" }, [
                   vue.createElementVNode(
                     "text",
@@ -620,7 +657,10 @@ if (uni.restoreGlobal) {
       refreshDownloads() {
         const storage = createUniStorage$2();
         const service = createOfflineService(storage, createEmptyDownloader());
-        const list = service.listDownloads();
+        const list = service.listDownloads().map((item) => ({
+          ...item,
+          cover: resolveCoverUrl(item)
+        }));
         this.videoItems = list.filter((item) => item.type === "video");
         this.articleItems = list.filter((item) => item.type === "article");
         return list.some((item) => item.status !== "done");
@@ -720,6 +760,14 @@ if (uni.restoreGlobal) {
                 style: vue.normalizeStyle({ "--delay": `${index2 * 60}ms` }),
                 onClick: ($event) => $options.handleItemClick(item, index2)
               }, [
+                vue.createElementVNode("view", { class: "item-cover" }, [
+                  item.cover ? (vue.openBlock(), vue.createElementBlock("image", {
+                    key: 0,
+                    class: "item-cover-image",
+                    src: item.cover,
+                    mode: "aspectFill"
+                  }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
+                ]),
                 vue.createElementVNode("view", { class: "item-main" }, [
                   vue.createElementVNode(
                     "text",
@@ -862,13 +910,26 @@ if (uni.restoreGlobal) {
       };
     },
     computed: {
+      /**
+       * AI:判断是否存在上一个视频。
+       * @returns {boolean} AI:是否可切换上一条。
+       */
       hasPrev() {
         return this.currentIndex > 0;
       },
+      /**
+       * AI:判断是否存在下一个视频。
+       * @returns {boolean} AI:是否可切换下一条。
+       */
       hasNext() {
         return this.currentIndex >= 0 && this.currentIndex < this.playlist.length - 1;
       }
     },
+    /**
+     * AI:读取页面参数，初始化播放信息。
+     * @param {{src?: string, title?: string}} query AI:路由参数。
+     * @returns {void} AI:无返回值。
+     */
     onLoad(query) {
       const source = query && query.src ? decodeURIComponent(query.src) : "";
       const title = query && query.title ? decodeURIComponent(query.title) : "";
@@ -887,6 +948,10 @@ if (uni.restoreGlobal) {
       this.playIfAuto();
     },
     methods: {
+      /**
+       * AI:根据屏幕高度计算视频区域，并为底部按钮留出空间。
+       * @returns {void} AI:无返回值。
+       */
       updateVideoSize() {
         const info = uni.getSystemInfoSync();
         const width = Number(info.windowWidth || info.screenWidth || 0);
@@ -898,29 +963,46 @@ if (uni.restoreGlobal) {
         const maxHeight = Math.max(220, safeHeight - reservedHeight);
         this.videoHeight = Math.max(baseHeight, maxHeight);
       },
+      /**
+       * AI:读取缓存的播放列表并同步当前播放项。
+       * @returns {void} AI:无返回值。
+       */
       loadPlaylist() {
         const storage = createUniStorage();
-        const { list, index } = loadPlayerQueue(storage);
+        const { list, index: index2 } = loadPlayerQueue(storage);
         if (!Array.isArray(list) || list.length === 0) {
           return;
         }
         this.playlist = list;
-        if (index >= 0 && index < list.length) {
-          this.applyItem(list[index], index);
+        if (index2 >= 0 && index2 < list.length) {
+          this.applyItem(list[index2], index2);
           return;
         }
-        const matchedIndex = list.findIndex((item) => this.resolveItemSource(item) === this.source);
+        const matchedIndex = list.findIndex(
+          (item) => this.resolveItemSource(item) === this.source
+        );
         if (matchedIndex >= 0) {
           this.applyItem(list[matchedIndex], matchedIndex);
         }
       },
+      /**
+       * AI:解析播放条目对应的视频地址。
+       * @param {Object} item AI:播放条目。
+       * @returns {string} AI:可播放地址。
+       */
       resolveItemSource(item) {
         if (!item) {
           return "";
         }
         return item.local_path || item.url || "";
       },
-      applyItem(item, index) {
+      /**
+       * AI:应用播放条目并刷新状态。
+       * @param {Object} item AI:播放条目。
+       * @param {number} index AI:条目索引。
+       * @returns {void} AI:无返回值。
+       */
+      applyItem(item, index2) {
         const src = this.resolveItemSource(item);
         if (!src) {
           this.error = "缺少播放地址";
@@ -930,12 +1012,16 @@ if (uni.restoreGlobal) {
         this.title = item && item.title ? item.title : "";
         this.error = "";
         this.hasEnded = false;
-        if (typeof index === "number") {
-          this.currentIndex = index;
-          updatePlayerIndex(createUniStorage(), index);
+        if (typeof index2 === "number") {
+          this.currentIndex = index2;
+          updatePlayerIndex(createUniStorage(), index2);
         }
         this.playIfAuto();
       },
+      /**
+       * AI:播放上一个视频。
+       * @returns {void} AI:无返回值。
+       */
       playPrev() {
         if (!this.hasPrev) {
           return;
@@ -943,6 +1029,10 @@ if (uni.restoreGlobal) {
         const targetIndex = this.currentIndex - 1;
         this.applyItem(this.playlist[targetIndex], targetIndex);
       },
+      /**
+       * AI:播放下一个视频。
+       * @returns {void} AI:无返回值。
+       */
       playNext() {
         if (!this.hasNext) {
           return;
@@ -950,12 +1040,24 @@ if (uni.restoreGlobal) {
         const targetIndex = this.currentIndex + 1;
         this.applyItem(this.playlist[targetIndex], targetIndex);
       },
+      /**
+       * AI:处理播放结束事件。
+       * @returns {void} AI:无返回值。
+       */
       handleEnded() {
         this.hasEnded = true;
       },
+      /**
+       * AI:处理播放开始事件，重置结束状态。
+       * @returns {void} AI:无返回值。
+       */
       handlePlay() {
         this.hasEnded = false;
       },
+      /**
+       * AI:从头重播当前视频。
+       * @returns {void} AI:无返回值。
+       */
       replay() {
         if (!this.videoContext) {
           this.videoContext = uni.createVideoContext("playerVideo", this);
@@ -964,6 +1066,10 @@ if (uni.restoreGlobal) {
         this.videoContext.play();
         this.hasEnded = false;
       },
+      /**
+       * AI:自动播放启用时触发播放。
+       * @returns {void} AI:无返回值。
+       */
       playIfAuto() {
         if (!this.autoPlay || !this.source) {
           return;
@@ -975,6 +1081,10 @@ if (uni.restoreGlobal) {
           this.videoContext.play();
         });
       },
+      /**
+       * AI:返回上一页。
+       * @returns {void} AI:无返回值。
+       */
       goBack() {
         uni.navigateBack();
       }
@@ -1042,13 +1152,13 @@ if (uni.restoreGlobal) {
           size: "mini",
           disabled: !$options.hasPrev,
           onClick: _cache[4] || (_cache[4] = (...args) => $options.playPrev && $options.playPrev(...args))
-        }, "上一个"),
+        }, " 上一个 ", 8, ["disabled"]),
         vue.createElementVNode("button", {
           class: "btn btn-ghost nav",
           size: "mini",
           disabled: !$options.hasNext,
           onClick: _cache[5] || (_cache[5] = (...args) => $options.playNext && $options.playNext(...args))
-        }, "下一个")
+        }, " 下一个 ", 8, ["disabled"])
       ])
     ]);
   }

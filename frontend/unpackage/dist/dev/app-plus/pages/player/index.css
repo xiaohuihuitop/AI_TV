@@ -1,3 +1,4 @@
+
 .header[data-v-eb444998] {
   display: none;
 }
@@ -35,7 +36,6 @@
   z-index: 2;
 }
 .replay-btn[data-v-eb444998] {
-  min-width: 96px;
   padding: 8px 18px;
   border-radius: 999px;
   background: rgba(217, 108, 47, 0.95);
@@ -43,6 +43,7 @@
   font-size: 12px;
   letter-spacing: 0.08em;
   text-align: center;
+  min-width: 96px;
 }
 .actions[data-v-eb444998] {
   margin-top: 16px;

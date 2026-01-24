@@ -5,8 +5,54 @@
  */
 export function normalizeIndexItems(raw) {
   const items = Array.isArray(raw && raw.items) ? raw.items.slice() : [];
-  items.sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")));
-  return { items };
+  const normalized = items.map((item) => ({
+    ...item,
+    cover: resolveCoverUrl(item)
+  }));
+  normalized.sort((a, b) =>
+    String(b.published_at || "").localeCompare(String(a.published_at || ""))
+  );
+  return { items: normalized };
+}
+
+/**
+ * AI:解析条目封面地址，优先读取显式字段，再尝试由内容地址推导。
+ * @param {Object} item AI:条目信息。
+ * @returns {string} AI:封面地址，可能为空字符串。
+ */
+export function resolveCoverUrl(item) {
+  if (!item) {
+    return "";
+  }
+  const cover =
+    typeof item.cover === "string"
+      ? item.cover.trim()
+      : typeof item.cover_url === "string"
+        ? item.cover_url.trim()
+        : "";
+  if (cover) {
+    return cover;
+  }
+  const url = typeof item.url === "string" ? item.url.trim() : "";
+  return deriveCoverUrl(url);
+}
+
+/**
+ * AI:根据资源地址推导封面地址，默认替换为 .jpg 后缀。
+ * @param {string} url AI:资源地址。
+ * @returns {string} AI:推导后的封面地址，可能为空字符串。
+ */
+function deriveCoverUrl(url) {
+  if (!url) {
+    return "";
+  }
+  const cleaned = url.split("#")[0].split("?")[0];
+  const lastSlash = cleaned.lastIndexOf("/");
+  const lastDot = cleaned.lastIndexOf(".");
+  if (lastDot <= lastSlash) {
+    return "";
+  }
+  return `${cleaned.slice(0, lastDot)}.jpg`;
 }
 
 /**
