@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="section">
+  <div class="section-title">
+    <h1>视频列表</h1>
+    <a class="btn" href="/web/upload">上传</a>
+  </div>
+  <div class="grid">
+    {% for v in items %}
+      <article class="card">
+        <div class="card-cover">
+          {% if v.cover_path %}
+            <img class="thumb" src="/web/videos/{{ v.id }}/cover" alt="cover" style="height:120px;object-fit:cover;" />
+          {% else %}
+            <div class="thumb placeholder">处理中</div>
+          {% endif %}
+        </div>
+        <div class="card-title">{{ v.filename }}</div>
+        <div class="meta">
+          <span class="pill">{{ v.status }}</span>
+          <span>时长：{{ '%.2f'|format(v.duration_seconds) if v.duration_seconds else '未知' }}</span>
+        </div>
+        <div class="actions">
+          <a class="link" href="/web/videos/{{ v.id }}">查看详情</a>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty">暂无视频</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

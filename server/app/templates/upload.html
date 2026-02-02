@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="section">
+  <div class="section-title">
+    <h1>上传资源</h1>
+    <a class="btn ghost" href="/web/videos">返回列表</a>
+  </div>
+  <div class="upload-grid">
+    <form class="card" method="post" action="/web/upload/video" enctype="multipart/form-data">
+      <div class="card-title">上传视频（MP4）</div>
+      <div id="video-drop" class="drop-zone">拖拽 MP4 到这里，或点击选择</div>
+      <input id="video-files" class="file" type="file" name="files" accept="video/mp4" multiple />
+      <button class="btn" type="submit">上传视频</button>
+    </form>
+    <form class="card" method="post" action="/web/upload/doc" enctype="multipart/form-data">
+      <div class="card-title">上传文档（HTML）</div>
+      <div id="doc-drop" class="drop-zone">拖拽 HTML 到这里，或点击选择</div>
+      <input id="doc-files" class="file" type="file" name="files" accept="text/html" multiple />
+      <button class="btn" type="submit">上传文档</button>
+    </form>
+  </div>
+</section>
+<script>
+  const bindDrop = (zoneId, inputId, uploadUrl, redirectUrl, ext) => {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+
+    const isAllowed = (file) => file.name.toLowerCase().endsWith(ext);
+
+    const uploadFiles = async (files) => {
+      const valid = files.filter(isAllowed);
+      if (valid.length !== files.length) {
+        alert(`仅允许 ${ext} 文件`);
+        return;
+      }
+      const form = new FormData();
+      valid.forEach((f) => form.append("files", f));
+      const resp = await fetch(uploadUrl, {
+        method: "POST",
+        body: form,
+        credentials: "same-origin",
+      });
+      if (resp.status >= 200 && resp.status < 400) {
+        window.location = redirectUrl;
+        return;
+      }
+      const text = await resp.text();
+      alert(text || "上传失败");
+    };
+
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      zone.classList.add("dragover");
+    });
+    zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.classList.remove("dragover");
+      uploadFiles(Array.from(e.dataTransfer.files || []));
+    });
+    input.addEventListener("change", () => {
+      uploadFiles(Array.from(input.files || []));
+    });
+  };
+
+  bindDrop("video-drop", "video-files", "/web/upload/video", "/web/videos", ".mp4");
+  bindDrop("doc-drop", "doc-files", "/web/upload/doc", "/web/docs", ".html");
+</script>
+{% endblock %}

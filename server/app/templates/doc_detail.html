@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="section">
+  <div class="section-title">
+    <h1>文档详情</h1>
+    <a class="btn ghost" href="/web/docs">返回列表</a>
+  </div>
+  <div class="detail">
+    <div class="detail-meta">
+      <div><strong>文件名：</strong>{{ doc.filename }}</div>
+      <div><strong>状态：</strong>{{ doc.status }}</div>
+    </div>
+    <iframe class="doc-frame" src="/web/docs/{{ doc.id }}/preview"></iframe>
+  </div>
+</section>
+{% endblock %}
