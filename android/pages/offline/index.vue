@@ -214,8 +214,24 @@ export default {
         (item && item.type === "article" ? "html" : "");
       const formatParam = format ? `&format=${encodeURIComponent(format)}` : "";
       const originParam = origin ? `&origin=${origin}` : "";
-      uni.navigateTo({
-        url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}${formatParam}${originParam}`
+      const envInfo = [
+        `local_path: ${src}`,
+        `hasManager: ${typeof uni !== "undefined" && typeof uni.getFileSystemManager === "function"}`,
+        `hasPlus: ${typeof plus !== "undefined"}`
+      ].join("\n");
+      uni.showModal({
+        title: "离线路径调试",
+        content: envInfo,
+        confirmText: "继续打开",
+        cancelText: "取消",
+        success: (res) => {
+          if (!res.confirm) {
+            return;
+          }
+          uni.navigateTo({
+            url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}${formatParam}${originParam}`
+          });
+        }
       });
     },
     /**
