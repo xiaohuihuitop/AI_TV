@@ -4,12 +4,15 @@
   <div class="section-title">
     <h1>文档管理</h1>
   </div>
-  <form class="card upload-card" method="post" action="/web/upload/doc" enctype="multipart/form-data">
+  <form class="card upload-card" id="doc-upload-form">
     <div class="card-title">上传文档（HTML）</div>
     <div id="doc-drop" class="drop-zone">拖拽 HTML 到这里，或点击选择</div>
     <input id="doc-files" class="file" type="file" name="files" accept="text/html" multiple />
+    <div id="doc-list" class="upload-list">
+      <div class="upload-empty">尚未选择文件</div>
+    </div>
     <div class="actions">
-      <button class="btn" type="submit">上传文档</button>
+      <button id="doc-upload-btn" class="btn" type="button">上传文档</button>
     </div>
   </form>
   <div class="grid">
@@ -32,21 +35,70 @@
   </div>
 </section>
 <script>
-  const bindDrop = (zoneId, inputId, uploadUrl, redirectUrl, ext) => {
+  const bindUpload = (options) => {
+    const {
+      zoneId,
+      inputId,
+      listId,
+      buttonId,
+      uploadUrl,
+      redirectUrl,
+      ext
+    } = options;
     const zone = document.getElementById(zoneId);
     const input = document.getElementById(inputId);
-    if (!zone || !input) {
+    const list = document.getElementById(listId);
+    const button = document.getElementById(buttonId);
+    if (!zone || !input || !list || !button) {
       return;
     }
+    const selected = [];
     const isAllowed = (file) => file.name.toLowerCase().endsWith(ext);
-    const uploadFiles = async (files) => {
-      const valid = files.filter(isAllowed);
-      if (valid.length !== files.length) {
-        alert(`仅允许 ${ext} 文件`);
+    const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+    const renderList = () => {
+      if (selected.length === 0) {
+        list.innerHTML = '<div class="upload-empty">尚未选择文件</div>';
         return;
       }
+      list.innerHTML = "";
+      selected.forEach((file) => {
+        const row = document.createElement("div");
+        row.className = "upload-item";
+        row.innerHTML = `
+          <span class="upload-name">${file.name}</span>
+          <button class="btn ghost upload-remove" type="button">移除</button>
+        `;
+        row.querySelector(".upload-remove").addEventListener("click", () => {
+          const index = selected.findIndex((item) => fileKey(item) === fileKey(file));
+          if (index >= 0) {
+            selected.splice(index, 1);
+            renderList();
+          }
+        });
+        list.appendChild(row);
+      });
+    };
+    const addFiles = (files) => {
+      const invalid = files.filter((file) => !isAllowed(file));
+      if (invalid.length) {
+        alert(`仅允许 ${ext} 文件`);
+      }
+      files.filter(isAllowed).forEach((file) => {
+        const key = fileKey(file);
+        if (!selected.some((item) => fileKey(item) === key)) {
+          selected.push(file);
+        }
+      });
+      renderList();
+    };
+    const uploadSelected = async () => {
+      if (selected.length === 0) {
+        alert("请先选择文件");
+        return;
+      }
+      button.disabled = true;
       const form = new FormData();
-      valid.forEach((f) => form.append("files", f));
+      selected.forEach((file) => form.append("files", file));
       const resp = await fetch(uploadUrl, {
         method: "POST",
         body: form,
@@ -58,6 +110,7 @@
       }
       const text = await resp.text();
       alert(text || "上传失败");
+      button.disabled = false;
     };
     zone.addEventListener("click", () => input.click());
     zone.addEventListener("dragover", (e) => {
@@ -68,13 +121,24 @@
     zone.addEventListener("drop", (e) => {
       e.preventDefault();
       zone.classList.remove("dragover");
-      uploadFiles(Array.from(e.dataTransfer.files || []));
+      addFiles(Array.from(e.dataTransfer.files || []));
     });
     input.addEventListener("change", () => {
-      uploadFiles(Array.from(input.files || []));
+      addFiles(Array.from(input.files || []));
+      input.value = "";
     });
+    button.addEventListener("click", uploadSelected);
+    renderList();
   };
 
-  bindDrop("doc-drop", "doc-files", "/web/upload/doc", "/web/docs", ".html");
+  bindUpload({
+    zoneId: "doc-drop",
+    inputId: "doc-files",
+    listId: "doc-list",
+    buttonId: "doc-upload-btn",
+    uploadUrl: "/web/upload/doc",
+    redirectUrl: "/web/docs",
+    ext: ".html"
+  });
 </script>
 {% endblock %}

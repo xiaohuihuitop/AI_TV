@@ -49,3 +49,12 @@
 - 关联文件: android/pages/reader/index.vue
 - 标签: 离线, 文件系统, 兼容性
 - 关键词: file://, readFile, uni
+
+## [2026-02-03] 现象: 后台选择文件后未点击上传却自动上传
+- 触发条件: 再次点击选择文件或触发 change 事件
+- 根因: 前端脚本在 `change/drop` 时立即调用上传接口
+- 解决步骤: 引入待上传列表与手动上传按钮，支持移除
+- 预防/规则: 上传应显式由用户触发，文件选择仅更新列表
+- 关联文件: server/app/templates/videos.html, server/app/templates/docs.html, server/app/static/app.css
+- 标签: 后台, 上传, 交互
+- 关键词: drag, change, upload

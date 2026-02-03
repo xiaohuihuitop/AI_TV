@@ -248,7 +248,7 @@ body::before {
 }
 
 .file {
-  margin: 12px 0 16px;
+  display: none;
 }
 
 .drop-zone {
@@ -266,6 +266,41 @@ body::before {
   border-color: var(--accent-2);
   color: var(--accent-2);
   background: rgba(42, 157, 143, 0.08);
+}
+
+.upload-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 16px;
+}
+
+.upload-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.upload-name {
+  font-size: 14px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.upload-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.upload-remove {
+  padding: 6px 12px;
 }
 
 .empty {
