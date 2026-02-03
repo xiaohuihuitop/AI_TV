@@ -210,7 +210,8 @@ function buildFilePathCandidates(filePath) {
   const normalized = normalizeLocalPath(raw);
   const decoded = safeDecode(raw);
   const decodedNormalized = normalizeLocalPath(decoded);
-  const candidates = [raw, normalized, decoded, decodedNormalized].filter(Boolean);
+  const mapped = mapLegacyDocPaths([raw, normalized, decoded, decodedNormalized]);
+  const candidates = [raw, normalized, decoded, decodedNormalized, ...mapped].filter(Boolean);
   return Array.from(new Set(candidates));
 }
 
@@ -232,6 +233,25 @@ function buildPlusCandidates(candidates) {
     }
   });
   return Array.from(new Set(expanded.filter(Boolean)));
+}
+
+/**
+ * AI:兼容 _doc/ 路径映射到沙箱绝对路径。
+ * @param {string[]} values AI:原始候选路径。
+ * @returns {string[]} AI:映射后的候选路径。
+ */
+function mapLegacyDocPaths(values) {
+  const base = typeof plus !== "undefined" && plus.io ? plus.io.convertLocalFileSystemURL("_doc/") : "";
+  if (!base) {
+    return [];
+  }
+  const prefix = "file://";
+  const basePath = base.startsWith(prefix) ? base.slice(prefix.length) : base;
+  return values
+    .map((value) => String(value || ""))
+    .filter(Boolean)
+    .filter((value) => value.startsWith("_doc/"))
+    .map((value) => value.replace("_doc/", basePath));
 }
 
 /**

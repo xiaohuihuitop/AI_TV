@@ -85,3 +85,12 @@
 - 关联文件: android/pages/reader/index.vue
 - 标签: 离线, 调试, 读取
 - 关键词: local_path, plus, getFileSystemManager
+
+## [2026-02-03] 现象: _doc 路径无法读取
+- 触发条件: 本地路径以 `_doc/` 开头时读取失败
+- 根因: `_doc/` 需映射到 App 沙箱绝对路径
+- 解决步骤: 使用 `plus.io.convertLocalFileSystemURL("_doc/")` 映射前缀并尝试读取
+- 预防/规则: 保存路径使用绝对路径或统一转换
+- 关联文件: android/pages/reader/index.vue
+- 标签: 离线, 路径, 兼容性
+- 关键词: _doc, convertLocalFileSystemURL
