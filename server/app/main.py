@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from app.api.routes import router as api_router
+from app.api.public_routes import router as public_router
 from app.core.auth import verify_credentials
 from app.core.config import Settings, settings
 from app.core.paths import StoragePaths
@@ -68,6 +69,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
 
     app.mount("/static", StaticFiles(directory="app/static"), name="static")
     app.include_router(api_router)
+    app.include_router(public_router)
     app.include_router(web_router)
     return app
 
