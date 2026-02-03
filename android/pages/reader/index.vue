@@ -127,11 +127,33 @@ function createUniFileAdapter() {
           typeof uni !== "undefined" && typeof uni.getFileSystemManager === "function"
             ? uni.getFileSystemManager()
             : null;
-        if (!manager || typeof manager.readFile !== "function") {
-          reject(new Error("当前环境不支持本地读取"));
-          return;
-        }
         const candidates = buildFilePathCandidates(filePath);
+        const tryPlusRead = (index) => {
+          if (index >= candidates.length) {
+            reject(new Error(`本地文件读取失败: ${candidates.join(" | ")}`));
+            return;
+          }
+          const path = candidates[index];
+          if (typeof plus === "undefined" || !plus.io || !plus.io.resolveLocalFileSystemURL) {
+            reject(new Error("当前环境不支持本地读取"));
+            return;
+          }
+          plus.io.resolveLocalFileSystemURL(
+            path,
+            (entry) => {
+              entry.file(
+                (file) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve(reader.result || "");
+                  reader.onerror = () => tryPlusRead(index + 1);
+                  reader.readAsText(file, "utf-8");
+                },
+                () => tryPlusRead(index + 1)
+              );
+            },
+            () => tryPlusRead(index + 1)
+          );
+        };
         const tryRead = (index) => {
           if (index >= candidates.length) {
             reject(new Error(`本地文件读取失败: ${candidates.join(" | ")}`));
@@ -144,7 +166,11 @@ function createUniFileAdapter() {
             fail: () => tryRead(index + 1)
           });
         };
-        tryRead(0);
+        if (manager && typeof manager.readFile === "function") {
+          tryRead(0);
+          return;
+        }
+        tryPlusRead(0);
       });
     }
   };

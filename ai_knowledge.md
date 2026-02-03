@@ -67,3 +67,12 @@
 - 关联文件: android/pages/reader/index.vue
 - 标签: 离线, 调试, 路径
 - 关键词: decode, readFile, error
+
+## [2026-02-03] 现象: 当前环境不支持本地读取
+- 触发条件: 离线页面打开图文提示“当前环境不支持本地读取”
+- 根因: `uni.getFileSystemManager` 在部分运行环境不可用
+- 解决步骤: 增加 app-plus `plus.io` 读取兜底
+- 预防/规则: 本地读取需覆盖多端能力差异
+- 关联文件: android/pages/reader/index.vue
+- 标签: 离线, 平台, 兼容性
+- 关键词: app-plus, plus.io, getFileSystemManager
