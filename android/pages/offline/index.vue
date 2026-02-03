@@ -97,6 +97,22 @@ function removeLocalFile(filePath) {
   });
 }
 
+/**
+ * AI:根据资源地址推断内容格式。
+ * @param {string} url AI:资源地址。
+ * @returns {string} AI:format 值（html/markdown/空）。
+ */
+function resolveContentFormat(url) {
+  const lower = String(url || "").toLowerCase();
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) {
+    return "html";
+  }
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
+    return "markdown";
+  }
+  return "";
+}
+
 export default {
   data() {
     return {
@@ -193,7 +209,9 @@ export default {
       }
       const title = item.title ? encodeURIComponent(item.title) : "";
       const origin = item && item.url ? encodeURIComponent(item.url) : "";
-      const format = resolveContentFormat(item && item.url ? item.url : "");
+      const format =
+        resolveContentFormat(item && item.url ? item.url : "") ||
+        (item && item.type === "article" ? "html" : "");
       const formatParam = format ? `&format=${encodeURIComponent(format)}` : "";
       const originParam = origin ? `&origin=${origin}` : "";
       uni.navigateTo({
@@ -361,22 +379,6 @@ export default {
   font-size: 14px;
   line-height: 1.4;
   color: var(--color-text);
-}
-
-/**
- * AI:根据资源地址推断内容格式。
- * @param {string} url AI:资源地址。
- * @returns {string} AI:format 值（html/markdown/空）。
- */
-function resolveContentFormat(url) {
-  const lower = String(url || "").toLowerCase();
-  if (lower.endsWith(".html") || lower.endsWith(".htm")) {
-    return "html";
-  }
-  if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
-    return "markdown";
-  }
-  return "";
 }
 
 .item-cover {

@@ -31,3 +31,12 @@
 - 关联文件: android/pages/latest/index.vue, android/pages/offline/index.vue, android/pages/reader/index.vue
 - 标签: 离线, 渲染, 兼容性
 - 关键词: markdown, html, local_path, origin
+
+## [2026-02-03] 现象: 离线页样式编译报错 Unknown word
+- 触发条件: Vite 构建解析 `offline/index.vue` 样式块
+- 根因: JS 函数误插入到 `<style>` 区域导致 PostCSS 解析失败
+- 解决步骤: 将函数移回 `<script>`，清理样式块
+- 预防/规则: 变更后检查组件结构区块边界（template/script/style）
+- 关联文件: android/pages/offline/index.vue
+- 标签: 构建, 样式, 误插入
+- 关键词: postcss, unknown word, vue

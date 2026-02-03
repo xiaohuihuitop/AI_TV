@@ -227,7 +227,9 @@ export default {
       }
       const title = item.title ? encodeURIComponent(item.title) : "";
       const origin = item && item.url ? encodeURIComponent(item.url) : "";
-      const format = resolveContentFormat(item && item.url ? item.url : "");
+      const format =
+        resolveContentFormat(item && item.url ? item.url : "") ||
+        (item && item.type === "article" ? "html" : "");
       const formatParam = format ? `&format=${encodeURIComponent(format)}` : "";
       const originParam = origin ? `&origin=${origin}` : "";
       uni.navigateTo({
