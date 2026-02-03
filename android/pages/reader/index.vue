@@ -229,7 +229,11 @@ function buildPlusCandidates(candidates) {
       expanded.push(`file://${item}`);
     }
     if (typeof plus !== "undefined" && plus.io && typeof plus.io.convertLocalFileSystemURL === "function") {
-      expanded.push(plus.io.convertLocalFileSystemURL(item));
+      const converted = plus.io.convertLocalFileSystemURL(item);
+      expanded.push(converted);
+      if (converted && !converted.startsWith("file://")) {
+        expanded.push(`file://${converted}`);
+      }
     }
   });
   return Array.from(new Set(expanded.filter(Boolean)));

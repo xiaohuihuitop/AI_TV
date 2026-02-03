@@ -94,3 +94,12 @@
 - 关联文件: android/pages/reader/index.vue
 - 标签: 离线, 路径, 兼容性
 - 关键词: _doc, convertLocalFileSystemURL
+
+## [2026-02-03] 现象: convertLocalFileSystemURL 返回无前缀路径
+- 触发条件: `plus.io.convertLocalFileSystemURL` 返回 `/storage/...` 形式
+- 根因: 部分环境未自动补 `file://` 前缀
+- 解决步骤: 为转换结果补齐 `file://` 前缀作为候选
+- 预防/规则: 路径候选需覆盖带/不带前缀的两种形式
+- 关联文件: android/pages/reader/index.vue
+- 标签: 离线, 路径, 兼容性
+- 关键词: file://, convertLocalFileSystemURL
