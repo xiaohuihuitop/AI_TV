@@ -79,8 +79,9 @@ export default {
         .then((text) => {
           this.content = text || "";
         })
-        .catch(() => {
-          this.error = "内容加载失败";
+        .catch((error) => {
+          const message = error && (error.errMsg || error.message) ? error.errMsg || error.message : "";
+          this.error = message ? `内容加载失败: ${message}` : "内容加载失败";
         })
         .finally(() => {
           this.loading = false;
@@ -133,7 +134,7 @@ function createUniFileAdapter() {
         const candidates = buildFilePathCandidates(filePath);
         const tryRead = (index) => {
           if (index >= candidates.length) {
-            reject(new Error("本地文件读取失败"));
+            reject(new Error(`本地文件读取失败: ${candidates.join(" | ")}`));
             return;
           }
           manager.readFile({
@@ -166,10 +167,23 @@ function normalizeLocalPath(filePath) {
 function buildFilePathCandidates(filePath) {
   const raw = String(filePath || "");
   const normalized = normalizeLocalPath(raw);
-  if (raw && raw !== normalized) {
-    return [raw, normalized];
+  const decoded = safeDecode(raw);
+  const decodedNormalized = normalizeLocalPath(decoded);
+  const candidates = [raw, normalized, decoded, decodedNormalized].filter(Boolean);
+  return Array.from(new Set(candidates));
+}
+
+/**
+ * AI:安全解码路径。
+ * @param {string} value AI:原始路径。
+ * @returns {string} AI:解码后路径。
+ */
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch (error) {
+    return String(value || "");
   }
-  return [normalized || raw];
 }
 
 /**

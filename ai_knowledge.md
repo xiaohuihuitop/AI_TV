@@ -58,3 +58,12 @@
 - 关联文件: server/app/templates/videos.html, server/app/templates/docs.html, server/app/static/app.css
 - 标签: 后台, 上传, 交互
 - 关键词: drag, change, upload
+
+## [2026-02-03] 现象: 离线图文读取失败仍未定位
+- 触发条件: 离线页面打开图文提示“内容加载失败”
+- 根因: 待确认，疑似路径编码或平台差异
+- 解决步骤: 增加路径解码与错误信息输出以便定位
+- 预防/规则: 读取失败应输出关键路径信息
+- 关联文件: android/pages/reader/index.vue
+- 标签: 离线, 调试, 路径
+- 关键词: decode, readFile, error
