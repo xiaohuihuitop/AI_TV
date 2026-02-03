@@ -22,3 +22,12 @@
 - 关联文件: server/app/api/public_routes.py, server/app/core/auth.py, server/app/main.py, server/Doc/README_2026_02_02_14_31_技术交接.md
 - 标签: 协议, 兼容性, 鉴权
 - 关键词: index.json, public, BasicAuth
+
+## [2026-02-03] 现象: 离线文档无法显示
+- 触发条件: 文档下载后使用本地路径读取，内容为 HTML，但阅读页固定按 Markdown 渲染
+- 根因: 渲染模式与内容格式不匹配，且离线场景丢失源地址导致域名无法推断
+- 解决步骤: 传递内容格式与源地址参数；阅读页按格式切换渲染并基于源地址计算域名
+- 预防/规则: 下载保存时保留原始 URL 与格式信息；阅读页根据格式渲染
+- 关联文件: android/pages/latest/index.vue, android/pages/offline/index.vue, android/pages/reader/index.vue
+- 标签: 离线, 渲染, 兼容性
+- 关键词: markdown, html, local_path, origin

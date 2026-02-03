@@ -13,7 +13,7 @@
         v-if="content"
         class="content-html"
         :content="content"
-        :markdown="true"
+        :markdown="isMarkdown"
         :selectable="true"
         :preview-img="true"
         :domain="contentDomain"
@@ -39,6 +39,8 @@ export default {
       source: "",
       title: "",
       content: "",
+      origin: "",
+      isMarkdown: true,
       contentDomain: "",
       loading: false,
       error: ""
@@ -52,8 +54,12 @@ export default {
   onLoad(query) {
     const source = query && query.src ? decodeURIComponent(query.src) : "";
     const title = query && query.title ? decodeURIComponent(query.title) : "";
+    const origin = query && query.origin ? decodeURIComponent(query.origin) : "";
+    const format = query && query.format ? decodeURIComponent(query.format) : "";
     this.source = source;
     this.title = title;
+    this.origin = origin;
+    this.isMarkdown = resolveContentFormat(format || origin || source) !== "html";
     if (!source) {
       this.error = "缺少阅读地址";
       return;
@@ -92,7 +98,7 @@ export default {
      * @returns {string} AI:基础域名或空字符串。
      */
     computeContentDomain() {
-      const source = String(this.source || "");
+      const source = String(this.origin || this.source || "");
       if (!/^https?:\/\//i.test(source)) {
         return "";
       }
@@ -142,6 +148,28 @@ function createUniFileAdapter() {
  */
 function normalizeLocalPath(filePath) {
   return String(filePath || "").replace(/^file:\/\//, "");
+}
+
+/**
+ * AI:根据格式标识或地址推断内容格式。
+ * @param {string} input AI:格式或地址。
+ * @returns {string} AI:html 或 markdown。
+ */
+function resolveContentFormat(input) {
+  const lower = String(input || "").toLowerCase();
+  if (lower === "html") {
+    return "html";
+  }
+  if (lower === "markdown" || lower === "md") {
+    return "markdown";
+  }
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) {
+    return "html";
+  }
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
+    return "markdown";
+  }
+  return "markdown";
 }
 </script>
 

@@ -110,6 +110,22 @@ function createUniDownloader() {
 const indexUrlKey = "index_url";
 const indexCacheKey = "index_cache";
 
+/**
+ * AI:根据资源地址推断内容格式。
+ * @param {string} url AI:资源地址。
+ * @returns {string} AI:format 值（html/markdown/空）。
+ */
+function resolveContentFormat(url) {
+  const lower = String(url || "").toLowerCase();
+  if (lower.endsWith(".html") || lower.endsWith(".htm")) {
+    return "html";
+  }
+  if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
+    return "markdown";
+  }
+  return "";
+}
+
 export default {
   data() {
     return {
@@ -210,7 +226,13 @@ export default {
         return;
       }
       const title = item.title ? encodeURIComponent(item.title) : "";
-      uni.navigateTo({ url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}` });
+      const origin = item && item.url ? encodeURIComponent(item.url) : "";
+      const format = resolveContentFormat(item && item.url ? item.url : "");
+      const formatParam = format ? `&format=${encodeURIComponent(format)}` : "";
+      const originParam = origin ? `&origin=${origin}` : "";
+      uni.navigateTo({
+        url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}${formatParam}${originParam}`
+      });
     },
     /**
      * AI:解析条目可用地址。
