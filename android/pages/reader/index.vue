@@ -130,12 +130,20 @@ function createUniFileAdapter() {
           reject(new Error("当前环境不支持本地读取"));
           return;
         }
-        manager.readFile({
-          filePath: normalizeLocalPath(filePath),
-          encoding: "utf8",
-          success: (res) => resolve(res.data),
-          fail: (error) => reject(error)
-        });
+        const candidates = buildFilePathCandidates(filePath);
+        const tryRead = (index) => {
+          if (index >= candidates.length) {
+            reject(new Error("本地文件读取失败"));
+            return;
+          }
+          manager.readFile({
+            filePath: candidates[index],
+            encoding: "utf8",
+            success: (res) => resolve(res.data),
+            fail: () => tryRead(index + 1)
+          });
+        };
+        tryRead(0);
       });
     }
   };
@@ -148,6 +156,20 @@ function createUniFileAdapter() {
  */
 function normalizeLocalPath(filePath) {
   return String(filePath || "").replace(/^file:\/\//, "");
+}
+
+/**
+ * AI:生成可读取的本地路径候选列表。
+ * @param {string} filePath AI:原始路径。
+ * @returns {string[]} AI:候选路径列表。
+ */
+function buildFilePathCandidates(filePath) {
+  const raw = String(filePath || "");
+  const normalized = normalizeLocalPath(raw);
+  if (raw && raw !== normalized) {
+    return [raw, normalized];
+  }
+  return [normalized || raw];
 }
 
 /**
