@@ -129,29 +129,44 @@ function createUniFileAdapter() {
             : null;
         const candidates = buildFilePathCandidates(filePath);
         const tryPlusRead = (index) => {
-          if (index >= candidates.length) {
-            reject(new Error(`本地文件读取失败: ${candidates.join(" | ")}`));
+          const plusCandidates = buildPlusCandidates(candidates);
+          if (index >= plusCandidates.length) {
+            reject(new Error(`本地文件读取失败: ${plusCandidates.join(" | ")}`));
             return;
           }
-          const path = candidates[index];
+          const path = plusCandidates[index];
           if (typeof plus === "undefined" || !plus.io || !plus.io.resolveLocalFileSystemURL) {
             reject(new Error("当前环境不支持本地读取"));
             return;
           }
+          let settled = false;
+          const timer = setTimeout(() => {
+            if (!settled) {
+              tryPlusRead(index + 1);
+            }
+          }, 3000);
+          const finalize = (fn) => {
+            if (settled) {
+              return;
+            }
+            settled = true;
+            clearTimeout(timer);
+            fn();
+          };
           plus.io.resolveLocalFileSystemURL(
             path,
             (entry) => {
               entry.file(
                 (file) => {
                   const reader = new FileReader();
-                  reader.onload = () => resolve(reader.result || "");
-                  reader.onerror = () => tryPlusRead(index + 1);
+                  reader.onload = () => finalize(() => resolve(reader.result || ""));
+                  reader.onerror = () => finalize(() => tryPlusRead(index + 1));
                   reader.readAsText(file, "utf-8");
                 },
-                () => tryPlusRead(index + 1)
+                () => finalize(() => tryPlusRead(index + 1))
               );
             },
-            () => tryPlusRead(index + 1)
+            () => finalize(() => tryPlusRead(index + 1))
           );
         };
         const tryRead = (index) => {
@@ -197,6 +212,26 @@ function buildFilePathCandidates(filePath) {
   const decodedNormalized = normalizeLocalPath(decoded);
   const candidates = [raw, normalized, decoded, decodedNormalized].filter(Boolean);
   return Array.from(new Set(candidates));
+}
+
+/**
+ * AI:生成 plus 读取候选路径。
+ * @param {string[]} candidates AI:基础候选。
+ * @returns {string[]} AI:plus 候选。
+ */
+function buildPlusCandidates(candidates) {
+  const list = Array.isArray(candidates) ? candidates.slice() : [];
+  const expanded = [];
+  list.forEach((item) => {
+    expanded.push(item);
+    if (!item.startsWith("file://")) {
+      expanded.push(`file://${item}`);
+    }
+    if (typeof plus !== "undefined" && plus.io && typeof plus.io.convertLocalFileSystemURL === "function") {
+      expanded.push(plus.io.convertLocalFileSystemURL(item));
+    }
+  });
+  return Array.from(new Set(expanded.filter(Boolean)));
 }
 
 /**

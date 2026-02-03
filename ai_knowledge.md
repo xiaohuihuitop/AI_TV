@@ -80,8 +80,8 @@
 ## [2026-02-03] 现象: 离线图文卡在加载中
 - 触发条件: 离线页面打开图文，加载状态不结束
 - 根因: 待定位，可能与本地路径格式或运行环境能力有关
-- 解决步骤: 增加离线路径与环境能力提示
+- 解决步骤: 增加 plus 读取路径候选（file:// 与 convertLocalFileSystemURL）与超时兜底
 - 预防/规则: 调试信息应覆盖本地路径与能力判断
-- 关联文件: android/pages/offline/index.vue
+- 关联文件: android/pages/reader/index.vue
 - 标签: 离线, 调试, 读取
 - 关键词: local_path, plus, getFileSystemManager
