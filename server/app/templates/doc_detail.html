@@ -3,7 +3,12 @@
 <section class="section">
   <div class="section-title">
     <h1>文档详情</h1>
-    <a class="btn ghost" href="/web/docs">返回列表</a>
+    <div class="section-actions">
+      <a class="btn ghost" href="/web/docs">返回列表</a>
+      <form class="inline-form" method="post" action="/web/docs/{{ doc.id }}/delete" onsubmit="return confirm('确定删除该文档吗？')">
+        <button class="btn danger" type="submit">删除</button>
+      </form>
+    </div>
   </div>
   <div class="detail">
     <div class="detail-meta">

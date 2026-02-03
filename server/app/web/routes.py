@@ -31,7 +31,7 @@ def videos(request: Request):
     """
     with _get_session(request) as session:
         items = session.query(Video).order_by(Video.id.desc()).all()
-    return templates.TemplateResponse(request, "videos.html", {"items": items})
+    return templates.TemplateResponse(request, "videos.html", {"items": items, "active": "videos"})
 
 
 @router.get("/videos/{video_id}", response_class=HTMLResponse)
@@ -45,7 +45,9 @@ def video_detail(request: Request, video_id: int):
         video = session.get(Video, video_id)
         if not video:
             raise HTTPException(status_code=404, detail="Not found")
-    return templates.TemplateResponse(request, "video_detail.html", {"video": video})
+    return templates.TemplateResponse(
+        request, "video_detail.html", {"video": video, "active": "videos"}
+    )
 
 @router.get("/videos/{video_id}/cover")
 def video_cover(request: Request, video_id: int):
@@ -94,7 +96,7 @@ def docs(request: Request):
     """
     with _get_session(request) as session:
         items = session.query(Document).order_by(Document.id.desc()).all()
-    return templates.TemplateResponse(request, "docs.html", {"items": items})
+    return templates.TemplateResponse(request, "docs.html", {"items": items, "active": "docs"})
 
 
 @router.get("/docs/{doc_id}", response_class=HTMLResponse)
@@ -108,7 +110,7 @@ def doc_detail(request: Request, doc_id: int):
         doc = session.get(Document, doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Not found")
-    return templates.TemplateResponse(request, "doc_detail.html", {"doc": doc})
+    return templates.TemplateResponse(request, "doc_detail.html", {"doc": doc, "active": "docs"})
 
 
 @router.post("/docs/{doc_id}/delete")
@@ -153,7 +155,7 @@ def upload_page(request: Request):
     @param request: 当前请求。
     @return: HTML 响应。
     """
-    return templates.TemplateResponse(request, "upload.html", {})
+    return templates.TemplateResponse(request, "upload.html", {"active": ""})
 
 
 @router.post("/upload/video")

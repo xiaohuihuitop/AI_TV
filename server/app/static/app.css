@@ -35,16 +35,18 @@ body::before {
 .page {
   position: relative;
   min-height: 100vh;
+  display: flex;
 }
 
-.topbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px 40px;
+.sidebar {
+  width: 220px;
+  padding: 28px 20px;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
 }
 
 .brand {
@@ -53,11 +55,31 @@ body::before {
   letter-spacing: 1px;
 }
 
-.nav a {
-  margin-left: 16px;
+.side-nav {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.side-nav a {
   text-decoration: none;
   color: var(--ink);
   font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.side-nav a.active {
+  background: rgba(217, 108, 79, 0.16);
+  border-color: rgba(217, 108, 79, 0.4);
+  color: #8f3d17;
+}
+
+.content {
+  flex: 1;
 }
 
 .container {
@@ -71,6 +93,12 @@ body::before {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .grid {
@@ -155,6 +183,17 @@ body::before {
   background: #b23a48;
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.inline-form {
+  margin: 0;
+}
+
 .link {
   color: var(--accent);
   font-weight: 600;
@@ -204,6 +243,10 @@ body::before {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+.upload-card {
+  margin-bottom: 24px;
+}
+
 .file {
   margin: 12px 0 16px;
 }
@@ -235,9 +278,26 @@ body::before {
 }
 
 @media (max-width: 720px) {
-  .topbar {
+  .page {
     flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
+  }
+  .side-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 0;
+    gap: 8px;
+  }
+  .side-nav a {
+    padding: 8px 12px;
   }
   .section-title {
     flex-direction: column;

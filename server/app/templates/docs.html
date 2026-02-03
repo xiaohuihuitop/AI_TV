@@ -2,9 +2,16 @@
 {% block content %}
 <section class="section">
   <div class="section-title">
-    <h1>文档列表</h1>
-    <a class="btn" href="/web/upload">上传</a>
+    <h1>文档管理</h1>
   </div>
+  <form class="card upload-card" method="post" action="/web/upload/doc" enctype="multipart/form-data">
+    <div class="card-title">上传文档（HTML）</div>
+    <div id="doc-drop" class="drop-zone">拖拽 HTML 到这里，或点击选择</div>
+    <input id="doc-files" class="file" type="file" name="files" accept="text/html" multiple />
+    <div class="actions">
+      <button class="btn" type="submit">上传文档</button>
+    </div>
+  </form>
   <div class="grid">
     {% for d in items %}
       <article class="card">
@@ -14,6 +21,9 @@
         </div>
         <div class="actions">
           <a class="link" href="/web/docs/{{ d.id }}">查看详情</a>
+          <form class="inline-form" method="post" action="/web/docs/{{ d.id }}/delete" onsubmit="return confirm('确定删除该文档吗？')">
+            <button class="btn danger" type="submit">删除</button>
+          </form>
         </div>
       </article>
     {% else %}
@@ -21,4 +31,50 @@
     {% endfor %}
   </div>
 </section>
+<script>
+  const bindDrop = (zoneId, inputId, uploadUrl, redirectUrl, ext) => {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    if (!zone || !input) {
+      return;
+    }
+    const isAllowed = (file) => file.name.toLowerCase().endsWith(ext);
+    const uploadFiles = async (files) => {
+      const valid = files.filter(isAllowed);
+      if (valid.length !== files.length) {
+        alert(`仅允许 ${ext} 文件`);
+        return;
+      }
+      const form = new FormData();
+      valid.forEach((f) => form.append("files", f));
+      const resp = await fetch(uploadUrl, {
+        method: "POST",
+        body: form,
+        credentials: "same-origin",
+      });
+      if (resp.status >= 200 && resp.status < 400) {
+        window.location = redirectUrl;
+        return;
+      }
+      const text = await resp.text();
+      alert(text || "上传失败");
+    };
+    zone.addEventListener("click", () => input.click());
+    zone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      zone.classList.add("dragover");
+    });
+    zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.classList.remove("dragover");
+      uploadFiles(Array.from(e.dataTransfer.files || []));
+    });
+    input.addEventListener("change", () => {
+      uploadFiles(Array.from(input.files || []));
+    });
+  };
+
+  bindDrop("doc-drop", "doc-files", "/web/upload/doc", "/web/docs", ".html");
+</script>
 {% endblock %}
