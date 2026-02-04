@@ -103,3 +103,57 @@
 - 关联文件: android/pages/reader/index.vue
 - 标签: 离线, 路径, 兼容性
 - 关键词: file://, convertLocalFileSystemURL
+
+## [2026-02-03] 现象: 离线图文仍无法读取
+- 触发条件: 离线页面打开本地 HTML，提示“内容加载失败”
+- 根因: App-Plus 环境下 JS 层读取本地 HTML 不稳定（FileReader/plus.io 读取失败），但原生组件可直接访问文件
+- 解决步骤: 离线 HTML 改用 web-view 直接加载本地 file:// 地址，跳过 JS 读取
+- 预防/规则: 本地资源优先交给原生/组件加载，避免在 service 层手动读文本
+- 关联文件: android/pages/reader/index.vue
+- 标签: 离线, web-view, 本地文件
+- 关键词: file://, plus, FileReader
+
+## [2026-02-03] 现象: 离线图文显示源码
+- 触发条件: web-view 打开离线文档后显示 HTML 源码而非渲染结果
+- 根因: 文档下载保存路径无 .html 扩展，WebView 按 text/plain 处理
+- 解决步骤: 下载后重命名/移动本地文件并补 .html 扩展；删除时增加 plus.io 兜底
+- 预防/规则: 保存离线 HTML 需保留扩展名或指定 MIME
+- 关联文件: android/utils/offlineService.js, android/pages/offline/index.vue
+- 标签: 离线, web-view, 文件扩展名
+- 关键词: html, extension, saveFile
+
+## [2026-02-04] 现象: 离线图文 WebView 无法打开
+- 触发条件: 离线页面打开图文，提示“请求的页面无法打开”
+- 根因: 下载后的 `local_path` 指向 `uniapp_temp` 临时目录，重启/清理后文件失效
+- 解决步骤: 文档下载后固定保存到 `_doc/article_<id>.html`，并使用该路径打开
+- 预防/规则: 离线资源必须保存到持久目录（_doc），避免使用临时路径
+- 关联文件: android/utils/offlineService.js, android/pages/latest/index.vue
+- 标签: 离线, 路径, 持久化
+- 关键词: uniapp_temp, _doc, saveFile, webview
+
+## [2026-02-04] 现象: 离线 HTML 报 unsafe-eval
+- 触发条件: WebView 打开离线 HTML 时出现 CSP 限制导致 EvalError
+- 根因: 文档内包含 CSP meta（`Content-Security-Policy`）禁止 `unsafe-eval`，而 App 注入脚本或页面脚本使用了 eval
+- 解决步骤: 下载后写入 `_doc` 前清理 CSP meta，再保存为离线文件
+- 预防/规则: 离线 HTML 需去除 CSP meta 或使用静态渲染内容
+- 关联文件: android/utils/offlineService.js
+- 标签: 离线, CSP, web-view
+- 关键词: unsafe-eval, Content-Security-Policy, html
+
+## [2026-02-04] 现象: 已下载离线 HTML 仍报 unsafe-eval
+- 触发条件: 旧离线文件已存在 CSP meta，新版本仍会报错
+- 根因: CSP 清理只在下载时执行，旧文件未被清理
+- 解决步骤: 阅读页打开本地 HTML 时二次清理 CSP meta 并覆盖写回
+- 预防/规则: 对历史离线文件提供兼容修复路径
+- 关联文件: android/pages/reader/index.vue
+- 标签: 离线, CSP, 兼容性
+- 关键词: sanitize, webview, local html
+
+## [2026-02-04] 现象: 离线显示 100% 但无法打开
+- 触发条件: 下载过程完成但保存失败，local_path 为空
+- 根因: 保存失败仍标记进度 100% 且 status=done
+- 解决步骤: 保存失败标记为 failed 并提示重新下载
+- 预防/规则: 离线条目必须以 local_path 是否存在判定成功
+- 关联文件: android/utils/offlineService.js, android/pages/offline/index.vue
+- 标签: 离线, 下载, 状态
+- 关键词: local_path, failed, progress

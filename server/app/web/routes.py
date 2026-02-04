@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+import markdown
 from app.core.auth import verify_credentials
 from app.core.validators import is_allowed_doc, is_allowed_video
 from app.db.models import Document, Video
@@ -22,6 +23,43 @@ def _get_session(request: Request):
     init_db(engine)
     SessionLocal = get_sessionmaker(engine)
     return SessionLocal()
+
+
+def _resolve_doc_extension(filename: str) -> str:
+    """AI: 解析文档扩展名。
+    @param filename: 文件名。
+    @return: 扩展名（含点）。
+    """
+    suffix = Path(filename).suffix.lower()
+    return suffix if suffix else ".html"
+
+
+def _resolve_doc_media_type(path: Path) -> str:
+    """AI: 根据路径返回文档媒体类型。
+    @param path: 文件路径。
+    @return: 媒体类型。
+    """
+    suffix = path.suffix.lower()
+    if suffix in (".md", ".markdown"):
+        return "text/markdown"
+    return "text/html"
+
+
+def _render_markdown_html(content: str) -> str:
+    """AI: 将 Markdown 渲染为 HTML。
+    @param content: Markdown 内容。
+    @return: HTML 内容。
+    """
+    return markdown.markdown(
+        content or "",
+        extensions=[
+            "extra",
+            "tables",
+            "fenced_code",
+            "sane_lists",
+            "smarty",
+        ],
+    )
 
 @router.get("/videos", response_class=HTMLResponse)
 def videos(request: Request):
@@ -146,7 +184,16 @@ def doc_preview(request: Request, doc_id: int):
         path = Path(doc.path)
         if not path.exists():
             raise HTTPException(status_code=404, detail="File missing")
-        return FileResponse(path, media_type="text/html")
+        if path.suffix.lower() in (".md", ".markdown"):
+            content = path.read_text(encoding="utf-8", errors="ignore")
+            html = _render_markdown_html(content)
+            title = doc.title or doc.filename
+            return templates.TemplateResponse(
+                request,
+                "doc_preview_markdown.html",
+                {"content": html, "title": title, "active": "docs"},
+            )
+        return FileResponse(path, media_type=_resolve_doc_media_type(path))
 
 
 @router.get("/upload", response_class=HTMLResponse)
@@ -188,12 +235,13 @@ def upload_doc(request: Request, files: list[UploadFile] = File(...)):
     """
     for item in files:
         if not is_allowed_doc(item.filename, item.content_type):
-            raise HTTPException(status_code=400, detail="Only HTML allowed")
+            raise HTTPException(status_code=400, detail="Only HTML/Markdown allowed")
 
     with _get_session(request) as session:
         for item in files:
             uid = str(uuid.uuid4())
-            dst = request.app.state.storage.doc_path(uid)
+            ext = _resolve_doc_extension(item.filename)
+            dst = request.app.state.storage.doc_path(uid, ext)
             with dst.open("wb") as f:
                 f.write(item.file.read())
             create_document(session, filename=item.filename, path=str(dst), title=None)

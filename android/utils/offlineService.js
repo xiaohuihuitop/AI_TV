@@ -10,7 +10,12 @@ export function createOfflineService(storage, downloader) {
   function listDownloads() {
     const value = storage.get(key);
     const list = value ? JSON.parse(value) : [];
-    return list.map((entry) => normalizeEntry(entry));
+    const normalized = list.map((entry) => normalizeEntry(entry));
+    const filtered = normalized.filter((entry) => entry.type !== "article");
+    if (filtered.length !== normalized.length) {
+      saveList(filtered);
+    }
+    return filtered;
   }
 
   function saveList(list) {
@@ -24,12 +29,17 @@ export function createOfflineService(storage, downloader) {
     if (!item.url) {
       throw new Error("缺少下载地址");
     }
+    if (item.type === "article") {
+      throw new Error("图文不支持离线下载");
+    }
     const list = listDownloads().filter((entry) => entry.id !== item.id);
     const entry = normalizeEntry({
       ...item,
       status: "downloading",
       progress: 0,
-      local_path: ""
+      local_path: "",
+      last_error: "",
+      last_step: "初始化"
     });
     list.unshift(entry);
     saveList(list);
@@ -41,21 +51,47 @@ export function createOfflineService(storage, downloader) {
       Object.assign(target, updates);
       saveList(list);
     };
+    const markFailed = (error, step) => {
+      updateEntry({
+        local_path: "",
+        downloaded_at: new Date().toISOString(),
+        progress: 0,
+        status: "failed",
+        last_error: formatErrorMessage(error),
+        last_step: step || "失败"
+      });
+    };
     const handleProgress = (value) => {
       const progress = normalizeProgress(value);
-      updateEntry({ progress, status: "downloading" });
+      updateEntry({ progress, status: "downloading", last_step: "下载中" });
       if (typeof onProgress === "function") {
         onProgress(progress);
       }
     };
-    const result = await downloader.download(item.url, handleProgress);
-    const saved = await downloader.save(result.tempFilePath);
-    updateEntry({
-      local_path: saved.savedFilePath,
-      downloaded_at: new Date().toISOString(),
-      progress: 100,
-      status: "done"
-    });
+    try {
+      updateEntry({ last_step: "开始下载" });
+      const result = await downloader.download(item.url, handleProgress);
+      if (!result || !result.tempFilePath) {
+        throw new Error("下载失败：缺少临时文件");
+      }
+      updateEntry({ last_step: "保存文件" });
+      const saved = await saveDownloadedFile(downloader, result.tempFilePath);
+      const localPath = saved && saved.savedFilePath ? saved.savedFilePath : "";
+      if (!localPath) {
+        throw new Error("保存失败");
+      }
+      updateEntry({
+        local_path: localPath,
+        downloaded_at: new Date().toISOString(),
+        progress: 100,
+        status: "done",
+        last_error: "",
+        last_step: "完成"
+      });
+    } catch (error) {
+      markFailed(error, "下载失败");
+      throw error;
+    }
   }
 
   async function removeDownload(id) {
@@ -96,10 +132,50 @@ function normalizeEntry(entry) {
       : normalized.local_path
         ? 100
         : 0;
-  const status =
-    normalized.status || (progress >= 100 || normalized.local_path ? "done" : "downloading");
-  normalized.progress = progress;
+  const hasPath = !!normalized.local_path;
+  let status = normalized.status;
+  if (!status) {
+    status = progress >= 100 || hasPath ? "done" : "downloading";
+  }
+  if (!hasPath && progress >= 100 && status === "done") {
+    status = "failed";
+  }
+  normalized.progress = status === "failed" ? 0 : progress;
   normalized.status = status;
+  if (!normalized.last_error) {
+    normalized.last_error = "";
+  }
+  if (!normalized.last_step) {
+    normalized.last_step = "";
+  }
   return normalized;
 }
 
+/**
+ * AI:格式化错误信息，便于离线列表展示。
+ * @param {unknown} error AI:错误对象。
+ * @returns {string} AI:可读错误信息。
+ */
+function formatErrorMessage(error) {
+  if (!error) {
+    return "未知错误";
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  const message = error && (error.errMsg || error.message) ? error.errMsg || error.message : "";
+  return message || "未知错误";
+}
+
+/**
+ * AI:保存下载文件。
+ * @param {Object} downloader AI:下载器。
+ * @param {string} tempFilePath AI:临时文件路径。
+ * @returns {Promise<{savedFilePath: string}>} AI:保存结果。
+ */
+async function saveDownloadedFile(downloader, tempFilePath) {
+  if (downloader && typeof downloader.save === "function") {
+    return downloader.save(tempFilePath);
+  }
+  throw new Error("缺少保存能力");
+}

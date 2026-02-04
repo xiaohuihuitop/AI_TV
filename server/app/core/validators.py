@@ -14,4 +14,13 @@ def is_allowed_doc(filename: str, content_type: str | None) -> bool:
     @param content_type: MIME。
     @return: 是否允许。
     """
-    return filename.lower().endswith(".html") and (content_type in (None, "text/html", "application/octet-stream"))
+    lower = filename.lower()
+    allowed_ext = (".html", ".htm", ".md", ".markdown")
+    allowed_types = (
+        None,
+        "text/html",
+        "text/markdown",
+        "text/plain",
+        "application/octet-stream",
+    )
+    return lower.endswith(allowed_ext) and (content_type in allowed_types)

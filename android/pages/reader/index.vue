@@ -8,9 +8,10 @@
     <view v-else-if="error" class="error-card card">
       <text class="error-text">{{ error }}</text>
     </view>
-    <view v-else class="content card">
+    <view v-else class="content card" :class="{ 'content-reading': !useWebview }">
+      <web-view v-if="useWebview && webviewSrc" class="content-webview" :src="webviewSrc"></web-view>
       <mp-html
-        v-if="content"
+        v-else-if="content"
         class="content-html"
         :content="content"
         :markdown="isMarkdown"
@@ -40,6 +41,8 @@ export default {
       title: "",
       content: "",
       origin: "",
+      useWebview: false,
+      webviewSrc: "",
       isMarkdown: true,
       contentDomain: "",
       loading: false,
@@ -59,11 +62,18 @@ export default {
     this.source = source;
     this.title = title;
     this.origin = origin;
-    this.isMarkdown = resolveContentFormat(format || origin || source) !== "html";
     if (!source) {
       this.error = "缺少阅读地址";
       return;
     }
+    if (!isRemoteSource(source)) {
+      this.error = "不支持本地文件阅读";
+      return;
+    }
+    const resolvedFormat = resolveContentFormat(format || origin || source);
+    this.isMarkdown = resolvedFormat !== "html";
+    this.useWebview = resolvedFormat === "html";
+    this.webviewSrc = "";
     this.loadContent();
   },
   methods: {
@@ -74,8 +84,15 @@ export default {
     loadContent() {
       this.loading = true;
       this.error = "";
+      if (this.useWebview) {
+        this.content = "";
+        this.contentDomain = "";
+        this.webviewSrc = this.source;
+        this.loading = false;
+        return;
+      }
       this.contentDomain = this.computeContentDomain();
-      readTextContent(this.source, createUniFileAdapter())
+      readTextContent(this.source)
         .then((text) => {
           this.content = text || "";
         })
@@ -116,159 +133,12 @@ export default {
 };
 
 /**
- * AI:创建本地文件读取适配器。
- * @returns {{read: function(string): Promise<string>}} AI:文件读取适配器。
+ * AI:判断是否为远端地址。
+ * @param {string} source AI:内容来源。
+ * @returns {boolean} AI:是否为远端地址。
  */
-function createUniFileAdapter() {
-  return {
-    read(filePath) {
-      return new Promise((resolve, reject) => {
-        const manager =
-          typeof uni !== "undefined" && typeof uni.getFileSystemManager === "function"
-            ? uni.getFileSystemManager()
-            : null;
-        const candidates = buildFilePathCandidates(filePath);
-        const tryPlusRead = (index) => {
-          const plusCandidates = buildPlusCandidates(candidates);
-          if (index >= plusCandidates.length) {
-            reject(new Error(`本地文件读取失败: ${plusCandidates.join(" | ")}`));
-            return;
-          }
-          const path = plusCandidates[index];
-          if (typeof plus === "undefined" || !plus.io || !plus.io.resolveLocalFileSystemURL) {
-            reject(new Error("当前环境不支持本地读取"));
-            return;
-          }
-          let settled = false;
-          const timer = setTimeout(() => {
-            if (!settled) {
-              tryPlusRead(index + 1);
-            }
-          }, 3000);
-          const finalize = (fn) => {
-            if (settled) {
-              return;
-            }
-            settled = true;
-            clearTimeout(timer);
-            fn();
-          };
-          plus.io.resolveLocalFileSystemURL(
-            path,
-            (entry) => {
-              entry.file(
-                (file) => {
-                  const reader = new FileReader();
-                  reader.onload = () => finalize(() => resolve(reader.result || ""));
-                  reader.onerror = () => finalize(() => tryPlusRead(index + 1));
-                  reader.readAsText(file, "utf-8");
-                },
-                () => finalize(() => tryPlusRead(index + 1))
-              );
-            },
-            () => finalize(() => tryPlusRead(index + 1))
-          );
-        };
-        const tryRead = (index) => {
-          if (index >= candidates.length) {
-            reject(new Error(`本地文件读取失败: ${candidates.join(" | ")}`));
-            return;
-          }
-          manager.readFile({
-            filePath: candidates[index],
-            encoding: "utf8",
-            success: (res) => resolve(res.data),
-            fail: () => tryRead(index + 1)
-          });
-        };
-        if (manager && typeof manager.readFile === "function") {
-          tryRead(0);
-          return;
-        }
-        tryPlusRead(0);
-      });
-    }
-  };
-}
-
-/**
- * AI:规范化本地文件路径。
- * @param {string} filePath AI:原始路径。
- * @returns {string} AI:处理后的路径。
- */
-function normalizeLocalPath(filePath) {
-  return String(filePath || "").replace(/^file:\/\//, "");
-}
-
-/**
- * AI:生成可读取的本地路径候选列表。
- * @param {string} filePath AI:原始路径。
- * @returns {string[]} AI:候选路径列表。
- */
-function buildFilePathCandidates(filePath) {
-  const raw = String(filePath || "");
-  const normalized = normalizeLocalPath(raw);
-  const decoded = safeDecode(raw);
-  const decodedNormalized = normalizeLocalPath(decoded);
-  const mapped = mapLegacyDocPaths([raw, normalized, decoded, decodedNormalized]);
-  const candidates = [raw, normalized, decoded, decodedNormalized, ...mapped].filter(Boolean);
-  return Array.from(new Set(candidates));
-}
-
-/**
- * AI:生成 plus 读取候选路径。
- * @param {string[]} candidates AI:基础候选。
- * @returns {string[]} AI:plus 候选。
- */
-function buildPlusCandidates(candidates) {
-  const list = Array.isArray(candidates) ? candidates.slice() : [];
-  const expanded = [];
-  list.forEach((item) => {
-    expanded.push(item);
-    if (!item.startsWith("file://")) {
-      expanded.push(`file://${item}`);
-    }
-    if (typeof plus !== "undefined" && plus.io && typeof plus.io.convertLocalFileSystemURL === "function") {
-      const converted = plus.io.convertLocalFileSystemURL(item);
-      expanded.push(converted);
-      if (converted && !converted.startsWith("file://")) {
-        expanded.push(`file://${converted}`);
-      }
-    }
-  });
-  return Array.from(new Set(expanded.filter(Boolean)));
-}
-
-/**
- * AI:兼容 _doc/ 路径映射到沙箱绝对路径。
- * @param {string[]} values AI:原始候选路径。
- * @returns {string[]} AI:映射后的候选路径。
- */
-function mapLegacyDocPaths(values) {
-  const base = typeof plus !== "undefined" && plus.io ? plus.io.convertLocalFileSystemURL("_doc/") : "";
-  if (!base) {
-    return [];
-  }
-  const prefix = "file://";
-  const basePath = base.startsWith(prefix) ? base.slice(prefix.length) : base;
-  return values
-    .map((value) => String(value || ""))
-    .filter(Boolean)
-    .filter((value) => value.startsWith("_doc/"))
-    .map((value) => value.replace("_doc/", basePath));
-}
-
-/**
- * AI:安全解码路径。
- * @param {string} value AI:原始路径。
- * @returns {string} AI:解码后路径。
- */
-function safeDecode(value) {
-  try {
-    return decodeURIComponent(value);
-  } catch (error) {
-    return String(value || "");
-  }
+function isRemoteSource(source) {
+  return /^https?:\/\//i.test(String(source || ""));
 }
 
 /**
@@ -326,34 +196,68 @@ function resolveContentFormat(input) {
   background: rgba(255, 255, 255, 0.95);
 }
 
+.content-reading {
+  background: #ffffff;
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  box-shadow: 0 18px 40px rgba(31, 27, 22, 0.12);
+  padding: 22px 20px;
+}
+
 .content-html {
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.85;
   color: var(--color-text);
+  font-family: var(--font-display);
+}
+
+.content-webview {
+  width: 100%;
+  height: 70vh;
+  min-height: 60vh;
 }
 
 .content-html :deep(h1),
 .content-html :deep(h2),
 .content-html :deep(h3),
 .content-html :deep(h4) {
-  margin: 16px 0 8px;
-  font-family: var(--font-display);
+  margin: 24px 0 10px;
+  font-family: var(--font-body);
+  line-height: 1.35;
   color: var(--color-text);
 }
 
-.content-html :deep(.md-p) {
-  margin: 10px 0;
+.content-html :deep(h1) {
+  font-size: 24px;
+  letter-spacing: 0.02em;
+}
+
+.content-html :deep(h2) {
+  font-size: 20px;
+}
+
+.content-html :deep(h3) {
+  font-size: 17px;
+}
+
+.content-html :deep(h4) {
+  font-size: 15px;
+}
+
+.content-html :deep(.md-p),
+.content-html :deep(p) {
+  margin: 12px 0;
 }
 
 .content-html :deep(.md-blockquote) {
-  margin: 12px 0;
-  padding: 8px 12px;
-  border-left: 4px solid rgba(217, 108, 47, 0.35);
-  background: rgba(217, 108, 47, 0.08);
-  border-radius: 10px;
+  margin: 18px 0;
+  padding: 12px 16px;
+  border-left: 4px solid rgba(217, 108, 47, 0.4);
+  background: rgba(217, 108, 47, 0.06);
+  border-radius: 12px;
   color: var(--color-muted);
 }
 
+.content-html :deep(code),
 .content-html :deep(.md-code) {
   padding: 2px 6px;
   border-radius: 6px;
@@ -361,29 +265,68 @@ function resolveContentFormat(input) {
   background: rgba(31, 27, 22, 0.08);
 }
 
+.content-html :deep(pre),
 .content-html :deep(.md-pre) {
-  margin: 12px 0;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f3ede6;
+  margin: 16px 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f1eae2;
   overflow: auto;
+  font-size: 0.92em;
 }
 
+.content-html :deep(pre code),
+.content-html :deep(.md-pre .md-code) {
+  background: none;
+  padding: 0;
+}
+
+.content-html :deep(hr) {
+  border: none;
+  height: 1px;
+  background: rgba(31, 27, 22, 0.08);
+  margin: 22px 0;
+}
+
+.content-html :deep(ul),
+.content-html :deep(ol) {
+  padding-left: 20px;
+}
+
+.content-html :deep(table),
 .content-html :deep(.md-table) {
-  margin: 12px 0;
+  margin: 18px 0;
   width: 100%;
   border-collapse: collapse;
   border-spacing: 0;
+  font-size: 0.95em;
 }
 
+.content-html :deep(th),
+.content-html :deep(td),
 .content-html :deep(.md-th),
 .content-html :deep(.md-td) {
-  padding: 6px 10px;
-  border: 1px solid rgba(31, 27, 22, 0.12);
+  padding: 8px 12px;
+  border: 1px solid rgba(31, 27, 22, 0.1);
+  text-align: left;
 }
 
 .content-html :deep(a) {
   color: #b45309;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(180, 83, 9, 0.3);
+}
+
+.content-html :deep(a:hover) {
+  border-bottom-color: rgba(180, 83, 9, 0.7);
+}
+
+.content-html :deep(img) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 16px 0;
+  border-radius: 12px;
 }
 
 .content-text {

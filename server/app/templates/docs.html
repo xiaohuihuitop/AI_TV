@@ -5,9 +5,9 @@
     <h1>文档管理</h1>
   </div>
   <form class="card upload-card" id="doc-upload-form">
-    <div class="card-title">上传文档（HTML）</div>
-    <div id="doc-drop" class="drop-zone">拖拽 HTML 到这里，或点击选择</div>
-    <input id="doc-files" class="file" type="file" name="files" accept="text/html" multiple />
+    <div class="card-title">上传文档（HTML/Markdown）</div>
+    <div id="doc-drop" class="drop-zone">拖拽 HTML/Markdown 到这里，或点击选择</div>
+    <input id="doc-files" class="file" type="file" name="files" accept=".html,.htm,.md,.markdown,text/html,text/markdown" multiple />
     <div id="doc-list" class="upload-list">
       <div class="upload-empty">尚未选择文件</div>
     </div>
@@ -53,7 +53,9 @@
       return;
     }
     const selected = [];
-    const isAllowed = (file) => file.name.toLowerCase().endsWith(ext);
+    const allowedExt = Array.isArray(ext) ? ext : [ext];
+    const isAllowed = (file) => allowedExt.some((item) => file.name.toLowerCase().endsWith(item));
+    const extLabel = allowedExt.join(" / ");
     const fileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
     const renderList = () => {
       if (selected.length === 0) {
@@ -81,7 +83,7 @@
     const addFiles = (files) => {
       const invalid = files.filter((file) => !isAllowed(file));
       if (invalid.length) {
-        alert(`仅允许 ${ext} 文件`);
+        alert(`仅允许 ${extLabel} 文件`);
       }
       files.filter(isAllowed).forEach((file) => {
         const key = fileKey(file);
@@ -138,7 +140,7 @@
     buttonId: "doc-upload-btn",
     uploadUrl: "/web/upload/doc",
     redirectUrl: "/web/docs",
-    ext: ".html"
+    ext: [".html", ".htm", ".md", ".markdown"]
   });
 </script>
 {% endblock %}

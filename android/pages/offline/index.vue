@@ -4,32 +4,16 @@
       <text class="title">离线</text>
       <text class="subtitle muted">本地缓存的内容</text>
     </view>
-    <view class="media-tabs">
-      <view
-        class="media-tab"
-        :class="{ active: activeType === 'video' }"
-        @click="setActiveType('video')"
-      >
-        视频
-      </view>
-      <view
-        class="media-tab"
-        :class="{ active: activeType === 'article' }"
-        @click="setActiveType('article')"
-      >
-        图文
-      </view>
-    </view>
     <view class="columns">
       <view class="column card cinematic-card">
-        <text class="column-title">{{ activeLabel }}</text>
-        <view v-if="activeItems.length === 0" class="placeholder muted">暂无下载</view>
+        <text class="column-title">视频</text>
+        <view v-if="videoItems.length === 0" class="placeholder muted">暂无下载</view>
         <view
-          v-for="(item, index) in activeItems"
+          v-for="(item, index) in videoItems"
           :key="item.id"
           class="item item-card"
           :style="{ '--delay': `${index * 60}ms` }"
-          @click="handleItemClick(item, index)"
+          @click="openVideo(item, index)"
         >
           <view class="item-cover">
             <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
@@ -40,6 +24,10 @@
               <view class="progress-bar" :style="{ width: `${item.progress}%` }"></view>
             </view>
             <text v-if="item.status !== 'done'" class="progress-text muted">{{ item.progress }}%</text>
+            <text v-if="item.status === 'failed'" class="error-text">失败：{{ item.last_error || "未知错误" }}</text>
+            <text v-else-if="item.status !== 'done' && item.last_step" class="progress-text muted">
+              步骤：{{ item.last_step }}
+            </text>
           </view>
           <button class="btn btn-ghost remove" size="mini" @click.stop="removeDownload(item)">
             删除
@@ -89,54 +77,36 @@ function removeLocalFile(filePath) {
       resolve();
       return;
     }
+    const normalized = String(filePath || "").replace(/^file:\/\//, "");
     uni.removeSavedFile({
-      filePath,
+      filePath: normalized,
       success: () => resolve(),
-      fail: (error) => reject(error)
+      fail: () => {
+        if (typeof plus === "undefined" || !plus.io || !plus.io.resolveLocalFileSystemURL) {
+          reject(new Error("删除失败"));
+          return;
+        }
+        plus.io.resolveLocalFileSystemURL(
+          filePath,
+          (entry) => {
+            entry.remove(
+              () => resolve(),
+              () => reject(new Error("删除失败"))
+            );
+          },
+          () => reject(new Error("删除失败"))
+        );
+      }
     });
   });
-}
-
-/**
- * AI:根据资源地址推断内容格式。
- * @param {string} url AI:资源地址。
- * @returns {string} AI:format 值（html/markdown/空）。
- */
-function resolveContentFormat(url) {
-  const lower = String(url || "").toLowerCase();
-  if (lower.endsWith(".html") || lower.endsWith(".htm")) {
-    return "html";
-  }
-  if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
-    return "markdown";
-  }
-  return "";
 }
 
 export default {
   data() {
     return {
-      activeType: "video",
       videoItems: [],
-      articleItems: [],
       refreshTimer: null
     };
-  },
-  computed: {
-    /**
-     * AI:根据当前类型返回展示列表。
-     * @returns {Array} AI:当前展示数据。
-     */
-    activeItems() {
-      return this.activeType === "video" ? this.videoItems : this.articleItems;
-    },
-    /**
-     * AI:返回当前类型标签文本。
-     * @returns {string} AI:标签文本。
-     */
-    activeLabel() {
-      return this.activeType === "video" ? "视频" : "图文";
-    }
   },
   onShow() {
     const hasDownloading = this.refreshDownloads();
@@ -152,27 +122,6 @@ export default {
   },
   methods: {
     /**
-     * AI:切换当前媒体类型。
-     * @param {string} type AI:媒体类型。
-     * @returns {void} AI:无返回值。
-     */
-    setActiveType(type) {
-      this.activeType = type;
-    },
-    /**
-     * AI:处理条目点击事件，按类型跳转。
-     * @param {Object} item AI:条目信息。
-     * @param {number} index AI:条目索引。
-     * @returns {void} AI:无返回值。
-     */
-    handleItemClick(item, index) {
-      if (item.type === "article") {
-        this.openArticle(item);
-        return;
-      }
-      this.openVideo(item, index);
-    },
-    /**
      * AI:跳转到视频播放页。
      * @param {Object} item AI:视频条目。
      * @param {number} index AI:条目索引。
@@ -180,6 +129,10 @@ export default {
      */
     openVideo(item, index) {
       const src = this.resolveItemSource(item);
+      if (item && item.status === "failed") {
+        uni.showToast({ title: "下载失败，请重新下载", icon: "none" });
+        return;
+      }
       if (!src) {
         uni.showToast({ title: "尚未下载完成", icon: "none" });
         return;
@@ -194,28 +147,6 @@ export default {
       const title = item.title ? encodeURIComponent(item.title) : "";
       uni.navigateTo({
         url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}&autoplay=1`
-      });
-    },
-    /**
-     * AI:跳转到图文阅读页。
-     * @param {Object} item AI:图文条目。
-     * @returns {void} AI:无返回值。
-     */
-    openArticle(item) {
-      const src = this.resolveItemSource(item);
-      if (!src) {
-        uni.showToast({ title: "尚未下载完成", icon: "none" });
-        return;
-      }
-      const title = item.title ? encodeURIComponent(item.title) : "";
-      const origin = item && item.url ? encodeURIComponent(item.url) : "";
-      const format =
-        resolveContentFormat(item && item.url ? item.url : "") ||
-        (item && item.type === "article" ? "html" : "");
-      const formatParam = format ? `&format=${encodeURIComponent(format)}` : "";
-      const originParam = origin ? `&origin=${origin}` : "";
-      uni.navigateTo({
-        url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}${formatParam}${originParam}`
       });
     },
     /**
@@ -238,7 +169,6 @@ export default {
         cover: resolveCoverUrl(item)
       }));
       this.videoItems = list.filter((item) => item.type === "video");
-      this.articleItems = list.filter((item) => item.type === "article");
       return list.some((item) => item.status !== "done");
     },
     /**
@@ -311,34 +241,6 @@ export default {
   display: block;
   font-size: 12px;
   letter-spacing: 0.08em;
-}
-
-.media-tabs {
-  display: inline-flex;
-  gap: 8px;
-  padding: 6px;
-  border-radius: var(--radius-pill);
-  background: rgba(31, 27, 22, 0.04);
-  border: 1px solid rgba(31, 27, 22, 0.12);
-  box-shadow: var(--shadow-soft);
-  margin-bottom: 18px;
-}
-
-.media-tab {
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--color-muted);
-  transition: all var(--duration-fast) ease;
-}
-
-.media-tab.active {
-  background-color: rgba(217, 108, 47, 0.18);
-  color: #8f3d17;
-  border-color: rgba(217, 108, 47, 0.4);
-  box-shadow: 0 6px 14px rgba(217, 108, 47, 0.16);
 }
 
 .columns {
@@ -424,6 +326,12 @@ export default {
 
 .progress-text {
   font-size: 11px;
+}
+
+.error-text {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #b45309;
 }
 
 .remove {

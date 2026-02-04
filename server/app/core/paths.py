@@ -33,12 +33,14 @@ class StoragePaths:
         """
         return self.videos / f"{uid}.mp4"
 
-    def doc_path(self, uid: str) -> Path:
+    def doc_path(self, uid: str, ext: str = ".html") -> Path:
         """AI: 生成文档文件路径。
         @param uid: 唯一 ID。
+        @param ext: 文件扩展名（含点）。
         @return: 文档路径。
         """
-        return self.docs / f"{uid}.html"
+        suffix = ext if ext.startswith(".") else f".{ext}"
+        return self.docs / f"{uid}{suffix}"
 
     def cover_path(self, uid: str) -> Path:
         """AI: 生成封面图片路径。

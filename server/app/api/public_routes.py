@@ -49,6 +49,27 @@ def _make_url(base_url: str, path: str, query_suffix: str) -> str:
     return f"{base_url}{safe_path}{query_suffix}"
 
 
+def _resolve_doc_format(path: Path) -> str:
+    """AI: 根据路径推断文档格式。
+    @param path: 文件路径。
+    @return: 格式标识（html/markdown）。
+    """
+    suffix = path.suffix.lower()
+    if suffix in (".md", ".markdown"):
+        return "markdown"
+    return "html"
+
+
+def _resolve_doc_media_type(path: Path) -> str:
+    """AI: 根据路径返回文档媒体类型。
+    @param path: 文件路径。
+    @return: 媒体类型。
+    """
+    if _resolve_doc_format(path) == "markdown":
+        return "text/markdown"
+    return "text/html"
+
+
 @router.get("/index.json")
 def public_index(request: Request):
     """AI: 输出 App 清单协议。
@@ -84,12 +105,14 @@ def public_index(request: Request):
             path = Path(doc.path)
             if not path.exists():
                 continue
+            doc_format = _resolve_doc_format(path)
             items.append(
                 {
                     "id": doc.id,
                     "type": "article",
                     "title": doc.title or doc.filename,
                     "url": _make_url(base_url, f"/public/docs/{doc.id}/download", query_suffix),
+                    "format": doc_format,
                     "published_at": doc.created_at,
                 }
             )
@@ -156,4 +179,4 @@ def public_download_doc(request: Request, doc_id: int):
         path = Path(doc.path)
         if not path.exists():
             raise HTTPException(status_code=404, detail="File missing")
-        return FileResponse(path, media_type="text/html")
+        return FileResponse(path, media_type=_resolve_doc_media_type(path))

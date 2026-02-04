@@ -22,6 +22,26 @@ def _get_session(request: Request):
     SessionLocal = get_sessionmaker(engine)
     return SessionLocal()
 
+
+def _resolve_doc_extension(filename: str) -> str:
+    """AI: 解析文档扩展名。
+    @param filename: 文件名。
+    @return: 扩展名（含点）。
+    """
+    suffix = Path(filename).suffix.lower()
+    return suffix if suffix else ".html"
+
+
+def _resolve_doc_media_type(path: Path) -> str:
+    """AI: 根据路径返回文档媒体类型。
+    @param path: 文件路径。
+    @return: 媒体类型。
+    """
+    suffix = path.suffix.lower()
+    if suffix in (".md", ".markdown"):
+        return "text/markdown"
+    return "text/html"
+
 @router.post("/videos")
 def upload_video(request: Request, files: list[UploadFile] = File(...)):
     """AI: 上传视频文件。
@@ -56,13 +76,14 @@ def upload_doc(request: Request, files: list[UploadFile] = File(...)):
     """
     for item in files:
         if not is_allowed_doc(item.filename, item.content_type):
-            raise HTTPException(status_code=400, detail="Only HTML allowed")
+            raise HTTPException(status_code=400, detail="Only HTML/Markdown allowed")
 
     results: list[dict] = []
     with _get_session(request) as session:
         for item in files:
             uid = str(uuid.uuid4())
-            dst = request.app.state.storage.doc_path(uid)
+            ext = _resolve_doc_extension(item.filename)
+            dst = request.app.state.storage.doc_path(uid, ext)
             with dst.open("wb") as f:
                 f.write(item.file.read())
             doc = create_document(session, filename=item.filename, path=str(dst), title=None)
@@ -206,7 +227,7 @@ def download_doc(request: Request, doc_id: int):
         path = Path(doc.path)
         if not path.exists():
             raise HTTPException(status_code=404, detail="File missing")
-        return FileResponse(path)
+        return FileResponse(path, media_type=_resolve_doc_media_type(path))
 
 
 @router.delete("/docs/{doc_id}")

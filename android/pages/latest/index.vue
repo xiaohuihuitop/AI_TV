@@ -40,7 +40,12 @@
           <view class="item-main">
             <text class="item-title">{{ item.title }}</text>
           </view>
-          <button class="btn btn-primary download" size="mini" @click.stop="addDownload(item)">
+          <button
+            v-if="item.type === 'video'"
+            class="btn btn-primary download"
+            size="mini"
+            @click.stop="addDownload(item)"
+          >
             下载
           </button>
         </view>
@@ -100,6 +105,22 @@ function createUniDownloader() {
         uni.saveFile({
           tempFilePath,
           success: (res) => resolve({ savedFilePath: res.savedFilePath }),
+          fail: (error) => reject(error)
+        });
+      });
+    },
+    /**
+     * AI:保存文件到指定路径。
+     * @param {string} tempFilePath AI:临时路径。
+     * @param {string} filePath AI:目标路径。
+     * @returns {Promise<{savedFilePath: string}>} AI:保存结果。
+     */
+    saveWithPath(tempFilePath, filePath) {
+      return new Promise((resolve, reject) => {
+        uni.saveFile({
+          tempFilePath,
+          filePath,
+          success: (res) => resolve({ savedFilePath: res.savedFilePath || filePath }),
           fail: (error) => reject(error)
         });
       });
@@ -228,6 +249,7 @@ export default {
       const title = item.title ? encodeURIComponent(item.title) : "";
       const origin = item && item.url ? encodeURIComponent(item.url) : "";
       const format =
+        (item && item.format ? String(item.format) : "") ||
         resolveContentFormat(item && item.url ? item.url : "") ||
         (item && item.type === "article" ? "html" : "");
       const formatParam = format ? `&format=${encodeURIComponent(format)}` : "";
@@ -312,6 +334,9 @@ export default {
      * @returns {void} AI:无返回值。
      */
     addDownload(item) {
+      if (!item || item.type !== "video") {
+        return;
+      }
       const storage = createUniStorage();
       const service = createOfflineService(storage, createUniDownloader());
       service
@@ -320,7 +345,7 @@ export default {
           uni.showToast({ title: "已加入离线", icon: "success" });
         })
         .catch(() => {
-          uni.showToast({ title: "下载失败", icon: "none" });
+          uni.showToast({ title: "下载失败，请到离线页查看原因", icon: "none" });
         });
     }
   }
