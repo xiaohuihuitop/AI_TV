@@ -39,6 +39,9 @@
           </view>
           <view class="item-main">
             <text class="item-title">{{ item.title }}</text>
+            <text v-if="item.type === 'video'" class="item-desc muted">
+              {{ item.description || "无" }}
+            </text>
             <view v-if="item.type === 'video'" class="item-meta muted">
               <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
               <text>大小：{{ formatSize(item.size_bytes) }}</text>
@@ -493,6 +496,11 @@ function padTime(value) {
   font-size: 14px;
   line-height: 1.4;
   color: var(--color-text);
+}
+
+.item-desc {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .item-meta {
