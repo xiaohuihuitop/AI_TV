@@ -86,6 +86,7 @@ def public_index(request: Request):
             path = Path(video.path)
             if not path.exists():
                 continue
+            size_bytes = path.stat().st_size
             cover_url = ""
             if video.cover_path:
                 cover = Path(video.cover_path)
@@ -98,6 +99,8 @@ def public_index(request: Request):
                     "title": video.filename,
                     "url": _make_url(base_url, f"/public/videos/{video.id}/download", query_suffix),
                     "cover": cover_url,
+                    "duration_seconds": video.duration_seconds,
+                    "size_bytes": size_bytes,
                     "published_at": video.created_at,
                 }
             )
