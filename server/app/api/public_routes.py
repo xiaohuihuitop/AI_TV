@@ -101,6 +101,7 @@ def public_index(request: Request):
                     "cover": cover_url,
                     "duration_seconds": video.duration_seconds,
                     "size_bytes": size_bytes,
+                    "description": video.description or "无",
                     "published_at": video.created_at,
                 }
             )

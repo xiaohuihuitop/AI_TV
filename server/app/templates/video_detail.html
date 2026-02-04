@@ -15,7 +15,21 @@
       <div><strong>文件名：</strong>{{ video.filename }}</div>
       <div><strong>状态：</strong>{{ video.status }}</div>
       <div><strong>时长：</strong>{{ '%.2f'|format(video.duration_seconds) if video.duration_seconds else '未知' }}</div>
+      <div><strong>描述：</strong>{{ video.description or '无' }}</div>
     </div>
+    <form class="card" method="post" action="/web/videos/{{ video.id }}/description">
+      <div class="card-title">视频描述（最多20字）</div>
+      <input
+        class="text-input"
+        type="text"
+        name="description"
+        maxlength="20"
+        value="{{ video.description or '无' }}"
+      />
+      <div class="actions">
+        <button class="btn" type="submit">保存</button>
+      </div>
+    </form>
     {% if video.cover_path %}
       <img class="detail-cover" src="/web/videos/{{ video.id }}/cover" alt="cover" style="max-height:240px;object-fit:cover;" />
     {% endif %}

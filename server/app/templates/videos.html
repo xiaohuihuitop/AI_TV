@@ -29,6 +29,7 @@
         <div class="meta">
           <span class="pill">{{ v.status }}</span>
           <span>时长：{{ '%.2f'|format(v.duration_seconds) if v.duration_seconds else '未知' }}</span>
+          <span>描述：{{ v.description or '无' }}</span>
         </div>
         <div class="actions">
           <a class="link" href="/web/videos/{{ v.id }}">查看详情</a>

@@ -112,6 +112,7 @@ def list_videos(request: Request, status: str | None = None):
                 "status": v.status,
                 "duration_seconds": v.duration_seconds,
                 "cover_path": v.cover_path,
+                "description": v.description,
             }
             for v in items
         ]
@@ -135,6 +136,7 @@ def get_video_detail(request: Request, video_id: int):
             "status": video.status,
             "duration_seconds": video.duration_seconds,
             "cover_path": video.cover_path,
+            "description": video.description,
         }
 
 

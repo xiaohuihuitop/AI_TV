@@ -87,6 +87,25 @@ def video_detail(request: Request, video_id: int):
         request, "video_detail.html", {"video": video, "active": "videos"}
     )
 
+
+@router.post("/videos/{video_id}/description")
+async def video_description_update(request: Request, video_id: int):
+    """AI: 更新视频描述。
+    @param request: 当前请求。
+    @param video_id: 视频 ID。
+    @return: 跳转响应。
+    """
+    form = await request.form()
+    raw = str(form.get("description") or "").strip()
+    desc = raw[:20] if raw else "无"
+    with _get_session(request) as session:
+        video = session.get(Video, video_id)
+        if not video:
+            raise HTTPException(status_code=404, detail="Not found")
+        video.description = desc
+        session.commit()
+    return RedirectResponse(url=f"/web/videos/{video_id}", status_code=303)
+
 @router.get("/videos/{video_id}/cover")
 def video_cover(request: Request, video_id: int):
     """AI: 视频封面输出。
