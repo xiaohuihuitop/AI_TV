@@ -17,7 +17,13 @@ def create_video(session: Session, filename: str, path: str) -> Video:
     @param path: 存储路径。
     @return: Video 实体。
     """
-    video = Video(filename=filename, path=path, status="pending", created_at=_now_str())
+    video = Video(
+        filename=filename,
+        path=path,
+        status="pending",
+        created_at=_now_str(),
+        description="无",
+    )
     session.add(video)
     session.commit()
     session.refresh(video)

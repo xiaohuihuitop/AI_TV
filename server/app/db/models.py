@@ -17,6 +17,7 @@ class Video(Base):
     width: Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    description: Mapped[str] = mapped_column(String(20), default="无")
     status: Mapped[str] = mapped_column(String(32), default="pending")
     error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[str] = mapped_column(String(32))
