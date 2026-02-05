@@ -44,12 +44,13 @@ export function createOfflineService(storage, downloader) {
     list.unshift(entry);
     saveList(list);
     const updateEntry = (updates) => {
-      const target = list.find((current) => current.id === item.id);
+      const latest = listDownloads();
+      const target = latest.find((current) => current.id === item.id);
       if (!target) {
         return;
       }
       Object.assign(target, updates);
-      saveList(list);
+      saveList(latest);
     };
     const markFailed = (error, step) => {
       updateEntry({

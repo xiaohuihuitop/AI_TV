@@ -184,3 +184,12 @@
 - 关联文件: server/app/services/video_processing.py
 - 标签: 封面, 旋转, 元数据
 - 关键词: rotate, cover, ffmpeg
+
+## [2026-02-05] 现象: 离线下载条目被覆盖/消失
+- 触发条件: 最新页连续触发多个下载，离线页条目闪烁、数量变动，部分条目消失或进度停滞
+- 根因: offlineService.addDownload 使用闭包 list 保存进度，多任务并发时互相覆盖存储
+- 解决步骤: 更新条目时每次从存储读取最新列表，再写回
+- 预防/规则: 并发写入本地存储必须基于最新快照更新
+- 关联文件: android/utils/offlineService.js, AI_TOOL/offline_download_race_test.mjs
+- 标签: 离线, 下载, 并发, 存储
+- 关键词: download_items, list覆盖, 进度
