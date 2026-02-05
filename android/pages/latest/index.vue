@@ -21,7 +21,7 @@
     </view>
     <view class="columns">
       <view class="column card cinematic-card">
-        <view v-if="activeItems.length === 0" class="placeholder muted">暂无数据</view>
+        <view v-if="activeItems.length === 0" class="placeholder muted">{{ emptyHint }}</view>
         <view
           v-for="(item, index) in activeItems"
           :key="item.id"
@@ -167,6 +167,7 @@ export default {
     return {
       loading: false,
       error: "",
+      emptyHint: "暂无数据",
       activeType: "video",
       videoItems: [],
       articleItems: []
@@ -295,10 +296,12 @@ export default {
         this.error = "请在设置中填写清单地址";
         this.videoItems = [];
         this.articleItems = [];
+        this.emptyHint = "暂无数据";
         return Promise.resolve(false);
       }
       this.loading = true;
       this.error = "";
+      this.emptyHint = "暂无数据";
       const requestUrl = appendCacheBuster(indexUrl);
       return new Promise((resolve) => {
         uni.request({
@@ -307,6 +310,14 @@ export default {
             if (res.statusCode === 200 && res.data) {
               adapter.setJson(indexCacheKey, res.data);
               this.applyItems(res.data);
+              return;
+            }
+            if (res.statusCode === 401 || res.statusCode === 403) {
+              adapter.remove(indexCacheKey);
+              this.videoItems = [];
+              this.articleItems = [];
+              this.error = "";
+              this.emptyHint = "无更新";
               return;
             }
             this.applyCache(adapter);
@@ -330,6 +341,7 @@ export default {
       const normalized = normalizeIndexItems(data);
       this.videoItems = normalized.items.filter((item) => item.type === "video");
       this.articleItems = normalized.items.filter((item) => item.type === "article");
+      this.emptyHint = "暂无数据";
     },
     /**
      * AI:从缓存恢复清单并更新页面状态。
@@ -345,6 +357,7 @@ export default {
       this.error = "清单加载失败，请检查网络或地址";
       this.videoItems = [];
       this.articleItems = [];
+      this.emptyHint = "暂无数据";
     },
     /**
      * AI:触发离线下载并写入本地记录。

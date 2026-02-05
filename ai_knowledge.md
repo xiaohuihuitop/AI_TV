@@ -157,3 +157,12 @@
 - 关联文件: android/utils/offlineService.js, android/pages/offline/index.vue
 - 标签: 离线, 下载, 状态
 - 关键词: local_path, failed, progress
+
+## [2026-02-05] 现象: 密码错误仍可看到清单并播放在线内容
+- 触发条件: App 设置错误密码后进入最新页
+- 根因: 最新页请求失败回退到缓存，缓存内 URL 含正确凭证
+- 解决步骤: 认证失败(401/403)时清空缓存与列表，显示“无更新”
+- 预防/规则: 认证失败不允许使用缓存清单
+- 关联文件: android/pages/latest/index.vue
+- 标签: 认证, 缓存, 安全
+- 关键词: index_cache, 401, public
