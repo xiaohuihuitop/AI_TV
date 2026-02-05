@@ -43,13 +43,14 @@
             </view>
           </view>
           <button
-            v-if="item.type === 'video'"
+            v-if="item.type === 'video' && !isDownloaded(item)"
             class="btn btn-primary download"
             size="mini"
             @click.stop="addDownload(item)"
           >
             下载
           </button>
+          <text v-else-if="item.type === 'video'" class="downloaded muted">已下载</text>
         </view>
       </view>
     </view>
@@ -170,7 +171,8 @@ export default {
       emptyHint: "暂无数据",
       activeType: "video",
       videoItems: [],
-      articleItems: []
+      articleItems: [],
+      downloadedMap: {}
     };
   },
   computed: {
@@ -190,6 +192,7 @@ export default {
     }
   },
   onShow() {
+    this.refreshDownloadStatus();
     this.fetchIndex();
   },
   /**
@@ -215,6 +218,26 @@ export default {
      */
     setActiveType(type) {
       this.activeType = type;
+    },
+    /**
+     * AI:刷新已下载的视频标记。
+     * @returns {void} AI:无返回值。
+     */
+    refreshDownloadStatus() {
+      const storage = createUniStorage();
+      const service = createOfflineService(storage, createUniDownloader());
+      const list = service.listDownloads();
+      const map = {};
+      list.forEach((entry) => {
+        const key = String(entry && entry.id ? entry.id : "");
+        if (!key) {
+          return;
+        }
+        if (entry.status === "done" && entry.local_path) {
+          map[key] = true;
+        }
+      });
+      this.downloadedMap = map;
     },
     /**
      * AI:处理条目点击事件，按类型跳转。
@@ -283,6 +306,18 @@ export default {
      */
     resolveItemSource(item) {
       return item && item.url ? item.url : "";
+    },
+    /**
+     * AI:判断视频是否已下载。
+     * @param {Object} item AI:视频条目。
+     * @returns {boolean} AI:是否已下载。
+     */
+    isDownloaded(item) {
+      const key = String(item && item.id ? item.id : "");
+      if (!key) {
+        return false;
+      }
+      return !!this.downloadedMap[key];
     },
     /**
      * AI:拉取清单并更新页面数据。
@@ -368,14 +403,20 @@ export default {
       if (!item || item.type !== "video") {
         return;
       }
+      if (this.isDownloaded(item)) {
+        uni.showToast({ title: "已下载", icon: "none" });
+        return;
+      }
       const storage = createUniStorage();
       const service = createOfflineService(storage, createUniDownloader());
       service
         .addDownload(item)
         .then(() => {
+          this.refreshDownloadStatus();
           uni.showToast({ title: "已加入离线", icon: "success" });
         })
         .catch(() => {
+          this.refreshDownloadStatus();
           uni.showToast({ title: "下载失败，请到离线页查看原因", icon: "none" });
         });
     },
@@ -552,6 +593,17 @@ function padTime(value) {
 .download {
   min-width: 84px;
   flex-shrink: 0;
+}
+
+.downloaded {
+  min-width: 84px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 12px;
+  border: 1px solid rgba(31, 27, 22, 0.12);
+  background: rgba(31, 27, 22, 0.06);
 }
 
 .placeholder {
