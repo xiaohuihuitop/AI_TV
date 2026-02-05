@@ -166,3 +166,12 @@
 - 关联文件: android/pages/latest/index.vue
 - 标签: 认证, 缓存, 安全
 - 关键词: index_cache, 401, public
+
+## [2026-02-05] 现象: 视频横竖屏判断不准
+- 触发条件: 设备录制视频带旋转元数据时，宽高与实际显示方向相反
+- 根因: 仅使用 width/height 判断方向，忽略 rotate/display matrix
+- 解决步骤: ffprobe 同时读取 rotate/side_data_list，按旋转角度交换显示宽高后再判断
+- 预防/规则: 方向判断必须考虑旋转元数据；已上传的视频需手动触发重新处理
+- 关联文件: server/app/services/video_processing.py
+- 标签: 视频处理, 旋转, 元数据
+- 关键词: ffprobe, rotate, display matrix

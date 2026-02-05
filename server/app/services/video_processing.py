@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def probe_video(path: Path) -> dict:
-    """AI: 读取视频宽高与时长。
+    """AI: 读取视频显示宽高与时长（考虑旋转元数据）。
     @param path: 视频文件路径。
     @return: 包含 width/height/duration 的字典。
     """
@@ -15,7 +15,7 @@ def probe_video(path: Path) -> dict:
         "-select_streams",
         "v:0",
         "-show_entries",
-        "stream=width,height",
+        "stream=width,height:stream_tags=rotate:side_data_list",
         "-show_entries",
         "format=duration",
         "-of",
@@ -24,17 +24,20 @@ def probe_video(path: Path) -> dict:
     ]
     result = subprocess.check_output(cmd)
     data = json.loads(result)
-    width = int(data["streams"][0]["width"])
-    height = int(data["streams"][0]["height"])
-    duration = float(data["format"]["duration"])
-    return {"width": width, "height": height, "duration": duration}
+    stream = (data.get("streams") or [{}])[0]
+    width = int(stream.get("width") or 0)
+    height = int(stream.get("height") or 0)
+    rotate = _resolve_rotate(stream)
+    display_width, display_height = _apply_rotation(width, height, rotate)
+    duration = float((data.get("format") or {}).get("duration") or 0)
+    return {"width": display_width, "height": display_height, "duration": duration}
 
 
 def rotate_if_needed(path: Path, width: int, height: int) -> None:
-    """AI: 宽大于高时旋转 90 度。
+    """AI: 按显示宽高判断是否旋转。
     @param path: 视频文件路径。
-    @param width: 宽度。
-    @param height: 高度。
+    @param width: 显示宽度。
+    @param height: 显示高度。
     @return: None
     """
     if width <= height:
@@ -67,3 +70,36 @@ def process_video(path: Path, cover_path: Path) -> dict:
     info = probe_video(path)
     extract_cover(path, info["duration"] * 0.1, cover_path)
     return info
+
+
+def _resolve_rotate(stream: dict) -> int:
+    """AI: 解析旋转角度。
+    @param stream: ffprobe 返回的 stream 字典。
+    @return: 旋转角度（整数，默认 0）。
+    """
+    tags = stream.get("tags") or {}
+    raw = tags.get("rotate")
+    if raw is not None:
+        try:
+            return int(float(raw))
+        except (TypeError, ValueError):
+            return 0
+    for side in stream.get("side_data_list") or []:
+        if "rotation" in side:
+            try:
+                return int(float(side.get("rotation")))
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+
+def _apply_rotation(width: int, height: int, rotate: int) -> tuple[int, int]:
+    """AI: 根据旋转角度返回显示宽高。
+    @param width: 原始宽度。
+    @param height: 原始高度。
+    @param rotate: 旋转角度。
+    @return: 显示宽高元组。
+    """
+    if abs(rotate) in (90, 270):
+        return height, width
+    return width, height
