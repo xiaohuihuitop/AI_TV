@@ -145,31 +145,6 @@ def video_delete(request: Request, video_id: int):
     return RedirectResponse(url="/web/videos", status_code=303)
 
 
-@router.post("/videos/{video_id}/reprocess")
-def video_reprocess(request: Request, video_id: int):
-    """AI: 重新处理视频，更新封面与元数据。
-    @param request: 当前请求。
-    @param video_id: 视频 ID。
-    @return: 跳转响应。
-    """
-    with _get_session(request) as session:
-        video = session.get(Video, video_id)
-        if not video:
-            raise HTTPException(status_code=404, detail="Not found")
-        if video.cover_path:
-            cover = Path(video.cover_path)
-            if cover.exists():
-                cover.unlink()
-        video.cover_path = None
-        video.width = None
-        video.height = None
-        video.duration_seconds = None
-        video.error_message = None
-        video.status = "pending"
-        session.commit()
-    return RedirectResponse(url="/web/videos", status_code=303)
-
-
 @router.get("/docs", response_class=HTMLResponse)
 def docs(request: Request):
     """AI: 文档列表页。

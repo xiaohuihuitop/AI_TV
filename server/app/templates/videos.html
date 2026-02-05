@@ -33,9 +33,6 @@
         </div>
         <div class="actions">
           <a class="link" href="/web/videos/{{ v.id }}">查看详情</a>
-          <form class="inline-form" method="post" action="/web/videos/{{ v.id }}/reprocess" onsubmit="return confirm('确定重新处理该视频吗？')">
-            <button class="btn ghost" type="submit">重新处理</button>
-          </form>
           <form class="inline-form" method="post" action="/web/videos/{{ v.id }}/delete" onsubmit="return confirm('确定删除该视频吗？')">
             <button class="btn danger" type="submit">删除</button>
           </form>
