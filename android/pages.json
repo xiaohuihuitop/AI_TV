@@ -1,17 +1,17 @@
 {
   "pages": [
     {
+      "path": "pages/offline/index",
+      "style": {
+        "navigationBarTitleText": "离线"
+      }
+    },
+    {
       "path": "pages/latest/index",
       "style": {
         "navigationBarTitleText": "最新",
         "enablePullDownRefresh": true,
         "backgroundTextStyle": "dark"
-      }
-    },
-    {
-      "path": "pages/offline/index",
-      "style": {
-        "navigationBarTitleText": "离线"
       }
     },
     {
@@ -42,14 +42,15 @@
     "color": "#6b645d",
     "selectedColor": "#d96c2f",
     "backgroundColor": "#f7f2ea",
+    "fontSize": "14px",
     "list": [
-      {
-        "pagePath": "pages/latest/index",
-        "text": "最新"
-      },
       {
         "pagePath": "pages/offline/index",
         "text": "离线"
+      },
+      {
+        "pagePath": "pages/latest/index",
+        "text": "最新"
       },
       {
         "pagePath": "pages/settings/index",

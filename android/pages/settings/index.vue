@@ -86,11 +86,12 @@ export default {
 .input {
   margin-top: 10px;
   padding: 12px 14px;
-  border: 1px solid rgba(31, 27, 22, 0.16);
-  border-radius: 12px;
+  border: 1px solid rgba(31, 27, 22, 0.12);
+  border-radius: var(--radius-soft);
   font-size: 14px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   color: var(--color-text);
+  box-shadow: inset 0 1px 2px rgba(31, 27, 22, 0.08);
 }
 
 .actions {
@@ -102,10 +103,10 @@ export default {
 
 .save {
   min-width: 96px;
-  background: linear-gradient(135deg, #d96c2f 0%, #f2a45f 100%);
-  border-color: #d96c2f;
+  background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%);
+  border-color: rgba(180, 83, 9, 0.45);
   color: #ffffff;
-  box-shadow: 0 10px 22px rgba(217, 108, 47, 0.25);
+  box-shadow: 0 10px 22px rgba(180, 83, 9, 0.28);
 }
 
 .hint {

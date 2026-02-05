@@ -1,12 +1,7 @@
 <template>
   <view class="app-page">
-    <view class="header hero">
-      <text class="title">离线</text>
-      <text class="subtitle muted">本地缓存的内容</text>
-    </view>
     <view class="columns">
       <view class="column card cinematic-card">
-        <text class="column-title">视频</text>
         <view v-if="videoItems.length === 0" class="placeholder muted">暂无下载</view>
         <view
           v-for="(item, index) in videoItems"
@@ -222,27 +217,6 @@ export default {
 </script>
 
 <style scoped>
-.header {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  animation: rise-fade 320ms ease-out both;
-}
-
-.title {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  font-family: var(--font-display);
-}
-
-.subtitle {
-  display: block;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-
 .columns {
   display: flex;
   gap: 12px;
@@ -256,13 +230,6 @@ export default {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.column-title {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .item {
   display: flex;
   align-items: center;
@@ -272,6 +239,7 @@ export default {
 
 .item-main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -281,15 +249,17 @@ export default {
   font-size: 14px;
   line-height: 1.4;
   color: var(--color-text);
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .item-cover {
-  width: 96px;
-  height: 56px;
-  border-radius: 10px;
+  width: 104px;
+  height: 62px;
+  border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(217, 108, 47, 0.18), rgba(31, 27, 22, 0.08));
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.18), rgba(31, 27, 22, 0.08));
   border: 1px solid rgba(31, 27, 22, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
@@ -305,7 +275,7 @@ export default {
   padding: 14px 14px;
   border-radius: 12px;
   border: 1px solid rgba(31, 27, 22, 0.08);
-  background: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.86));
   box-shadow: var(--shadow-soft);
   animation: rise-fade 360ms ease-out both;
   animation-delay: var(--delay);
@@ -313,15 +283,15 @@ export default {
 
 .progress {
   width: 100%;
-  height: 6px;
+  height: 7px;
   border-radius: 999px;
-  background: rgba(31, 27, 22, 0.1);
+  background: rgba(31, 27, 22, 0.08);
   overflow: hidden;
 }
 
 .progress-bar {
   height: 100%;
-  background: linear-gradient(120deg, #f97316, #f59e0b);
+  background: linear-gradient(120deg, #b45309, #f59e0b);
 }
 
 .progress-text {

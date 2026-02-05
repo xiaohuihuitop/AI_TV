@@ -197,9 +197,9 @@ function resolveContentFormat(input) {
 }
 
 .content-reading {
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(31, 27, 22, 0.08);
-  box-shadow: 0 18px 40px rgba(31, 27, 22, 0.12);
+  box-shadow: var(--shadow-float);
   padding: 22px 20px;
 }
 

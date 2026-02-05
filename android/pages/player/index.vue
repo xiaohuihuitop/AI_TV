@@ -27,11 +27,11 @@
       </cover-view>
     </view>
     <view class="actions">
-      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
-      <button class="btn btn-ghost nav" size="mini" :disabled="!hasPrev" @click="playPrev">
+      <button class="btn btn-ghost nav prev" size="mini" :disabled="!hasPrev" @click="playPrev">
         上一个
       </button>
-      <button class="btn btn-ghost nav" size="mini" :disabled="!hasNext" @click="playNext">
+      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
+      <button class="btn btn-ghost nav next" size="mini" :disabled="!hasNext" @click="playNext">
         下一个
       </button>
     </view>
@@ -163,7 +163,7 @@ export default {
      * @param {number} index AI:条目索引。
      * @returns {void} AI:无返回值。
      */
-    applyItem(item, index) {
+    applyItem(item, index, forcePlay) {
       const src = this.resolveItemSource(item);
       if (!src) {
         this.error = "缺少播放地址";
@@ -177,7 +177,10 @@ export default {
         this.currentIndex = index;
         updatePlayerIndex(createUniStorage(), index);
       }
-      this.playIfAuto();
+      const shouldPlay = typeof forcePlay === "boolean" ? forcePlay : this.autoPlay;
+      if (shouldPlay) {
+        this.playNow();
+      }
     },
 
     /**
@@ -189,7 +192,7 @@ export default {
         return;
       }
       const targetIndex = this.currentIndex - 1;
-      this.applyItem(this.playlist[targetIndex], targetIndex);
+      this.applyItem(this.playlist[targetIndex], targetIndex, true);
     },
 
     /**
@@ -201,7 +204,7 @@ export default {
         return;
       }
       const targetIndex = this.currentIndex + 1;
-      this.applyItem(this.playlist[targetIndex], targetIndex);
+      this.applyItem(this.playlist[targetIndex], targetIndex, true);
     },
 
     /**
@@ -239,6 +242,16 @@ export default {
      */
     playIfAuto() {
       if (!this.autoPlay || !this.source) {
+        return;
+      }
+      this.playNow();
+    },
+    /**
+     * AI:立即播放当前视频。
+     * @returns {void} AI:无返回值。
+     */
+    playNow() {
+      if (!this.source) {
         return;
       }
       this.$nextTick(() => {
@@ -286,6 +299,10 @@ export default {
   margin-bottom: 16px;
   position: relative;
   background: #000000;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(31, 27, 22, 0.2);
+  box-shadow: var(--shadow-float);
 }
 
 .video-player {
@@ -317,19 +334,24 @@ export default {
 
 .actions {
   margin-top: 16px;
-  display: flex;
-  justify-content: flex-start;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   gap: 8px;
   padding: 0 16px;
 }
 
 .back {
   min-width: 96px;
+  justify-self: center;
 }
 
-.nav {
-  min-width: 88px;
+.prev {
+  justify-self: start;
+}
+
+.next {
+  justify-self: end;
 }
 
 .actions .btn[disabled] {

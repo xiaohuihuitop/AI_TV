@@ -1,9 +1,5 @@
 <template>
   <view class="app-page">
-    <view class="header hero">
-      <text class="title">最新</text>
-      <text class="subtitle muted">从清单加载内容</text>
-    </view>
     <view class="media-tabs">
       <view
         class="media-tab"
@@ -25,7 +21,6 @@
     </view>
     <view class="columns">
       <view class="column card cinematic-card">
-        <text class="column-title">{{ activeLabel }}</text>
         <view v-if="activeItems.length === 0" class="placeholder muted">暂无数据</view>
         <view
           v-for="(item, index) in activeItems"
@@ -154,6 +149,19 @@ function resolveContentFormat(url) {
   return "";
 }
 
+/**
+ * AI:追加时间戳避免缓存，确保进入页面时拉取最新清单。
+ * @param {string} url AI:原始地址。
+ * @returns {string} AI:追加时间戳后的地址。
+ */
+function appendCacheBuster(url) {
+  if (!url) {
+    return "";
+  }
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}_t=${Date.now()}`;
+}
+
 export default {
   data() {
     return {
@@ -240,7 +248,9 @@ export default {
       const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
       savePlayerQueue(storage, queue, safeIndex);
       const title = item.title ? encodeURIComponent(item.title) : "";
-      uni.navigateTo({ url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}` });
+      uni.navigateTo({
+        url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}&autoplay=1`
+      });
     },
     /**
      * AI:跳转到图文阅读页。
@@ -289,9 +299,10 @@ export default {
       }
       this.loading = true;
       this.error = "";
+      const requestUrl = appendCacheBuster(indexUrl);
       return new Promise((resolve) => {
         uni.request({
-          url: indexUrl,
+          url: requestUrl,
           success: (res) => {
             if (res.statusCode === 200 && res.data) {
               adapter.setJson(indexCacheKey, res.data);
@@ -409,53 +420,35 @@ function padTime(value) {
 </script>
 
 <style scoped>
-.header {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  animation: rise-fade 320ms ease-out both;
-}
-
-.title {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  font-family: var(--font-display);
-}
-
-.subtitle {
-  display: block;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-
 .media-tabs {
-  display: inline-flex;
-  gap: 8px;
-  padding: 6px;
-  border-radius: var(--radius-pill);
-  background: rgba(31, 27, 22, 0.04);
-  border: 1px solid rgba(31, 27, 22, 0.12);
+  display: flex;
+  width: 100%;
+  gap: 0;
+  padding: 0;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(31, 27, 22, 0.08);
   box-shadow: var(--shadow-soft);
   margin-bottom: 18px;
 }
 
 .media-tab {
-  padding: 8px 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  flex: 1;
+  padding: 14px 0;
+  border-radius: 0;
+  border: none;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-align: center;
   color: var(--color-muted);
   transition: all var(--duration-fast) ease;
 }
 
 .media-tab.active {
-  background-color: rgba(217, 108, 47, 0.18);
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.18), rgba(245, 158, 11, 0.24));
   color: #8f3d17;
-  border-color: rgba(217, 108, 47, 0.4);
-  box-shadow: 0 6px 14px rgba(217, 108, 47, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(180, 83, 9, 0.25);
 }
 
 .columns {
@@ -471,13 +464,6 @@ function padTime(value) {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.column-title {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .item {
   display: flex;
   align-items: center;
@@ -487,6 +473,7 @@ function padTime(value) {
 
 .item-main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -496,11 +483,15 @@ function padTime(value) {
   font-size: 14px;
   line-height: 1.4;
   color: var(--color-text);
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .item-desc {
   font-size: 12px;
   line-height: 1.5;
+  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .item-meta {
@@ -510,13 +501,20 @@ function padTime(value) {
   font-size: 12px;
 }
 
+.item-meta text {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  background: rgba(31, 27, 22, 0.05);
+}
+
 .item-cover {
-  width: 96px;
-  height: 56px;
-  border-radius: 10px;
+  width: 104px;
+  height: 62px;
+  border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(217, 108, 47, 0.18), rgba(31, 27, 22, 0.08));
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.18), rgba(31, 27, 22, 0.08));
   border: 1px solid rgba(31, 27, 22, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
 }
@@ -532,7 +530,7 @@ function padTime(value) {
   padding: 14px 14px;
   border-radius: 12px;
   border: 1px solid rgba(31, 27, 22, 0.08);
-  background: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.86));
   box-shadow: var(--shadow-soft);
   animation: rise-fade 360ms ease-out both;
   animation-delay: var(--delay);
@@ -540,6 +538,7 @@ function padTime(value) {
 
 .download {
   min-width: 84px;
+  flex-shrink: 0;
 }
 
 .placeholder {
