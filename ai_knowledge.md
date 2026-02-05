@@ -170,8 +170,17 @@
 ## [2026-02-05] 现象: 视频横竖屏判断不准
 - 触发条件: 设备录制视频带旋转元数据时，宽高与实际显示方向相反
 - 根因: 仅使用 width/height 判断方向，忽略 rotate/display matrix
-- 解决步骤: ffprobe 同时读取 rotate/side_data_list，按旋转角度交换显示宽高后再判断
-- 预防/规则: 方向判断必须考虑旋转元数据；已上传的视频需手动触发重新处理
+- 解决步骤: ffprobe 读取 rotate/side_data_list，但横屏仍强制旋转，旋转后清除 rotate 元数据
+- 预防/规则: 横屏视频强制旋转并清理旋转元数据；已上传的视频需手动触发重新处理
 - 关联文件: server/app/services/video_processing.py
 - 标签: 视频处理, 旋转, 元数据
 - 关键词: ffprobe, rotate, display matrix
+
+## [2026-02-05] 现象: 封面与视频方向不一致
+- 触发条件: 视频带旋转元数据但未物理旋转，封面由 ffmpeg 自动旋转生成
+- 根因: 旋转判断使用显示尺寸导致未旋转视频；封面自动应用旋转元数据
+- 解决步骤: 以原始宽高判断横屏并物理旋转；旋转后清除 rotate 元数据
+- 预防/规则: 旋转后必须清理 rotate 元数据以避免封面/播放方向不一致
+- 关联文件: server/app/services/video_processing.py
+- 标签: 封面, 旋转, 元数据
+- 关键词: rotate, cover, ffmpeg
