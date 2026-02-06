@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI:创建离线下载服务，负责下载记录读写。
  * @param {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} storage AI:本地存储读写函数。
  * @param {{download: function(string, function(number): void): Promise<{tempFilePath: string}>, save: function(string): Promise<{savedFilePath: string}>}} downloader AI:下载与保存实现。
@@ -38,6 +38,7 @@ export function createOfflineService(storage, downloader) {
       status: "downloading",
       progress: 0,
       local_path: "",
+      cover_local_path: "",
       last_error: "",
       last_step: "初始化"
     });
@@ -89,6 +90,7 @@ export function createOfflineService(storage, downloader) {
         last_error: "",
         last_step: "完成"
       });
+      await tryDownloadCover(item, downloader, updateEntry);
     } catch (error) {
       markFailed(error, "下载失败");
       throw error;
@@ -105,6 +107,39 @@ export function createOfflineService(storage, downloader) {
     addDownload,
     removeDownload
   };
+}
+
+/**
+ * AI:下载封面并写入本地路径（失败不影响主流程）。
+ * @param {Object} item AI:条目信息。
+ * @param {{download: function(string, function(number): void): Promise<{tempFilePath: string}>, save: function(string): Promise<{savedFilePath: string}>}} downloader AI:下载器。
+ * @param {function(Object): void} updateEntry AI:更新条目函数。
+ * @returns {Promise<void>} AI:无返回值。
+ */
+async function tryDownloadCover(item, downloader, updateEntry) {
+  const coverUrl =
+    typeof item.cover === "string"
+      ? item.cover.trim()
+      : typeof item.cover_url === "string"
+        ? item.cover_url.trim()
+        : "";
+  if (!coverUrl) {
+    return;
+  }
+  try {
+    const result = await downloader.download(coverUrl);
+    if (!result || !result.tempFilePath) {
+      return;
+    }
+    const saved = await saveDownloadedFile(downloader, result.tempFilePath);
+    const localPath = saved && saved.savedFilePath ? saved.savedFilePath : "";
+    if (!localPath) {
+      return;
+    }
+    updateEntry({ cover_local_path: localPath });
+  } catch (error) {
+    return;
+  }
 }
 
 /**

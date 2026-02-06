@@ -193,3 +193,12 @@
 - 关联文件: android/utils/offlineService.js, AI_TOOL/offline_download_race_test.mjs
 - 标签: 离线, 下载, 并发, 存储
 - 关键词: download_items, list覆盖, 进度
+
+## [2026-02-06] 现象: 服务器关闭时离线页封面不显示
+- 触发条件: 服务器不可用或断网时打开离线页
+- 根因: 离线下载未保存封面本地路径，封面解析未优先使用本地资源
+- 解决步骤: 视频下载完成后尝试下载封面并保存 cover_local_path；封面解析优先读取 cover_local_path
+- 预防/规则: 离线展示优先使用本地路径；封面下载失败不影响主流程
+- 关联文件: android/utils/offlineService.js, android/utils/indexService.js, android/pages/offline/index.vue
+- 标签: 离线, 封面, 下载
+- 关键词: cover_local_path, resolveCoverUrl

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <view class="app-page">
     <view class="columns">
       <view class="column card cinematic-card">
@@ -15,6 +15,10 @@
           </view>
           <view class="item-main">
             <text class="item-title">{{ item.title }}</text>
+            <view class="item-meta muted">
+              <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
+              <text>大小：{{ formatSize(item.size_bytes) }}</text>
+            </view>
             <view v-if="item.status !== 'done'" class="progress">
               <view class="progress-bar" :style="{ width: `${item.progress}%` }"></view>
             </view>
@@ -37,6 +41,7 @@
 import { createOfflineService } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { resolveCoverUrl } from "../../utils/indexService.js";
+import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -211,7 +216,9 @@ export default {
         .catch(() => {
           uni.showToast({ title: "删除失败", icon: "none" });
         });
-    }
+    },
+    formatDuration,
+    formatSize
   }
 };
 </script>
@@ -251,6 +258,20 @@ export default {
   color: var(--color-text);
   word-break: break-all;
   overflow-wrap: anywhere;
+}
+
+.item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.item-meta text {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 27, 22, 0.08);
+  background: rgba(31, 27, 22, 0.05);
 }
 
 .item-cover {

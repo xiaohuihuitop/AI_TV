@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI:规范化清单数据并按发布时间倒序。
  * @param {Object} raw AI:原始清单对象。
  * @returns {{items: Array}} AI:排序后的清单对象。
@@ -23,6 +23,11 @@ export function normalizeIndexItems(raw) {
 export function resolveCoverUrl(item) {
   if (!item) {
     return "";
+  }
+  const localCover =
+    typeof item.cover_local_path === "string" ? item.cover_local_path.trim() : "";
+  if (localCover) {
+    return localCover;
   }
   const cover =
     typeof item.cover === "string"
