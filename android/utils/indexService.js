@@ -43,6 +43,54 @@ export function resolveCoverUrl(item) {
 }
 
 /**
+ * AI:为远端封面追加刷新参数，避免断网后不重新加载。
+ * @param {Array} items AI:清单条目。
+ * @param {string|number} token AI:刷新标识。
+ * @returns {Array} AI:追加刷新参数后的条目列表。
+ */
+export function refreshCoverUrls(items, token) {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length === 0) {
+    return list;
+  }
+  const suffix = token !== undefined && token !== null ? String(token) : String(Date.now());
+  return list.map((item) => {
+    if (!item) {
+      return item;
+    }
+    const cover = typeof item.cover === "string" ? item.cover.trim() : "";
+    if (!cover) {
+      return item;
+    }
+    if (!/^https?:\/\//i.test(cover)) {
+      return item;
+    }
+    const cleaned = stripCacheBuster(cover);
+    const separator = cleaned.includes("?") ? "&" : "?";
+    return { ...item, cover: `${cleaned}${separator}_t=${encodeURIComponent(suffix)}` };
+  });
+}
+
+/**
+ * AI:移除封面地址中的刷新参数。
+ * @param {string} url AI:封面地址。
+ * @returns {string} AI:清理后的地址。
+ */
+function stripCacheBuster(url) {
+  const [base, query] = url.split("?");
+  if (!query) {
+    return url;
+  }
+  const params = query
+    .split("&")
+    .filter((param) => param && !param.startsWith("_t="));
+  if (params.length === 0) {
+    return base;
+  }
+  return `${base}?${params.join("&")}`;
+}
+
+/**
  * AI:将已下载条目的本地封面覆盖到列表中。
  * @param {Array} items AI:原始清单条目列表。
  * @param {Object} downloadStatusMap AI:下载状态映射。

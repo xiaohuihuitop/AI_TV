@@ -211,3 +211,12 @@
 - 关联文件: android/utils/offlineService.js, android/utils/indexService.js, android/pages/latest/index.vue
 - 标签: 离线, 封面, 最新页
 - 关键词: cover_local_path, downloadStatusMap
+
+## [2026-02-06] 现象: 恢复网络后最新页封面仍不加载
+- 触发条件: 断网导致封面请求失败后恢复网络并刷新最新页
+- 根因: 封面地址未变化，image 组件未触发重新加载
+- 解决步骤: 对远端封面追加刷新参数 `_t`，每次刷新强制变更 URL
+- 预防/规则: 恢复网络场景需触发资源 URL 变化或显式重载
+- 关联文件: android/utils/indexService.js, android/pages/latest/index.vue
+- 标签: 封面, 刷新, 最新页
+- 关键词: cache buster, _t

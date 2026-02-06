@@ -65,7 +65,8 @@
 import {
   normalizeIndexItems,
   createStorageAdapter,
-  applyLocalCover
+  applyLocalCover,
+  refreshCoverUrls
 } from "../../utils/indexService.js";
 import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
@@ -443,8 +444,9 @@ export default {
     applyItems(data) {
       const normalized = normalizeIndexItems(data);
       const withLocalCover = applyLocalCover(normalized.items, this.downloadStatusMap);
-      this.videoItems = withLocalCover.filter((item) => item.type === "video");
-      this.articleItems = withLocalCover.filter((item) => item.type === "article");
+      const refreshed = refreshCoverUrls(withLocalCover, Date.now());
+      this.videoItems = refreshed.filter((item) => item.type === "video");
+      this.articleItems = refreshed.filter((item) => item.type === "article");
       this.emptyHint = "暂无数据";
     },
     /**
