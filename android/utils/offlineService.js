@@ -157,11 +157,19 @@ export function buildDownloadStatusMap(list) {
     }
     const status = entry && entry.status ? String(entry.status) : "";
     if (status === "done" && entry.local_path) {
-      map[id] = { status: "done", progress: 100 };
+      map[id] = {
+        status: "done",
+        progress: 100,
+        cover_local_path: entry.cover_local_path || ""
+      };
       return;
     }
     if (status === "downloading") {
-      map[id] = { status: "downloading", progress: normalizeProgress(entry.progress) };
+      map[id] = {
+        status: "downloading",
+        progress: normalizeProgress(entry.progress),
+        cover_local_path: entry.cover_local_path || ""
+      };
     }
   });
   return map;

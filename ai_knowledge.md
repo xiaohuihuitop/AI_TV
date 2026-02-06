@@ -202,3 +202,12 @@
 - 关联文件: android/utils/offlineService.js, android/utils/indexService.js, android/pages/offline/index.vue
 - 标签: 离线, 封面, 下载
 - 关键词: cover_local_path, resolveCoverUrl
+
+## [2026-02-06] 现象: 最新页断网时封面不显示
+- 触发条件: 断网打开最新页，列表来自缓存但封面为远端地址
+- 根因: 最新页未使用离线下载的本地封面
+- 解决步骤: 下载状态映射携带 cover_local_path，最新页渲染时优先使用本地封面
+- 预防/规则: 在线列表渲染时对已下载条目优先使用本地资源
+- 关联文件: android/utils/offlineService.js, android/utils/indexService.js, android/pages/latest/index.vue
+- 标签: 离线, 封面, 最新页
+- 关键词: cover_local_path, downloadStatusMap

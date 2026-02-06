@@ -43,6 +43,42 @@ export function resolveCoverUrl(item) {
 }
 
 /**
+ * AI:将已下载条目的本地封面覆盖到列表中。
+ * @param {Array} items AI:原始清单条目列表。
+ * @param {Object} downloadStatusMap AI:下载状态映射。
+ * @returns {Array} AI:覆盖后的条目列表。
+ */
+export function applyLocalCover(items, downloadStatusMap) {
+  const list = Array.isArray(items) ? items : [];
+  const map =
+    downloadStatusMap && typeof downloadStatusMap === "object" ? downloadStatusMap : {};
+  if (list.length === 0) {
+    return list;
+  }
+  return list.map((item) => {
+    if (!item) {
+      return item;
+    }
+    if (item.type && String(item.type) !== "video") {
+      return item;
+    }
+    const id = item.id ? String(item.id) : "";
+    if (!id) {
+      return item;
+    }
+    const status = map[id];
+    const localCover =
+      status && typeof status.cover_local_path === "string"
+        ? status.cover_local_path.trim()
+        : "";
+    if (!localCover) {
+      return item;
+    }
+    return { ...item, cover: localCover };
+  });
+}
+
+/**
  * AI:根据资源地址推导封面地址，默认替换为 .jpg 后缀。
  * @param {string} url AI:资源地址。
  * @returns {string} AI:推导后的封面地址，可能为空字符串。

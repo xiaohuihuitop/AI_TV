@@ -62,7 +62,11 @@
 </template>
 
 <script>
-import { normalizeIndexItems, createStorageAdapter } from "../../utils/indexService.js";
+import {
+  normalizeIndexItems,
+  createStorageAdapter,
+  applyLocalCover
+} from "../../utils/indexService.js";
 import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
@@ -242,6 +246,7 @@ export default {
       const service = createOfflineService(storage, createUniDownloader());
       const list = service.listDownloads();
       this.downloadStatusMap = buildDownloadStatusMap(list);
+      this.videoItems = applyLocalCover(this.videoItems, this.downloadStatusMap);
       return list.some((entry) => entry.status === "downloading");
     },
     /**
@@ -437,8 +442,9 @@ export default {
      */
     applyItems(data) {
       const normalized = normalizeIndexItems(data);
-      this.videoItems = normalized.items.filter((item) => item.type === "video");
-      this.articleItems = normalized.items.filter((item) => item.type === "article");
+      const withLocalCover = applyLocalCover(normalized.items, this.downloadStatusMap);
+      this.videoItems = withLocalCover.filter((item) => item.type === "video");
+      this.articleItems = withLocalCover.filter((item) => item.type === "article");
       this.emptyHint = "暂无数据";
     },
     /**
