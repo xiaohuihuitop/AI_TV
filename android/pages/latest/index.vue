@@ -43,13 +43,16 @@
             </view>
           </view>
           <button
-            v-if="item.type === 'video' && !isDownloaded(item)"
+            v-if="item.type === 'video' && !isDownloaded(item) && !isDownloading(item)"
             class="btn btn-primary download"
             size="mini"
             @click.stop="addDownload(item)"
           >
             下载
           </button>
+          <text v-else-if="item.type === 'video' && isDownloading(item)" class="downloading muted">
+            下载中{{ formatProgress(item) }}
+          </text>
           <text v-else-if="item.type === 'video'" class="downloaded muted">已下载</text>
         </view>
       </view>
@@ -60,7 +63,7 @@
 
 <script>
 import { normalizeIndexItems, createStorageAdapter } from "../../utils/indexService.js";
-import { createOfflineService } from "../../utils/offlineService.js";
+import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 
 /**
@@ -172,7 +175,8 @@ export default {
       activeType: "video",
       videoItems: [],
       articleItems: [],
-      downloadedMap: {}
+      downloadStatusMap: {},
+      downloadRefreshTimer: null
     };
   },
   computed: {
@@ -192,8 +196,17 @@ export default {
     }
   },
   onShow() {
-    this.refreshDownloadStatus();
+    const hasDownloading = this.refreshDownloadStatus();
+    if (hasDownloading) {
+      this.startDownloadWatcher();
+    }
     this.fetchIndex();
+  },
+  onHide() {
+    this.stopDownloadWatcher();
+  },
+  onUnload() {
+    this.stopDownloadWatcher();
   },
   /**
    * AI:处理下拉刷新触发，拉取最新清单并结束刷新动画。
@@ -227,17 +240,32 @@ export default {
       const storage = createUniStorage();
       const service = createOfflineService(storage, createUniDownloader());
       const list = service.listDownloads();
-      const map = {};
-      list.forEach((entry) => {
-        const key = String(entry && entry.id ? entry.id : "");
-        if (!key) {
-          return;
+      this.downloadStatusMap = buildDownloadStatusMap(list);
+      return list.some((entry) => entry.status === "downloading");
+    },
+    /**
+     * AI:启动下载状态刷新定时器。
+     * @returns {void} AI:无返回值。
+     */
+    startDownloadWatcher() {
+      this.stopDownloadWatcher();
+      this.downloadRefreshTimer = setInterval(() => {
+        const hasDownloading = this.refreshDownloadStatus();
+        if (!hasDownloading) {
+          this.stopDownloadWatcher();
         }
-        if (entry.status === "done" && entry.local_path) {
-          map[key] = true;
-        }
-      });
-      this.downloadedMap = map;
+      }, 500);
+    },
+    /**
+     * AI:停止下载状态刷新定时器。
+     * @returns {void} AI:无返回值。
+     */
+    stopDownloadWatcher() {
+      if (!this.downloadRefreshTimer) {
+        return;
+      }
+      clearInterval(this.downloadRefreshTimer);
+      this.downloadRefreshTimer = null;
     },
     /**
      * AI:处理条目点击事件，按类型跳转。
@@ -313,11 +341,45 @@ export default {
      * @returns {boolean} AI:是否已下载。
      */
     isDownloaded(item) {
+      const status = this.getDownloadStatus(item);
+      return status ? status.status === "done" : false;
+    },
+    /**
+     * AI:判断视频是否下载中。
+     * @param {Object} item AI:视频条目。
+     * @returns {boolean} AI:是否下载中。
+     */
+    isDownloading(item) {
+      const status = this.getDownloadStatus(item);
+      return status ? status.status === "downloading" : false;
+    },
+    /**
+     * AI:获取下载状态信息。
+     * @param {Object} item AI:视频条目。
+     * @returns {{status: string, progress: number}|null} AI:状态信息。
+     */
+    getDownloadStatus(item) {
       const key = String(item && item.id ? item.id : "");
       if (!key) {
-        return false;
+        return null;
       }
-      return !!this.downloadedMap[key];
+      return this.downloadStatusMap[key] || null;
+    },
+    /**
+     * AI:格式化下载进度显示。
+     * @param {Object} item AI:视频条目。
+     * @returns {string} AI:下载进度文案。
+     */
+    formatProgress(item) {
+      const status = this.getDownloadStatus(item);
+      if (!status) {
+        return "";
+      }
+      const value = Number(status.progress);
+      if (!Number.isFinite(value) || value <= 0) {
+        return "";
+      }
+      return ` ${Math.floor(value)}%`;
     },
     /**
      * AI:拉取清单并更新页面数据。
@@ -407,16 +469,26 @@ export default {
         uni.showToast({ title: "已下载", icon: "none" });
         return;
       }
+      if (this.isDownloading(item)) {
+        uni.showToast({ title: "下载中", icon: "none" });
+        return;
+      }
       const storage = createUniStorage();
       const service = createOfflineService(storage, createUniDownloader());
       service
         .addDownload(item)
         .then(() => {
-          this.refreshDownloadStatus();
+          const hasDownloading = this.refreshDownloadStatus();
+          if (hasDownloading) {
+            this.startDownloadWatcher();
+          }
           uni.showToast({ title: "已加入离线", icon: "success" });
         })
         .catch(() => {
-          this.refreshDownloadStatus();
+          const hasDownloading = this.refreshDownloadStatus();
+          if (hasDownloading) {
+            this.startDownloadWatcher();
+          }
           uni.showToast({ title: "下载失败，请到离线页查看原因", icon: "none" });
         });
     },
@@ -604,6 +676,17 @@ function padTime(value) {
   font-size: 12px;
   border: 1px solid rgba(31, 27, 22, 0.12);
   background: rgba(31, 27, 22, 0.06);
+}
+
+.downloading {
+  min-width: 84px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 .placeholder {

@@ -108,6 +108,31 @@ export function createOfflineService(storage, downloader) {
 }
 
 /**
+ * AI:构建下载状态映射，供页面快速判断下载状态。
+ * @param {Array} list AI:下载列表。
+ * @returns {Object} AI:状态映射。
+ */
+export function buildDownloadStatusMap(list) {
+  const map = {};
+  const items = Array.isArray(list) ? list : [];
+  items.forEach((entry) => {
+    const id = entry && entry.id ? String(entry.id) : "";
+    if (!id) {
+      return;
+    }
+    const status = entry && entry.status ? String(entry.status) : "";
+    if (status === "done" && entry.local_path) {
+      map[id] = { status: "done", progress: 100 };
+      return;
+    }
+    if (status === "downloading") {
+      map[id] = { status: "downloading", progress: normalizeProgress(entry.progress) };
+    }
+  });
+  return map;
+}
+
+/**
  * AI:标准化进度数值。
  * @param {number} value AI:原始进度值。
  * @returns {number} AI:归一化后的进度。
