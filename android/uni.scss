@@ -30,6 +30,19 @@ page {
   font-family: var(--font-body);
 }
 
+page,
+.app-page {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+page::-webkit-scrollbar,
+.app-page::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .app-page {
   padding: 24px 18px 36px;
   min-height: 100vh;
