@@ -30,15 +30,27 @@ page {
   font-family: var(--font-body);
 }
 
+html,
+body,
+#app,
 page,
-.app-page {
+.app-page,
+.uni-page-body,
+.uni-page-wrapper {
   -ms-overflow-style: none;
   scrollbar-width: none;
   overflow-x: hidden;
+  max-width: 100%;
+  overscroll-behavior-x: none;
 }
 
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#app::-webkit-scrollbar,
 page::-webkit-scrollbar,
-.app-page::-webkit-scrollbar {
+.app-page::-webkit-scrollbar,
+.uni-page-body::-webkit-scrollbar,
+.uni-page-wrapper::-webkit-scrollbar {
   width: 0;
   height: 0;
   display: none;
