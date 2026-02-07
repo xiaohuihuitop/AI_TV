@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  ai_tv:
+    build: .
+    container_name: ai_tv
+    ports:
+      - "8000:8000"
+    environment:
+      DATA_DIR: /data
+      DB_PATH: /data/db/app.db
+      BASIC_USER: admin
+      BASIC_PASS: admin
+      WORKER_INTERVAL_SEC: "2"
+    volumes:
+      - /srv/ai_tv_data:/data
+    restart: unless-stopped
