@@ -1,0 +1,57 @@
+name: Server Docker Image Build
+
+'on':
+  push:
+    tags:
+      - 'build-*'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  server-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build server Docker image tar
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          platforms: linux/amd64
+          tags: ai_tv_server:latest
+          outputs: type=docker,dest=/tmp/ai_tv_server_latest.tar
+
+      - name: Upload server image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai_tv_server_latest
+          path: /tmp/ai_tv_server_latest.tar
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish tar to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: /tmp/ai_tv_server_latest.tar
+
+      - name: Output usage
+        shell: bash
+        run: |
+          echo "Artifact ready: ai_tv_server_latest.tar"
+          echo "After download, import with:"
+          echo "docker load -i ai_tv_server_latest.tar"
+          echo "Run example:"
+          echo "docker run -d --name ai_tv -p 8000:8000 -e DATA_DIR=/data -e DB_PATH=/data/db/app.db -e BASIC_USER=admin -e BASIC_PASS=admin -v /srv/ai_tv_data:/data ai_tv_server:latest"
