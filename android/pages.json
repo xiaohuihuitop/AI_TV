@@ -17,7 +17,7 @@
     {
       "path": "pages/settings/index",
       "style": {
-        "navigationBarTitleText": "设置"
+        "navigationBarTitleText": "连接设置"
       }
     },
     {
@@ -40,9 +40,9 @@
   },
   "tabBar": {
     "color": "#6b645d",
-    "selectedColor": "#d96c2f",
-    "backgroundColor": "#f7f2ea",
-    "fontSize": "14px",
+    "selectedColor": "#8a360e",
+    "backgroundColor": "#eee3d6",
+    "fontSize": "15px",
     "list": [
       {
         "pagePath": "pages/offline/index",
@@ -54,7 +54,7 @@
       },
       {
         "pagePath": "pages/settings/index",
-        "text": "设置"
+        "text": "连接"
       }
     ]
   }

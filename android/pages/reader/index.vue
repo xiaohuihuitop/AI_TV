@@ -22,14 +22,32 @@
       <view v-else class="placeholder muted">暂无内容</view>
     </view>
     <view class="actions">
+      <button class="btn btn-ghost nav prev" size="mini" :disabled="!hasPrev" @click="readPrev">
+        上一个
+      </button>
       <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
+      <button class="btn btn-ghost nav next" size="mini" :disabled="!hasNext" @click="readNext">
+        下一个
+      </button>
     </view>
   </view>
 </template>
 
 <script>
 import { readTextContent } from "../../utils/fileService.js";
+import { loadReaderQueue, updateReaderIndex } from "../../utils/readerQueue.js";
 import MpHtml from "../../uni_modules/mp-html/components/mp-html/mp-html.vue";
+
+/**
+ * AI:创建 uniapp 存储读写适配器。
+ * @returns {{get: function(string): (string|undefined), set: function(string, string): void}} AI:存储读写适配器。
+ */
+function createUniStorage() {
+  return {
+    get: (key) => uni.getStorageSync(key),
+    set: (key, value) => uni.setStorageSync(key, value)
+  };
+}
 
 export default {
   components: {
@@ -46,8 +64,26 @@ export default {
       isMarkdown: true,
       contentDomain: "",
       loading: false,
-      error: ""
+      error: "",
+      readerList: [],
+      currentIndex: -1
     };
+  },
+  computed: {
+    /**
+     * AI:判断是否存在上一篇图文。
+     * @returns {boolean} AI:是否可切换上一篇。
+     */
+    hasPrev() {
+      return this.currentIndex > 0;
+    },
+    /**
+     * AI:判断是否存在下一篇图文。
+     * @returns {boolean} AI:是否可切换下一篇。
+     */
+    hasNext() {
+      return this.currentIndex >= 0 && this.currentIndex < this.readerList.length - 1;
+    }
   },
   /**
    * AI:读取路由参数并加载内容。
@@ -62,21 +98,61 @@ export default {
     this.source = source;
     this.title = title;
     this.origin = origin;
+    this.loadReaderList();
     if (!source) {
       this.error = "缺少阅读地址";
       return;
     }
-    if (!isRemoteSource(source)) {
-      this.error = "不支持本地文件阅读";
-      return;
-    }
-    const resolvedFormat = resolveContentFormat(format || origin || source);
-    this.isMarkdown = resolvedFormat !== "html";
-    this.useWebview = resolvedFormat === "html";
-    this.webviewSrc = "";
-    this.loadContent();
+    this.applySource(source, title, origin, format);
   },
   methods: {
+    /**
+     * AI:读取缓存的图文队列并同步当前项。
+     * @returns {void} AI:无返回值。
+     */
+    loadReaderList() {
+      const { list, index } = loadReaderQueue(createUniStorage());
+      if (!Array.isArray(list) || list.length === 0) {
+        return;
+      }
+      this.readerList = list;
+      const matchedIndex = list.findIndex((item) => this.resolveItemSource(item) === this.source);
+      if (matchedIndex >= 0) {
+        this.currentIndex = matchedIndex;
+        updateReaderIndex(createUniStorage(), matchedIndex);
+        return;
+      }
+      if (index >= 0 && index < list.length) {
+        this.currentIndex = index;
+      }
+    },
+    /**
+     * AI:应用图文来源并加载内容。
+     * @param {string} source AI:内容地址。
+     * @param {string} title AI:标题。
+     * @param {string} origin AI:原始地址。
+     * @param {string} format AI:格式。
+     * @returns {void} AI:无返回值。
+     */
+    applySource(source, title, origin, format) {
+      this.source = source || "";
+      this.title = title || "";
+      this.origin = origin || "";
+      this.content = "";
+      this.webviewSrc = "";
+      if (!this.source) {
+        this.error = "缺少阅读地址";
+        return;
+      }
+      if (!isRemoteSource(this.source)) {
+        this.error = "不支持本地文件阅读";
+        return;
+      }
+      const resolvedFormat = resolveContentFormat(format || this.origin || this.source);
+      this.isMarkdown = resolvedFormat !== "html";
+      this.useWebview = resolvedFormat === "html";
+      this.loadContent();
+    },
     /**
      * AI:加载图文文本内容。
      * @returns {void} AI:无返回值。
@@ -110,6 +186,54 @@ export default {
      */
     goBack() {
       uni.navigateBack();
+    },
+    /**
+     * AI:阅读上一篇图文。
+     * @returns {void} AI:无返回值。
+     */
+    readPrev() {
+      if (!this.hasPrev) {
+        return;
+      }
+      this.applyReaderItem(this.currentIndex - 1);
+    },
+    /**
+     * AI:阅读下一篇图文。
+     * @returns {void} AI:无返回值。
+     */
+    readNext() {
+      if (!this.hasNext) {
+        return;
+      }
+      this.applyReaderItem(this.currentIndex + 1);
+    },
+    /**
+     * AI:应用指定位置的图文条目。
+     * @param {number} index AI:图文索引。
+     * @returns {void} AI:无返回值。
+     */
+    applyReaderItem(index) {
+      const item = this.readerList[index];
+      const source = this.resolveItemSource(item);
+      if (!source) {
+        this.error = "缺少阅读地址";
+        return;
+      }
+      this.currentIndex = index;
+      updateReaderIndex(createUniStorage(), index);
+      const format =
+        (item && item.format ? String(item.format) : "") ||
+        resolveContentFormat(item && item.url ? item.url : "") ||
+        "html";
+      this.applySource(source, item && item.title ? item.title : "", item && item.url ? item.url : "", format);
+    },
+    /**
+     * AI:解析图文条目可用地址。
+     * @param {Object} item AI:图文条目。
+     * @returns {string} AI:图文地址。
+     */
+    resolveItemSource(item) {
+      return item && item.url ? item.url : "";
     },
     /**
      * AI:计算 Markdown 相对资源的基础域名。
@@ -174,7 +298,7 @@ function resolveContentFormat(input) {
 }
 
 .title {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 600;
   letter-spacing: 0.02em;
   font-family: var(--font-display);
@@ -182,13 +306,14 @@ function resolveContentFormat(input) {
 
 .subtitle {
   display: block;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 16px;
+  letter-spacing: 0;
 }
 
 .loading {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: 16px;
+  text-align: center;
 }
 
 .content {
@@ -204,15 +329,15 @@ function resolveContentFormat(input) {
 }
 
 .content-html {
-  font-size: 15px;
-  line-height: 1.85;
+  font-size: 18px;
+  line-height: 1.9;
   color: var(--color-text);
   font-family: var(--font-display);
 }
 
 .content-webview {
   width: 100%;
-  height: 70vh;
+  height: 68vh;
   min-height: 60vh;
 }
 
@@ -227,20 +352,20 @@ function resolveContentFormat(input) {
 }
 
 .content-html :deep(h1) {
-  font-size: 24px;
-  letter-spacing: 0.02em;
+  font-size: 28px;
+  letter-spacing: 0;
 }
 
 .content-html :deep(h2) {
-  font-size: 20px;
+  font-size: 24px;
 }
 
 .content-html :deep(h3) {
-  font-size: 17px;
+  font-size: 21px;
 }
 
 .content-html :deep(h4) {
-  font-size: 15px;
+  font-size: 19px;
 }
 
 .content-html :deep(.md-p),
@@ -330,23 +455,38 @@ function resolveContentFormat(input) {
 }
 
 .content-text {
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 18px;
+  line-height: 1.9;
   white-space: pre-wrap;
 }
 
 .placeholder {
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .actions {
   margin-top: 16px;
-  display: flex;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
 }
 
 .back {
-  min-width: 96px;
+  min-width: 108px;
+  justify-self: center;
+}
+
+.prev {
+  justify-self: start;
+}
+
+.next {
+  justify-self: end;
+}
+
+.actions .btn[disabled] {
+  opacity: 0.45;
 }
 
 .error-card {
@@ -356,7 +496,7 @@ function resolveContentFormat(input) {
 }
 
 .error-text {
-  color: #b45309;
-  font-size: 12px;
+  color: #8a360e;
+  font-size: 16px;
 }
 </style>

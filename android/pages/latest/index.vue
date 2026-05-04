@@ -70,6 +70,7 @@ import {
 } from "../../utils/indexService.js";
 import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
+import { saveReaderQueue } from "../../utils/readerQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 import { defaultIndexUrl } from "../../utils/appConfig.js";
 
@@ -283,7 +284,7 @@ export default {
      */
     handleItemClick(item, index) {
       if (item.type === "article") {
-        this.openArticle(item);
+        this.openArticle(item, index);
         return;
       }
       this.openVideo(item, index);
@@ -317,12 +318,19 @@ export default {
      * @param {Object} item AI:图文条目。
      * @returns {void} AI:无返回值。
      */
-    openArticle(item) {
+    openArticle(item, index) {
       const src = this.resolveItemSource(item);
       if (!src) {
         uni.showToast({ title: "缺少阅读地址", icon: "none" });
         return;
       }
+      const storage = createUniStorage();
+      const queue = Array.isArray(this.articleItems) ? this.articleItems.slice() : [];
+      const resolvedIndex = Number.isFinite(index)
+        ? index
+        : queue.findIndex((entry) => entry.id === item.id);
+      const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
+      saveReaderQueue(storage, queue, safeIndex);
       const title = item.title ? encodeURIComponent(item.title) : "";
       const origin = item && item.url ? encodeURIComponent(item.url) : "";
       const format =
@@ -524,10 +532,11 @@ export default {
 
 .media-tab {
   flex: 1;
-  padding: 14px 0;
+  padding: 18px 0;
   border-radius: 0;
   border: none;
-  font-size: 16px;
+  font-size: 20px;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-align: center;
   color: var(--color-muted);
@@ -535,9 +544,9 @@ export default {
 }
 
 .media-tab.active {
-  background: linear-gradient(135deg, rgba(180, 83, 9, 0.18), rgba(245, 158, 11, 0.24));
-  color: #8f3d17;
-  box-shadow: inset 0 0 0 1px rgba(180, 83, 9, 0.25);
+  background: linear-gradient(135deg, rgba(138, 54, 14, 0.24), rgba(192, 86, 33, 0.28));
+  color: #6f2608;
+  box-shadow: inset 0 0 0 1px rgba(138, 54, 14, 0.32);
 }
 
 .columns {
@@ -565,20 +574,21 @@ export default {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .item-title {
-  font-size: 14px;
+  font-size: 19px;
   line-height: 1.4;
+  font-weight: 700;
   color: var(--color-text);
   word-break: break-all;
   overflow-wrap: anywhere;
 }
 
 .item-desc {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.6;
   word-break: break-all;
   overflow-wrap: anywhere;
 }
@@ -587,19 +597,19 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .item-meta text {
-  padding: 2px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: rgba(31, 27, 22, 0.05);
 }
 
 .item-cover {
-  width: 104px;
-  height: 62px;
+  width: 116px;
+  height: 70px;
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
@@ -616,7 +626,7 @@ export default {
 
 .item-card {
   margin-top: 12px;
-  padding: 14px 14px;
+  padding: 16px 14px;
   border-radius: 12px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.86));
@@ -626,42 +636,42 @@ export default {
 }
 
 .download {
-  min-width: 84px;
+  min-width: 92px;
   flex-shrink: 0;
 }
 
 .downloaded {
-  min-width: 84px;
+  min-width: 92px;
   flex-shrink: 0;
   padding: 6px 10px;
   border-radius: 999px;
   text-align: center;
-  font-size: 12px;
+  font-size: 15px;
   border: 1px solid rgba(31, 27, 22, 0.12);
   background: rgba(31, 27, 22, 0.06);
 }
 
 .downloading {
-  min-width: 84px;
+  min-width: 92px;
   flex-shrink: 0;
   padding: 6px 10px;
   border-radius: 999px;
   text-align: center;
-  font-size: 12px;
+  font-size: 15px;
   border: 1px solid rgba(245, 158, 11, 0.3);
   background: rgba(245, 158, 11, 0.12);
 }
 
 .placeholder {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: 16px;
   letter-spacing: 0.04em;
 }
 
 .loading {
   margin-top: 16px;
   text-align: center;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .error-card {
@@ -671,7 +681,7 @@ export default {
 }
 
 .error-text {
-  color: #b45309;
-  font-size: 12px;
+  color: #8a360e;
+  font-size: 16px;
 }
 </style>

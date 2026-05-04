@@ -301,8 +301,8 @@ export default {
   background: #000000;
   border-radius: 18px;
   overflow: hidden;
-  border: 1px solid rgba(31, 27, 22, 0.2);
-  box-shadow: var(--shadow-float);
+  border: 1px solid rgba(31, 27, 22, 0.32);
+  box-shadow: 0 22px 42px rgba(31, 27, 22, 0.26);
 }
 
 .video-player {
@@ -317,19 +317,20 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.48);
   z-index: 2;
 }
 
 .replay-btn {
-  padding: 8px 18px;
+  padding: 16px 28px;
   border-radius: 999px;
-  background: rgba(217, 108, 47, 0.95);
+  background: rgba(138, 54, 14, 0.98);
   color: #ffffff;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
   text-align: center;
-  min-width: 96px;
+  min-width: 132px;
 }
 
 .actions {
@@ -337,12 +338,12 @@ export default {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 0 16px;
 }
 
 .back {
-  min-width: 96px;
+  min-width: 108px;
   justify-self: center;
 }
 
@@ -365,7 +366,7 @@ export default {
 }
 
 .error-text {
-  color: #b45309;
-  font-size: 12px;
+  color: #8a360e;
+  font-size: 16px;
 }
 </style>

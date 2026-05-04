@@ -1,14 +1,14 @@
 :root {
-  --color-bg: #f5efe7;
-  --color-bg-soft: #fbf7f1;
+  --color-bg: #eee3d6;
+  --color-bg-soft: #f8f1e8;
   --color-surface: #ffffff;
   --color-surface-strong: #f3ede5;
   --color-text: #1f1b16;
-  --color-muted: #6f645a;
-  --color-accent: #b45309;
-  --color-accent-soft: #f2a968;
-  --color-border: rgba(31, 27, 22, 0.12);
-  --color-glow: rgba(180, 83, 9, 0.22);
+  --color-muted: #544a40;
+  --color-accent: #8a360e;
+  --color-accent-soft: #c05621;
+  --color-border: rgba(31, 27, 22, 0.18);
+  --color-glow: rgba(138, 54, 14, 0.28);
   --radius-card: 18px;
   --radius-pill: 999px;
   --radius-soft: 14px;
@@ -23,9 +23,9 @@
 
 page {
   background-color: var(--color-bg);
-  background-image: radial-gradient(120% 80% at 88% -20%, rgba(180, 83, 9, 0.18), transparent 60%),
-    radial-gradient(120% 80% at -10% 10%, rgba(37, 99, 235, 0.12), transparent 55%),
-    linear-gradient(180deg, #f5efe7 0%, #fcf8f2 100%);
+  background-image: radial-gradient(120% 80% at 88% -20%, rgba(138, 54, 14, 0.2), transparent 60%),
+    radial-gradient(120% 80% at -10% 10%, rgba(30, 64, 175, 0.12), transparent 55%),
+    linear-gradient(180deg, #eee3d6 0%, #f8f1e8 100%);
   color: var(--color-text);
   font-family: var(--font-body);
 }
@@ -86,13 +86,14 @@ page::-webkit-scrollbar,
 }
 
 .btn {
-  min-height: 44px;
-  padding: 0 16px;
+  min-height: 54px;
+  padding: 0 20px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--color-border);
   background: rgba(31, 27, 22, 0.04);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 16px;
+  font-weight: 600;
   letter-spacing: 0.02em;
   display: inline-flex;
   align-items: center;

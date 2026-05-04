@@ -201,21 +201,33 @@ export default {
      * @returns {void} AI:无返回值。
      */
     removeDownload(item) {
-      const storage = createUniStorage();
-      const service = createOfflineService(storage, createEmptyDownloader());
-      removeLocalFile(item.local_path)
-        .catch(() => null)
-        .then(() => service.removeDownload(item.id))
-        .then(() => {
-          const hasDownloading = this.refreshDownloads();
-          if (!hasDownloading) {
-            this.stopProgressWatcher();
+      uni.showModal({
+        title: "确认删除",
+        content: "删除后需要重新下载才能离线观看。",
+        confirmText: "删除",
+        cancelText: "取消",
+        confirmColor: "#8a360e",
+        success: (res) => {
+          if (!res.confirm) {
+            return;
           }
-          uni.showToast({ title: "已删除", icon: "success" });
-        })
-        .catch(() => {
-          uni.showToast({ title: "删除失败", icon: "none" });
-        });
+          const storage = createUniStorage();
+          const service = createOfflineService(storage, createEmptyDownloader());
+          removeLocalFile(item.local_path)
+            .catch(() => null)
+            .then(() => service.removeDownload(item.id))
+            .then(() => {
+              const hasDownloading = this.refreshDownloads();
+              if (!hasDownloading) {
+                this.stopProgressWatcher();
+              }
+              uni.showToast({ title: "已删除", icon: "success" });
+            })
+            .catch(() => {
+              uni.showToast({ title: "删除失败", icon: "none" });
+            });
+        }
+      });
     },
     formatDuration,
     formatSize
@@ -249,12 +261,13 @@ export default {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .item-title {
-  font-size: 14px;
+  font-size: 19px;
   line-height: 1.4;
+  font-weight: 700;
   color: var(--color-text);
   word-break: break-all;
   overflow-wrap: anywhere;
@@ -264,19 +277,19 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .item-meta text {
-  padding: 2px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: rgba(31, 27, 22, 0.05);
 }
 
 .item-cover {
-  width: 104px;
-  height: 62px;
+  width: 116px;
+  height: 70px;
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
@@ -293,7 +306,7 @@ export default {
 
 .item-card {
   margin-top: 12px;
-  padding: 14px 14px;
+  padding: 16px 14px;
   border-radius: 12px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.86));
@@ -316,22 +329,22 @@ export default {
 }
 
 .progress-text {
-  font-size: 11px;
+  font-size: 15px;
 }
 
 .error-text {
   margin-top: 4px;
-  font-size: 11px;
-  color: #b45309;
+  font-size: 15px;
+  color: #8a360e;
 }
 
 .remove {
-  min-width: 84px;
+  min-width: 92px;
 }
 
 .placeholder {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: 16px;
   letter-spacing: 0.04em;
 }
 </style>
