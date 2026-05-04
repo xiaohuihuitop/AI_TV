@@ -220,3 +220,12 @@
 - 关联文件: android/utils/indexService.js, android/pages/latest/index.vue
 - 标签: 封面, 刷新, 最新页
 - 关键词: cache buster, _t
+
+## [2026-05-04] 现象: 手机端离线下载视频提示下载失败 400
+- 触发条件: 手机端调用 `uni.downloadFile` 下载 public 视频文件，服务端收到移动端 Range 请求
+- 根因: 服务端 Range 解析只支持简单单段格式，遇到多段 Range 或异常 Range 时解析失败，导致下载接口返回错误
+- 解决步骤: Range 解析改为只取首段，兼容 `bytes=0-`、`bytes=-1024`、`bytes=0-0,-1` 与非法 Range 兜底；补充 `AI_TOOL/range_parse_test.mjs`
+- 预防/规则: 视频下载接口必须兼容移动端和播放器可能发送的不同 Range 头，Range 解析失败不应导致整次下载失败
+- 关联文件: server/app/services/range.py, AI_TOOL/range_parse_test.mjs
+- 标签: 下载, Range, 移动端, 服务端
+- 关键词: uni.downloadFile, Range, 400, parse_range
