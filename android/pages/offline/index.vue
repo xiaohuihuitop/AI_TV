@@ -338,8 +338,8 @@ export default {
 }
 
 .item-cover {
-  width: 108px;
-  height: 68px;
+  width: 116px;
+  height: 73px;
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
