@@ -26,34 +26,46 @@
           v-for="(item, index) in activeItems"
           :key="item.id"
           class="item item-card"
+          :class="{ 'video-card': item.type === 'video' }"
           :style="{ '--delay': `${index * 60}ms` }"
-        @click="handleItemClick(item, index)"
+          @click="handleItemClick(item, index)"
         >
-          <view class="item-cover">
-            <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
-          </view>
-          <view class="item-main">
-            <text class="item-title">{{ item.title }}</text>
-            <text v-if="item.type === 'video'" class="item-desc muted">
-              {{ item.description || "无" }}
-            </text>
-            <view v-if="item.type === 'video'" class="item-meta muted">
-              <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
-              <text>大小：{{ formatSize(item.size_bytes) }}</text>
+          <template v-if="item.type === 'video'">
+            <text class="item-title video-title">{{ item.title }}</text>
+            <view class="video-card-row">
+              <view class="item-cover">
+                <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
+              </view>
+              <view class="video-info-panel">
+                <view class="item-meta muted">
+                  <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
+                  <text>大小：{{ formatSize(item.size_bytes) }}</text>
+                </view>
+                <view class="video-status-row">
+                  <button
+                    v-if="!isDownloaded(item) && !isDownloading(item)"
+                    class="btn btn-primary download"
+                    size="mini"
+                    @click.stop="addDownload(item)"
+                  >
+                    下载
+                  </button>
+                  <text v-else-if="isDownloading(item)" class="downloading muted">
+                    下载中{{ formatProgress(item) }}
+                  </text>
+                  <text v-else class="downloaded muted">已下载</text>
+                </view>
+              </view>
             </view>
-          </view>
-          <button
-            v-if="item.type === 'video' && !isDownloaded(item) && !isDownloading(item)"
-            class="btn btn-primary download"
-            size="mini"
-            @click.stop="addDownload(item)"
-          >
-            下载
-          </button>
-          <text v-else-if="item.type === 'video' && isDownloading(item)" class="downloading muted">
-            下载中{{ formatProgress(item) }}
-          </text>
-          <text v-else-if="item.type === 'video'" class="downloaded muted">已下载</text>
+          </template>
+          <template v-else>
+            <view class="item-cover">
+              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
+            </view>
+            <view class="item-main">
+              <text class="item-title">{{ item.title }}</text>
+            </view>
+          </template>
         </view>
       </view>
     </view>
@@ -561,6 +573,12 @@ export default {
   gap: 10px;
 }
 
+.video-card {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .item-main {
   flex: 1;
   min-width: 0;
@@ -578,30 +596,61 @@ export default {
   overflow-wrap: anywhere;
 }
 
-.item-desc {
-  font-size: 15px;
-  line-height: 1.6;
-  word-break: break-all;
-  overflow-wrap: anywhere;
+.video-title {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .item-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
+  width: 100%;
 }
 
 .item-meta text {
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: rgba(31, 27, 22, 0.05);
 }
 
+.video-card-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.video-info-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.video-status-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
 .item-cover {
-  width: 116px;
-  height: 70px;
+  width: 108px;
+  height: 68px;
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
@@ -628,14 +677,15 @@ export default {
 }
 
 .download {
-  min-width: 92px;
+  min-width: 96px;
+  min-height: 42px;
   flex-shrink: 0;
 }
 
 .downloaded {
-  min-width: 92px;
+  min-width: 96px;
   flex-shrink: 0;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   text-align: center;
   font-size: 15px;
@@ -644,9 +694,9 @@ export default {
 }
 
 .downloading {
-  min-width: 92px;
+  min-width: 96px;
   flex-shrink: 0;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 999px;
   text-align: center;
   font-size: 15px;

@@ -6,31 +6,37 @@
         <view
           v-for="(item, index) in videoItems"
           :key="item.id"
-          class="item item-card"
+          class="item item-card video-card"
           :style="{ '--delay': `${index * 60}ms` }"
           @click="openVideo(item, index)"
         >
-          <view class="item-cover">
-            <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
-          </view>
-          <view class="item-main">
-            <text class="item-title">{{ item.title }}</text>
-            <view class="item-meta muted">
-              <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
-              <text>大小：{{ formatSize(item.size_bytes) }}</text>
+          <text class="item-title video-title">{{ item.title }}</text>
+          <view class="video-card-row">
+            <view class="item-cover">
+              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
             </view>
-            <view v-if="item.status !== 'done'" class="progress">
-              <view class="progress-bar" :style="{ width: `${item.progress}%` }"></view>
+            <view class="video-info-panel">
+              <view class="item-meta muted">
+                <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
+                <text>大小：{{ formatSize(item.size_bytes) }}</text>
+              </view>
+              <view v-if="item.status !== 'done'" class="download-state">
+                <view class="progress">
+                  <view class="progress-bar" :style="{ width: `${item.progress}%` }"></view>
+                </view>
+                <text class="progress-text muted">{{ item.progress }}%</text>
+                <text v-if="item.status === 'failed'" class="error-text">失败：{{ item.last_error || "未知错误" }}</text>
+                <text v-else-if="item.last_step" class="progress-text muted">
+                  步骤：{{ item.last_step }}
+                </text>
+              </view>
+              <view class="video-status-row">
+                <button class="btn btn-ghost remove" size="mini" @click.stop="removeDownload(item)">
+                  删除
+                </button>
+              </view>
             </view>
-            <text v-if="item.status !== 'done'" class="progress-text muted">{{ item.progress }}%</text>
-            <text v-if="item.status === 'failed'" class="error-text">失败：{{ item.last_error || "未知错误" }}</text>
-            <text v-else-if="item.status !== 'done' && item.last_step" class="progress-text muted">
-              步骤：{{ item.last_step }}
-            </text>
           </view>
-          <button class="btn btn-ghost remove" size="mini" @click.stop="removeDownload(item)">
-            删除
-          </button>
         </view>
       </view>
     </view>
@@ -256,6 +262,12 @@ export default {
   gap: 10px;
 }
 
+.video-card {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .item-main {
   flex: 1;
   min-width: 0;
@@ -273,23 +285,61 @@ export default {
   overflow-wrap: anywhere;
 }
 
+.video-title {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
 .item-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
+  width: 100%;
 }
 
 .item-meta text {
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: rgba(31, 27, 22, 0.05);
 }
 
+.video-card-row {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.video-info-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.video-status-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
 .item-cover {
-  width: 116px;
-  height: 70px;
+  width: 108px;
+  height: 68px;
   border-radius: 12px;
   overflow: hidden;
   flex-shrink: 0;
@@ -328,6 +378,13 @@ export default {
   background: linear-gradient(120deg, #b45309, #f59e0b);
 }
 
+.download-state {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .progress-text {
   font-size: 15px;
 }
@@ -339,7 +396,7 @@ export default {
 }
 
 .remove {
-  min-width: 92px;
+  min-width: 96px;
 }
 
 .placeholder {
