@@ -70,7 +70,6 @@ import {
 } from "../../utils/indexService.js";
 import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
-import { saveReaderQueue } from "../../utils/readerQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 import { defaultIndexUrl } from "../../utils/appConfig.js";
 
@@ -284,7 +283,7 @@ export default {
      */
     handleItemClick(item, index) {
       if (item.type === "article") {
-        this.openArticle(item, index);
+        this.openArticle(item);
         return;
       }
       this.openVideo(item, index);
@@ -318,19 +317,12 @@ export default {
      * @param {Object} item AI:图文条目。
      * @returns {void} AI:无返回值。
      */
-    openArticle(item, index) {
+    openArticle(item) {
       const src = this.resolveItemSource(item);
       if (!src) {
         uni.showToast({ title: "缺少阅读地址", icon: "none" });
         return;
       }
-      const storage = createUniStorage();
-      const queue = Array.isArray(this.articleItems) ? this.articleItems.slice() : [];
-      const resolvedIndex = Number.isFinite(index)
-        ? index
-        : queue.findIndex((entry) => entry.id === item.id);
-      const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
-      saveReaderQueue(storage, queue, safeIndex);
       const title = item.title ? encodeURIComponent(item.title) : "";
       const origin = item && item.url ? encodeURIComponent(item.url) : "";
       const format =
