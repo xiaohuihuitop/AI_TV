@@ -8,13 +8,46 @@ def parse_range(range_header: str, file_size: int) -> Tuple[int, int]:
     @param file_size: 文件大小。
     @return: (start, end)
     """
-    _, rng = range_header.split("=")
-    start_s, end_s = rng.split("-")
-    start = int(start_s) if start_s else 0
-    end = int(end_s) if end_s else file_size - 1
+    if file_size <= 0:
+        return 0, 0
+    unit, rng = StringRange(range_header).split_once("=")
+    if unit.lower().strip() != "bytes":
+        return 0, file_size - 1
+    first_range = rng.split(",", 1)[0].strip()
+    start_s, end_s = StringRange(first_range).split_once("-")
+    if not start_s and not end_s:
+        return 0, file_size - 1
+    if not start_s:
+        suffix = parse_positive_int(end_s, file_size)
+        start = max(file_size - suffix, 0)
+        end = file_size - 1
+        return start, end
+    start = parse_positive_int(start_s, 0)
+    end = parse_positive_int(end_s, file_size - 1) if end_s else file_size - 1
     if end >= file_size:
         end = file_size - 1
+    if start > end:
+        return 0, file_size - 1
     return start, end
+
+
+class StringRange:
+    def __init__(self, value: str):
+        self.value = str(value or "")
+
+    def split_once(self, separator: str) -> Tuple[str, str]:
+        if separator not in self.value:
+            return "", ""
+        left, right = self.value.split(separator, 1)
+        return left.strip(), right.strip()
+
+
+def parse_positive_int(value: str, fallback: int) -> int:
+    try:
+        parsed = int(str(value or "").strip())
+    except ValueError:
+        return fallback
+    return max(parsed, 0)
 
 
 def iter_file(path: Path, start: int, end: int, chunk_size: int = 8192):
