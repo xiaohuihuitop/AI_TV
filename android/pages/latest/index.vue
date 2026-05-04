@@ -71,6 +71,7 @@ import {
 import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
+import { defaultIndexUrl } from "../../utils/appConfig.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -395,7 +396,7 @@ export default {
     fetchIndex() {
       const storage = createUniStorage();
       const adapter = createStorageAdapter(storage);
-      const indexUrl = storage.get(indexUrlKey);
+      const indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
       if (!indexUrl) {
         this.error = "请在设置中填写清单地址";
         this.videoItems = [];

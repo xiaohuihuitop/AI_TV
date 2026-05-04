@@ -16,6 +16,8 @@
 </template>
 
 <script>
+import { defaultIndexUrl } from "../../utils/appConfig.js";
+
 /**
  * AI:创建 uniapp 存储读写适配器。
  * @returns {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} AI:存储读写适配器。
@@ -39,7 +41,7 @@ export default {
   },
   onShow() {
     const storage = createUniStorage();
-    this.indexUrl = storage.get(indexUrlKey) || "";
+    this.indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
   },
   methods: {
     /**
