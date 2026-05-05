@@ -160,6 +160,7 @@ export function buildDownloadStatusMap(list) {
       map[id] = {
         status: "done",
         progress: 100,
+        local_path: entry.local_path || "",
         cover_local_path: entry.cover_local_path || ""
       };
       return;

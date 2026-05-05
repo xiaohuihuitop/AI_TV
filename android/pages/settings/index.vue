@@ -37,10 +37,12 @@
         </view>
       </view>
     </view>
+    <app-tab-bar active="settings" />
   </view>
 </template>
 
 <script>
+import AppTabBar from "../../components/AppTabBar.vue";
 import { defaultIndexUrl } from "../../utils/appConfig.js";
 
 /**
@@ -58,6 +60,9 @@ function createUniStorage() {
 const indexUrlKey = "index_url";
 
 export default {
+  components: {
+    AppTabBar
+  },
   data() {
     return {
       indexUrl: "",
@@ -67,6 +72,9 @@ export default {
     };
   },
   onShow() {
+    if (typeof uni.hideTabBar === "function") {
+      uni.hideTabBar({ animation: false });
+    }
     const storage = createUniStorage();
     this.indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
   },

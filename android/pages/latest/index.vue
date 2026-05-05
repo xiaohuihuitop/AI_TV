@@ -70,14 +70,16 @@
       </view>
     </view>
     <view v-if="loading" class="loading muted">加载中...</view>
+    <app-tab-bar active="latest" />
   </view>
 </template>
 
 <script>
+import AppTabBar from "../../components/AppTabBar.vue";
 import {
   normalizeIndexItems,
   createStorageAdapter,
-  applyLocalCover,
+  applyLocalDownload,
   refreshCoverUrls
 } from "../../utils/indexService.js";
 import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
@@ -186,6 +188,9 @@ function appendCacheBuster(url) {
 }
 
 export default {
+  components: {
+    AppTabBar
+  },
   data() {
     return {
       loading: false,
@@ -215,6 +220,9 @@ export default {
     }
   },
   onShow() {
+    if (typeof uni.hideTabBar === "function") {
+      uni.hideTabBar({ animation: false });
+    }
     const hasDownloading = this.refreshDownloadStatus();
     if (hasDownloading) {
       this.startDownloadWatcher();
@@ -260,7 +268,7 @@ export default {
       const service = createOfflineService(storage, createUniDownloader());
       const list = service.listDownloads();
       this.downloadStatusMap = buildDownloadStatusMap(list);
-      this.videoItems = applyLocalCover(this.videoItems, this.downloadStatusMap);
+      this.videoItems = applyLocalDownload(this.videoItems, this.downloadStatusMap);
       return list.some((entry) => entry.status === "downloading");
     },
     /**
@@ -353,7 +361,7 @@ export default {
      * @returns {string} AI:可用地址。
      */
     resolveItemSource(item) {
-      return item && item.url ? item.url : "";
+      return item && (item.local_path || item.url) ? item.local_path || item.url : "";
     },
     /**
      * AI:判断视频是否已下载。
@@ -456,7 +464,7 @@ export default {
      */
     applyItems(data) {
       const normalized = normalizeIndexItems(data);
-      const withLocalCover = applyLocalCover(normalized.items, this.downloadStatusMap);
+      const withLocalCover = applyLocalDownload(normalized.items, this.downloadStatusMap);
       const refreshed = refreshCoverUrls(withLocalCover, Date.now());
       this.videoItems = refreshed.filter((item) => item.type === "video");
       this.articleItems = refreshed.filter((item) => item.type === "article");
@@ -497,20 +505,23 @@ export default {
       }
       const storage = createUniStorage();
       const service = createOfflineService(storage, createUniDownloader());
-      service
-        .addDownload(item)
+      const refreshDownloadProgress = () => {
+        const hasDownloading = this.refreshDownloadStatus();
+        if (hasDownloading && !this.downloadRefreshTimer) {
+          this.startDownloadWatcher();
+        } else if (!hasDownloading) {
+          this.stopDownloadWatcher();
+        }
+      };
+      const downloadTask = service.addDownload(item, refreshDownloadProgress);
+      refreshDownloadProgress();
+      uni.showToast({ title: "已开始下载", icon: "success" });
+      downloadTask
         .then(() => {
-          const hasDownloading = this.refreshDownloadStatus();
-          if (hasDownloading) {
-            this.startDownloadWatcher();
-          }
-          uni.showToast({ title: "已加入离线", icon: "success" });
+          refreshDownloadProgress();
         })
         .catch(() => {
-          const hasDownloading = this.refreshDownloadStatus();
-          if (hasDownloading) {
-            this.startDownloadWatcher();
-          }
+          refreshDownloadProgress();
           uni.showToast({ title: "下载失败，请到离线页查看原因", icon: "none" });
         });
     },
@@ -524,33 +535,37 @@ export default {
 .media-tabs {
   display: flex;
   width: 100%;
-  gap: 0;
-  padding: 0;
-  border-radius: var(--radius-card);
+  gap: 8px;
+  padding: 8px;
+  border-radius: 22px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  box-shadow: var(--shadow-soft);
-  margin-bottom: 18px;
+  background: rgba(255, 250, 244, 0.92);
+  border: 1px solid rgba(138, 54, 14, 0.14);
+  box-shadow: 0 14px 30px rgba(31, 27, 22, 0.1);
+  margin-bottom: 20px;
 }
 
 .media-tab {
   flex: 1;
-  padding: 18px 0;
-  border-radius: 0;
+  min-height: 54px;
+  padding: 0;
+  border-radius: 16px;
   border: none;
   font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   text-align: center;
-  color: var(--color-muted);
+  color: #5b4a3b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all var(--duration-fast) ease;
 }
 
 .media-tab.active {
-  background: linear-gradient(135deg, rgba(138, 54, 14, 0.24), rgba(192, 86, 33, 0.28));
-  color: #6f2608;
-  box-shadow: inset 0 0 0 1px rgba(138, 54, 14, 0.32);
+  background: linear-gradient(135deg, #8a360e 0%, #c05621 100%);
+  color: #fffaf4;
+  box-shadow: 0 10px 20px rgba(138, 54, 14, 0.24);
 }
 
 .columns {
@@ -680,6 +695,12 @@ export default {
   min-width: 96px;
   min-height: 42px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  line-height: 42px;
+  text-align: center;
 }
 
 .downloaded {
@@ -689,8 +710,10 @@ export default {
   border-radius: 999px;
   text-align: center;
   font-size: 15px;
-  border: 1px solid rgba(31, 27, 22, 0.12);
-  background: rgba(31, 27, 22, 0.06);
+  font-weight: 700;
+  color: #166534;
+  border: 1px solid rgba(22, 101, 52, 0.22);
+  background: rgba(22, 101, 52, 0.1);
 }
 
 .downloading {
@@ -700,8 +723,10 @@ export default {
   border-radius: 999px;
   text-align: center;
   font-size: 15px;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  background: rgba(245, 158, 11, 0.12);
+  font-weight: 700;
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  background: rgba(245, 158, 11, 0.16);
 }
 
 .placeholder {

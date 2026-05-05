@@ -39,10 +39,11 @@
     "backgroundColor": "#f7f2ea"
   },
   "tabBar": {
-    "color": "#6b645d",
-    "selectedColor": "#8a360e",
-    "backgroundColor": "#eee3d6",
-    "fontSize": "15px",
+    "color": "#6b4a2f",
+    "selectedColor": "#9a4b18",
+    "backgroundColor": "#fffaf4",
+    "borderStyle": "white",
+    "fontSize": "16px",
     "list": [
       {
         "pagePath": "pages/offline/index",
@@ -54,7 +55,7 @@
       },
       {
         "pagePath": "pages/settings/index",
-        "text": "连接"
+        "text": "设置"
       }
     ]
   }

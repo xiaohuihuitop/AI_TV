@@ -40,10 +40,12 @@
         </view>
       </view>
     </view>
+    <app-tab-bar active="offline" />
   </view>
 </template>
 
 <script>
+import AppTabBar from "../../components/AppTabBar.vue";
 import { createOfflineService } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { resolveCoverUrl } from "../../utils/indexService.js";
@@ -108,6 +110,9 @@ function removeLocalFile(filePath) {
 }
 
 export default {
+  components: {
+    AppTabBar
+  },
   data() {
     return {
       videoItems: [],
@@ -115,6 +120,9 @@ export default {
     };
   },
   onShow() {
+    if (typeof uni.hideTabBar === "function") {
+      uni.hideTabBar({ animation: false });
+    }
     const hasDownloading = this.refreshDownloads();
     if (hasDownloading) {
       this.startProgressWatcher();

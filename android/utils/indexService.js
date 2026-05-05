@@ -104,17 +104,10 @@ export function applyLocalCover(items, downloadStatusMap) {
     return list;
   }
   return list.map((item) => {
-    if (!item) {
+    if (!isVideoItem(item)) {
       return item;
     }
-    if (item.type && String(item.type) !== "video") {
-      return item;
-    }
-    const id = item.id ? String(item.id) : "";
-    if (!id) {
-      return item;
-    }
-    const status = map[id];
+    const status = map[String(item.id)];
     const localCover =
       status && typeof status.cover_local_path === "string"
         ? status.cover_local_path.trim()
@@ -124,6 +117,54 @@ export function applyLocalCover(items, downloadStatusMap) {
     }
     return { ...item, cover: localCover };
   });
+}
+
+/**
+ * AI:将已下载条目的本地播放路径与封面覆盖到列表中。
+ * @param {Array} items AI:原始清单条目列表。
+ * @param {Object} downloadStatusMap AI:下载状态映射。
+ * @returns {Array} AI:覆盖后的条目列表。
+ */
+export function applyLocalDownload(items, downloadStatusMap) {
+  const list = Array.isArray(items) ? items : [];
+  const map =
+    downloadStatusMap && typeof downloadStatusMap === "object" ? downloadStatusMap : {};
+  if (list.length === 0) {
+    return list;
+  }
+  return list.map((item) => {
+    if (!isVideoItem(item)) {
+      return item;
+    }
+    const id = String(item.id);
+    const status = map[id];
+    const localCover =
+      status && typeof status.cover_local_path === "string"
+        ? status.cover_local_path.trim()
+        : "";
+    const localPath =
+      status && typeof status.local_path === "string" ? status.local_path.trim() : "";
+    if (!localCover && !localPath) {
+      return item;
+    }
+    return {
+      ...item,
+      ...(localCover ? { cover: localCover } : {}),
+      ...(localPath ? { local_path: localPath } : {})
+    };
+  });
+}
+
+/**
+ * AI:判断条目是否为可合并本地下载信息的视频。
+ * @param {Object} item AI:清单条目。
+ * @returns {boolean} AI:是否为有效视频条目。
+ */
+function isVideoItem(item) {
+  if (!item || !item.id) {
+    return false;
+  }
+  return !item.type || String(item.type) === "video";
 }
 
 /**
