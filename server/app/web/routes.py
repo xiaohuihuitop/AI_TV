@@ -9,6 +9,7 @@ from app.core.validators import is_allowed_doc, is_allowed_video
 from app.db.models import Document, Video
 from app.db.repo import create_document, create_video
 from app.db.session import get_engine, get_sessionmaker, init_db
+from app.services.system_status import collect_system_status
 
 router = APIRouter(prefix="/web", dependencies=[Depends(verify_credentials)])
 templates = Jinja2Templates(directory="app/templates")
@@ -19,10 +20,51 @@ def _get_session(request: Request):
     @param request: 当前请求。
     @return: Session 实例。
     """
-    engine = get_engine(request.app.state.settings.db_path)
-    init_db(engine)
-    SessionLocal = get_sessionmaker(engine)
+    engine = getattr(request.app.state, "engine", None)
+    if not engine:
+        engine = get_engine(request.app.state.settings.db_path)
+        init_db(engine)
+    SessionLocal = getattr(request.app.state, "session_factory", None) or get_sessionmaker(engine)
     return SessionLocal()
+
+
+def _apply_video_filters(query, status: str | None, q: str | None, sort: str | None):
+    if status:
+        query = query.filter(Video.status == status)
+    if q:
+        query = query.filter(Video.filename.ilike(f"%{q.strip()}%"))
+    if sort == "filename":
+        return query.order_by(Video.filename.asc())
+    if sort == "status":
+        return query.order_by(Video.status.asc(), Video.id.desc())
+    return query.order_by(Video.id.desc())
+
+
+def _apply_doc_filters(query, q: str | None, sort: str | None):
+    if q:
+        pattern = f"%{q.strip()}%"
+        query = query.filter(Document.filename.ilike(pattern) | Document.title.ilike(pattern))
+    if sort == "filename":
+        return query.order_by(Document.filename.asc())
+    if sort == "status":
+        return query.order_by(Document.status.asc(), Document.id.desc())
+    return query.order_by(Document.id.desc())
+
+
+def _delete_video_files(video: Video) -> None:
+    path = Path(video.path)
+    if path.exists():
+        path.unlink()
+    if video.cover_path:
+        cover = Path(video.cover_path)
+        if cover.exists():
+            cover.unlink()
+
+
+def _delete_doc_file(doc: Document) -> None:
+    path = Path(doc.path)
+    if path.exists():
+        path.unlink()
 
 
 def _resolve_doc_extension(filename: str) -> str:
@@ -62,14 +104,18 @@ def _render_markdown_html(content: str) -> str:
     )
 
 @router.get("/videos", response_class=HTMLResponse)
-def videos(request: Request):
+def videos(request: Request, status: str | None = None, q: str | None = None, sort: str | None = None):
     """AI: 视频列表页。
     @param request: 当前请求。
     @return: HTML 响应。
     """
     with _get_session(request) as session:
-        items = session.query(Video).order_by(Video.id.desc()).all()
-    return templates.TemplateResponse(request, "videos.html", {"items": items, "active": "videos"})
+        items = _apply_video_filters(session.query(Video), status, q, sort).all()
+    return templates.TemplateResponse(
+        request,
+        "videos.html",
+        {"items": items, "active": "videos", "filters": {"status": status or "", "q": q or "", "sort": sort or ""}},
+    )
 
 
 @router.get("/videos/{video_id}", response_class=HTMLResponse)
@@ -106,6 +152,23 @@ async def video_description_update(request: Request, video_id: int):
         session.commit()
     return RedirectResponse(url=f"/web/videos/{video_id}", status_code=303)
 
+
+@router.post("/videos/{video_id}/retry")
+def video_retry(request: Request, video_id: int):
+    with _get_session(request) as session:
+        video = session.get(Video, video_id)
+        if not video:
+            raise HTTPException(status_code=404, detail="Not found")
+        if video.cover_path:
+            cover = Path(video.cover_path)
+            if cover.exists():
+                cover.unlink()
+        video.status = "pending"
+        video.error_message = None
+        video.cover_path = None
+        session.commit()
+    return RedirectResponse(url="/web/videos", status_code=303)
+
 @router.get("/videos/{video_id}/cover")
 def video_cover(request: Request, video_id: int):
     """AI: 视频封面输出。
@@ -133,27 +196,45 @@ def video_delete(request: Request, video_id: int):
         video = session.get(Video, video_id)
         if not video:
             raise HTTPException(status_code=404, detail="Not found")
-        path = Path(video.path)
-        if path.exists():
-            path.unlink()
-        if video.cover_path:
-            cover = Path(video.cover_path)
-            if cover.exists():
-                cover.unlink()
+        _delete_video_files(video)
         session.delete(video)
         session.commit()
     return RedirectResponse(url="/web/videos", status_code=303)
 
 
+@router.post("/videos/bulk-delete")
+async def videos_bulk_delete(request: Request):
+    form = await request.form()
+    ids = [int(item) for item in form.getlist("ids") if str(item).isdigit()]
+    with _get_session(request) as session:
+        items = session.query(Video).filter(Video.id.in_(ids)).all() if ids else []
+        for video in items:
+            _delete_video_files(video)
+            session.delete(video)
+        session.commit()
+    return RedirectResponse(url="/web/videos", status_code=303)
+
+
 @router.get("/docs", response_class=HTMLResponse)
-def docs(request: Request):
+def docs(request: Request, q: str | None = None, sort: str | None = None):
     """AI: 文档列表页。
     @param request: 当前请求。
     @return: HTML 响应。
     """
     with _get_session(request) as session:
-        items = session.query(Document).order_by(Document.id.desc()).all()
-    return templates.TemplateResponse(request, "docs.html", {"items": items, "active": "docs"})
+        items = _apply_doc_filters(session.query(Document), q, sort).all()
+    return templates.TemplateResponse(
+        request,
+        "docs.html",
+        {"items": items, "active": "docs", "filters": {"q": q or "", "sort": sort or ""}},
+    )
+
+
+@router.get("/system", response_class=HTMLResponse)
+def system_page(request: Request):
+    with _get_session(request) as session:
+        status = collect_system_status(request.app, session)
+    return templates.TemplateResponse(request, "system.html", {"active": "system", "status": status})
 
 
 @router.get("/docs/{doc_id}", response_class=HTMLResponse)
@@ -181,10 +262,21 @@ def doc_delete(request: Request, doc_id: int):
         doc = session.get(Document, doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Not found")
-        path = Path(doc.path)
-        if path.exists():
-            path.unlink()
+        _delete_doc_file(doc)
         session.delete(doc)
+        session.commit()
+    return RedirectResponse(url="/web/docs", status_code=303)
+
+
+@router.post("/docs/bulk-delete")
+async def docs_bulk_delete(request: Request):
+    form = await request.form()
+    ids = [int(item) for item in form.getlist("ids") if str(item).isdigit()]
+    with _get_session(request) as session:
+        items = session.query(Document).filter(Document.id.in_(ids)).all() if ids else []
+        for doc in items:
+            _delete_doc_file(doc)
+            session.delete(doc)
         session.commit()
     return RedirectResponse(url="/web/docs", status_code=303)
 

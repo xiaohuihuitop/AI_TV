@@ -30,6 +30,8 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     engine = get_engine(cfg.db_path)
     init_db(engine)
     SessionLocal = get_sessionmaker(engine)
+    app.state.engine = engine
+    app.state.session_factory = SessionLocal
 
     def _loop():
         worker = VideoWorker(session_factory=SessionLocal, storage=storage)
@@ -37,7 +39,8 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
             worker.run_once()
             time.sleep(cfg.worker_interval_sec)
 
-    threading.Thread(target=_loop, daemon=True).start()
+    if cfg.enable_worker:
+        threading.Thread(target=_loop, daemon=True).start()
 
     @app.get("/health", dependencies=[Depends(verify_credentials)])
     def health_check():

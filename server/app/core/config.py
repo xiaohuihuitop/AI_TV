@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     basic_user: str = "admin"
     basic_pass: str = "admin"
     worker_interval_sec: int = 2
+    enable_worker: bool = True
 
     model_config = SettingsConfigDict(env_file=".env")
 

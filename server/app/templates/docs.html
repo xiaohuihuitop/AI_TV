@@ -4,6 +4,25 @@
   <div class="section-title">
     <h1>文档管理</h1>
   </div>
+  <form class="card filter-card doc-filter-card" method="get" action="/web/docs">
+    <label class="filter-field">
+      <span>搜索</span>
+      <input class="text-input compact" type="search" name="q" value="{{ filters.q }}" placeholder="文件名或标题" />
+    </label>
+    <label class="filter-field">
+      <span>排序</span>
+      <select class="text-input compact" name="sort">
+        <option value="" {% if not filters.sort %}selected{% endif %}>最新上传</option>
+        <option value="filename" {% if filters.sort == 'filename' %}selected{% endif %}>文件名</option>
+        <option value="status" {% if filters.sort == 'status' %}selected{% endif %}>状态</option>
+      </select>
+    </label>
+    <div class="actions filter-actions">
+      <button class="btn" type="submit">筛选</button>
+      <a class="btn ghost" href="/web/docs">清空</a>
+    </div>
+  </form>
+  <form id="doc-bulk-form" method="post" action="/web/docs/bulk-delete"></form>
   <form class="card upload-card" id="doc-upload-form">
     <div class="card-title">上传文档（HTML/Markdown）</div>
     <div id="doc-drop" class="drop-zone">拖拽 HTML/Markdown 到这里，或点击选择</div>
@@ -15,9 +34,16 @@
       <button id="doc-upload-btn" class="btn" type="button">上传文档</button>
     </div>
   </form>
+  <div class="bulk-bar">
+    <button class="btn danger" type="submit" form="doc-bulk-form" onclick="return confirm('确定删除选中的文档吗？')">批量删除</button>
+  </div>
   <div class="grid">
     {% for d in items %}
       <article class="card">
+        <label class="select-check">
+          <input type="checkbox" name="ids" value="{{ d.id }}" form="doc-bulk-form" />
+          <span>选择</span>
+        </label>
         <div class="card-title">{{ d.title if d.title else d.filename }}</div>
         <div class="meta">
           <span class="pill">{{ d.status }}</span>

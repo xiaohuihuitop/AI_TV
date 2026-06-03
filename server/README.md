@@ -154,6 +154,20 @@ admin / admin
 curl -u admin:admin http://服务器IP:8000/health
 ```
 
+系统状态页：
+
+```text
+http://服务器IP:8000/web/system
+```
+
+这个页面会显示 `DATA_DIR`、`DB_PATH`、视频/文档数量、失败视频数量、ffmpeg/ffprobe 是否可用，以及数据目录是否存在和可写。排查“新镜像没有旧数据”“环境变量是否生效”“视频识别失败”时，优先打开这个页面。
+
+也可以直接请求系统状态 API：
+
+```bash
+curl -u admin:admin http://服务器IP:8000/api/system/status
+```
+
 App 清单地址示例：
 
 ```text
@@ -278,6 +292,14 @@ http://服务器IP:18080
 docker exec ai_tv env | grep -E "DATA_DIR|DB_PATH|BASIC|WORKER"
 ```
 
+也可以打开：
+
+```text
+http://服务器IP:8000/web/system
+```
+
+后台会直接显示运行中的 `DATA_DIR`、`DB_PATH` 和数据目录状态。
+
 ### 新镜像启动后没有旧数据
 
 重点检查卷挂载是否正确：
@@ -319,3 +341,14 @@ http://服务器IP:8000/static/app.css
 ### CPU 架构注意
 
 当前 GitHub Actions 默认构建 `linux/amd64` 镜像。Intel/AMD 群晖可以直接使用。如果设备是 ARM 架构，需要把工作流平台改为 `linux/arm64` 或同时构建多架构镜像。
+
+### 特殊排障：临时关闭后台识别
+
+默认不需要设置。只有在排查数据库、迁移数据或临时不希望后台 worker 处理视频时，可以加：
+
+```yaml
+environment:
+  ENABLE_WORKER: "false"
+```
+
+正常使用请保持默认开启，否则新上传的视频会一直停留在 `pending`。

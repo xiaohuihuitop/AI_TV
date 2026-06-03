@@ -1,0 +1,79 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="section">
+  <div class="section-title">
+    <h1>系统状态</h1>
+  </div>
+
+  <div class="status-grid">
+    <article class="card status-card">
+      <div class="card-title">运行信息</div>
+      <div class="status-list">
+        <div><strong>版本</strong><span>{{ status.app.version }}</span></div>
+        <div><strong>时区</strong><span>{{ status.app.timezone or '未设置' }}</span></div>
+        <div><strong>管理员</strong><span>{{ status.config.basic_user }}</span></div>
+        <div><strong>Worker</strong><span>{{ '启用' if status.config.enable_worker else '关闭' }}</span></div>
+      </div>
+    </article>
+
+    <article class="card status-card">
+      <div class="card-title">内容数量</div>
+      <div class="status-list">
+        <div><strong>视频总数</strong><span>{{ status.counts.videos.total }}</span></div>
+        <div><strong>已就绪</strong><span>{{ status.counts.videos.ready }}</span></div>
+        <div><strong>待处理</strong><span>{{ status.counts.videos.pending }}</span></div>
+        <div><strong>处理中</strong><span>{{ status.counts.videos.processing }}</span></div>
+        <div><strong>失败</strong><span>{{ status.counts.videos.failed }}</span></div>
+        <div><strong>文档总数</strong><span>{{ status.counts.documents.total }}</span></div>
+      </div>
+    </article>
+  </div>
+
+  <article class="card status-card">
+    <div class="card-title">路径和挂载</div>
+    <div class="path-table">
+      <div class="path-row path-head">
+        <span>项目</span>
+        <span>状态</span>
+        <span>路径</span>
+      </div>
+      {% for label, item in [
+        ('DATA_DIR', status.storage.data_dir),
+        ('videos', status.storage.videos),
+        ('covers', status.storage.covers),
+        ('docs', status.storage.docs),
+        ('db', status.storage.db_dir)
+      ] %}
+        <div class="path-row">
+          <span>{{ label }}</span>
+          <span class="pill {{ 'pill-ok' if item.exists and item.writable else 'pill-warn' }}">
+            {{ '正常' if item.exists and item.writable else '检查' }}
+          </span>
+          <span class="path-text">{{ item.path }}</span>
+        </div>
+      {% endfor %}
+      <div class="path-row">
+        <span>DB_PATH</span>
+        <span class="pill {{ 'pill-ok' if status.database.exists else 'pill-warn' }}">
+          {{ '存在' if status.database.exists else '缺失' }}
+        </span>
+        <span class="path-text">{{ status.database.path }}</span>
+      </div>
+    </div>
+  </article>
+
+  <article class="card status-card">
+    <div class="card-title">工具检查</div>
+    <div class="status-list">
+      <div>
+        <strong>ffmpeg</strong>
+        <span>{{ status.tools.ffmpeg.version if status.tools.ffmpeg.available else '未找到' }}</span>
+      </div>
+      <div>
+        <strong>ffprobe</strong>
+        <span>{{ status.tools.ffprobe.version if status.tools.ffprobe.available else '未找到' }}</span>
+      </div>
+    </div>
+  </article>
+</section>
+{% endblock %}

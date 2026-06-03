@@ -4,6 +4,35 @@
   <div class="section-title">
     <h1>视频管理</h1>
   </div>
+  <form class="card filter-card" method="get" action="/web/videos">
+    <label class="filter-field">
+      <span>搜索</span>
+      <input class="text-input compact" type="search" name="q" value="{{ filters.q }}" placeholder="文件名" />
+    </label>
+    <label class="filter-field">
+      <span>状态</span>
+      <select class="text-input compact" name="status">
+        <option value="" {% if not filters.status %}selected{% endif %}>全部</option>
+        <option value="ready" {% if filters.status == 'ready' %}selected{% endif %}>ready</option>
+        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>pending</option>
+        <option value="processing" {% if filters.status == 'processing' %}selected{% endif %}>processing</option>
+        <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>failed</option>
+      </select>
+    </label>
+    <label class="filter-field">
+      <span>排序</span>
+      <select class="text-input compact" name="sort">
+        <option value="" {% if not filters.sort %}selected{% endif %}>最新上传</option>
+        <option value="filename" {% if filters.sort == 'filename' %}selected{% endif %}>文件名</option>
+        <option value="status" {% if filters.sort == 'status' %}selected{% endif %}>状态</option>
+      </select>
+    </label>
+    <div class="actions filter-actions">
+      <button class="btn" type="submit">筛选</button>
+      <a class="btn ghost" href="/web/videos">清空</a>
+    </div>
+  </form>
+  <form id="video-bulk-form" method="post" action="/web/videos/bulk-delete"></form>
   <form class="card upload-card" id="video-upload-form">
     <div class="card-title">上传视频（MP4）</div>
     <div id="video-drop" class="drop-zone">拖拽 MP4 到这里，或点击选择</div>
@@ -15,10 +44,17 @@
       <button id="video-upload-btn" class="btn" type="button">上传视频</button>
     </div>
   </form>
+  <div class="bulk-bar">
+    <button class="btn danger" type="submit" form="video-bulk-form" onclick="return confirm('确定删除选中的视频吗？')">批量删除</button>
+  </div>
   <div class="video-management-list">
     {% for v in items %}
       <article class="card video-management-card">
         <div class="video-preview">
+          <label class="select-check">
+            <input type="checkbox" name="ids" value="{{ v.id }}" form="video-bulk-form" />
+            <span>选择</span>
+          </label>
           {% if v.cover_path %}
             <img class="thumb" src="/web/videos/{{ v.id }}/cover" alt="cover" />
           {% else %}
@@ -39,9 +75,20 @@
               <span class="video-info-label">描述</span>
               <span>{{ v.description or '无' }}</span>
             </div>
+            {% if v.error_message %}
+              <div class="video-info-row error-row">
+                <span class="video-info-label">错误</span>
+                <span>{{ v.error_message }}</span>
+              </div>
+            {% endif %}
           </div>
           <div class="actions video-management-actions">
             <a class="btn ghost" href="/web/videos/{{ v.id }}">查看详情</a>
+            {% if v.status == 'failed' %}
+              <form class="inline-form" method="post" action="/web/videos/{{ v.id }}/retry">
+                <button class="btn" type="submit">重新识别</button>
+              </form>
+            {% endif %}
             <form class="inline-form" method="post" action="/web/videos/{{ v.id }}/delete" onsubmit="return confirm('确定删除该视频吗？')">
               <button class="btn danger" type="submit">删除</button>
             </form>

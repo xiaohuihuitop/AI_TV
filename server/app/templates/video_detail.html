@@ -14,9 +14,17 @@
     <div class="detail-meta">
       <div><strong>文件名：</strong>{{ video.filename }}</div>
       <div><strong>状态：</strong>{{ video.status }}</div>
+      {% if video.error_message %}
+        <div><strong>错误：</strong>{{ video.error_message }}</div>
+      {% endif %}
       <div><strong>时长：</strong>{{ '%.2f'|format(video.duration_seconds) if video.duration_seconds else '未知' }}</div>
       <div><strong>描述：</strong>{{ video.description or '无' }}</div>
     </div>
+    {% if video.status == 'failed' %}
+      <form class="inline-form" method="post" action="/web/videos/{{ video.id }}/retry">
+        <button class="btn" type="submit">重新识别</button>
+      </form>
+    {% endif %}
     <form class="card" method="post" action="/web/videos/{{ video.id }}/description">
       <div class="card-title">视频描述（最多20字）</div>
       <input

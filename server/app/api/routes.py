@@ -8,6 +8,7 @@ from app.db.models import Document, Video
 from app.db.repo import create_document, create_video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.range import iter_file, parse_range
+from app.services.system_status import collect_system_status
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_credentials)])
 
@@ -17,10 +18,41 @@ def _get_session(request: Request):
     @param request: 当前请求。
     @return: Session 实例。
     """
-    engine = get_engine(request.app.state.settings.db_path)
-    init_db(engine)
-    SessionLocal = get_sessionmaker(engine)
+    engine = getattr(request.app.state, "engine", None)
+    if not engine:
+        engine = get_engine(request.app.state.settings.db_path)
+        init_db(engine)
+    SessionLocal = getattr(request.app.state, "session_factory", None) or get_sessionmaker(engine)
     return SessionLocal()
+
+
+def _apply_video_filters(query, status: str | None, q: str | None, sort: str | None):
+    if status:
+        query = query.filter(Video.status == status)
+    if q:
+        query = query.filter(Video.filename.ilike(f"%{q.strip()}%"))
+    if sort == "filename":
+        return query.order_by(Video.filename.asc())
+    if sort == "status":
+        return query.order_by(Video.status.asc(), Video.id.desc())
+    return query.order_by(Video.id.desc())
+
+
+def _apply_doc_filters(query, q: str | None, sort: str | None):
+    if q:
+        pattern = f"%{q.strip()}%"
+        query = query.filter(Document.filename.ilike(pattern) | Document.title.ilike(pattern))
+    if sort == "filename":
+        return query.order_by(Document.filename.asc())
+    if sort == "status":
+        return query.order_by(Document.status.asc(), Document.id.desc())
+    return query.order_by(Document.id.desc())
+
+
+@router.get("/system/status")
+def system_status(request: Request):
+    with _get_session(request) as session:
+        return collect_system_status(request.app, session)
 
 
 def _resolve_doc_extension(filename: str) -> str:
@@ -94,17 +126,14 @@ def upload_doc(request: Request, files: list[UploadFile] = File(...)):
 
 
 @router.get("/videos")
-def list_videos(request: Request, status: str | None = None):
+def list_videos(request: Request, status: str | None = None, q: str | None = None, sort: str | None = None):
     """AI: 获取视频列表。
     @param request: 当前请求。
     @param status: 可选状态筛选。
     @return: 列表数据。
     """
     with _get_session(request) as session:
-        query = session.query(Video)
-        if status:
-            query = query.filter(Video.status == status)
-        items = query.order_by(Video.id.desc()).all()
+        items = _apply_video_filters(session.query(Video), status, q, sort).all()
         return [
             {
                 "id": v.id,
@@ -191,13 +220,13 @@ def delete_video(request: Request, video_id: int):
 
 
 @router.get("/docs")
-def list_docs(request: Request):
+def list_docs(request: Request, q: str | None = None, sort: str | None = None):
     """AI: 获取文档列表。
     @param request: 当前请求。
     @return: 列表数据。
     """
     with _get_session(request) as session:
-        items = session.query(Document).order_by(Document.id.desc()).all()
+        items = _apply_doc_filters(session.query(Document), q, sort).all()
         return [{"id": d.id, "filename": d.filename, "status": d.status, "title": d.title} for d in items]
 
 
