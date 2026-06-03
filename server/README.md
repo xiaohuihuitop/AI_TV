@@ -1,27 +1,52 @@
 # AI TV Server Docker 部署说明
 
-本文说明下载 GitHub Actions 打包好的服务端镜像文件后，如何在服务器或群晖 NAS 上运行。
+本文说明从 GitHub Actions / Release 下载服务端镜像 tar 后，如何在服务器或群晖 NAS 上导入、启动、升级和排查。
 
-## 1. 下载镜像文件
+## 1. 版本命名规则
 
-在 GitHub Release 或 Actions artifact 中下载：
+当推送 tag，例如：
 
 ```text
-ai_tv_server_latest.tar
+build-v1.3
 ```
 
-该文件是已经构建好的 Docker 镜像，镜像名为：
+GitHub Actions 会生成：
 
 ```text
+ai_tv_server_build-v1.3_amd64.tar
+```
+
+导入该 tar 后，本机 Docker 会出现两个镜像标签：
+
+```text
+ai_tv_server:build-v1.3
 ai_tv_server:latest
 ```
 
-## 2. 导入镜像
+建议正式部署时使用具体版本：
 
-把 `ai_tv_server_latest.tar` 上传到服务器后执行：
+```text
+ai_tv_server:build-v1.3
+```
+
+这样以后查看 compose 或 `docker images` 时，可以直接知道服务器正在跑哪个版本。`latest` 只作为方便测试或临时部署的兜底标签。
+
+## 2. 下载镜像文件
+
+在 GitHub Release 或 Actions artifact 中下载对应版本文件，例如：
+
+```text
+ai_tv_server_build-v1.3_amd64.tar
+```
+
+`amd64` 适用于常见 Intel/AMD 服务器和多数 x86 群晖。如果设备是 ARM 架构，需要另外构建 `arm64` 镜像。
+
+## 3. 导入镜像
+
+把 tar 上传到服务器后执行：
 
 ```bash
-docker load -i ai_tv_server_latest.tar
+docker load -i ai_tv_server_build-v1.3_amd64.tar
 ```
 
 确认镜像已导入：
@@ -30,7 +55,14 @@ docker load -i ai_tv_server_latest.tar
 docker images | grep ai_tv_server
 ```
 
-## 3. 准备数据目录
+正常应看到类似：
+
+```text
+ai_tv_server   build-v1.3   ...
+ai_tv_server   latest       ...
+```
+
+## 4. 准备数据目录
 
 服务端所有持久化数据都放在容器内 `/data`：
 
@@ -45,16 +77,20 @@ docker images | grep ai_tv_server
 mkdir -p /volume1/SSD/docker/TV/TV_data
 ```
 
-## 4. docker-compose.yml 示例
+升级镜像不会删除数据，前提是 compose 的 volume 挂载路径保持不变。
 
-如果使用下载好的镜像 tar，compose 中应使用 `image`，不要使用 `build`。
+## 5. docker-compose.yml 推荐写法
+
+使用下载好的镜像 tar 时，compose 中应使用 `image`，不要使用 `build`。
+
+推荐写死具体版本：
 
 ```yaml
 version: "3.9"
 
 services:
   ai_tv:
-    image: ai_tv_server:latest
+    image: ai_tv_server:build-v1.3
     container_name: ai_tv
     ports:
       - "8000:8000"
@@ -70,10 +106,26 @@ services:
     restart: unless-stopped
 ```
 
-启动：
+如果你只是临时测试，也可以用：
+
+```yaml
+image: ai_tv_server:latest
+```
+
+但长期使用建议写具体版本，避免不知道当前跑的是哪一版。
+
+## 6. 启动服务
+
+Docker Compose V2：
 
 ```bash
 docker compose up -d
+```
+
+旧版 docker-compose：
+
+```bash
+docker-compose up -d
 ```
 
 查看日志：
@@ -82,7 +134,7 @@ docker compose up -d
 docker logs -f ai_tv
 ```
 
-## 5. 验证服务
+## 7. 验证服务
 
 浏览器访问：
 
@@ -114,19 +166,107 @@ App 清单地址示例：
 qh.xhhtop.top:8000/public/index.json?user=admin&pass=admin
 ```
 
-## 6. 升级镜像
+## 8. 升级镜像
 
-下载新的 `ai_tv_server_latest.tar` 后：
+以从 `build-v1.3` 升级到 `build-v1.4` 为例：
+
+1. 下载新文件：
+
+```text
+ai_tv_server_build-v1.4_amd64.tar
+```
+
+2. 导入新镜像：
+
+```bash
+docker load -i ai_tv_server_build-v1.4_amd64.tar
+```
+
+3. 修改 `docker-compose.yml`：
+
+```yaml
+image: ai_tv_server:build-v1.4
+```
+
+4. 重新创建容器：
 
 ```bash
 docker compose down
-docker load -i ai_tv_server_latest.tar
 docker compose up -d
 ```
 
-数据目录挂载到宿主机 `/volume1/SSD/docker/TV/TV_data`，升级镜像不会删除已有数据。
+旧版 docker-compose：
 
-## 7. 常见问题
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+5. 确认正在使用新镜像：
+
+```bash
+docker inspect ai_tv --format '{{.Config.Image}}'
+```
+
+应输出：
+
+```text
+ai_tv_server:build-v1.4
+```
+
+## 9. 回滚旧版本
+
+如果新版本有问题，并且旧镜像还在本机：
+
+1. 修改 compose：
+
+```yaml
+image: ai_tv_server:build-v1.3
+```
+
+2. 重新创建容器：
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+数据目录仍然挂载到同一个 `/data`，视频、封面和数据库不会因为切换镜像而消失。
+
+## 10. 常见问题
+
+### 启动时报端口被占用
+
+报错示例：
+
+```text
+Bind for 0.0.0.0:8000 failed: port is already allocated
+```
+
+说明宿主机端口已经被占用。先查 Docker 容器：
+
+```bash
+docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Ports}}" | grep 8000
+```
+
+再查宿主机进程：
+
+```bash
+ss -lntp | grep :8000
+```
+
+如果要换宿主机端口，例如改成 `18080`：
+
+```yaml
+ports:
+  - "18080:8000"
+```
+
+访问地址也要改为：
+
+```text
+http://服务器IP:18080
+```
 
 ### 镜像环境变量页面没有 DATA_DIR
 
@@ -152,12 +292,29 @@ ls -lah /volume1/SSD/docker/TV/TV_data/db
 
 ### 修改 compose 后没有生效
 
-仅重启容器可能不会应用新的环境变量或挂载配置。重新创建容器：
+仅重启容器可能不会应用新的环境变量、镜像版本或挂载配置。重新创建容器：
 
 ```bash
 docker compose down
 docker compose up -d
 ```
+
+### 后台页面样式没有变化
+
+先确认容器内是否包含新代码：
+
+```bash
+docker exec ai_tv grep -n "video-management-card" /app/app/templates/videos.html
+docker exec ai_tv grep -n "video-management-card" /app/app/static/app.css
+```
+
+如果容器里有新代码，但浏览器仍显示旧页面，通常是浏览器缓存。请强制刷新页面，或直接打开：
+
+```text
+http://服务器IP:8000/static/app.css
+```
+
+检查 CSS 里是否有新样式字段。
 
 ### CPU 架构注意
 

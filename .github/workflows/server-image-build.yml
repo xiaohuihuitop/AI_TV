@@ -12,9 +12,23 @@ permissions:
 jobs:
   server-image:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ai_tv_server
+      PLATFORM_NAME: amd64
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Prepare image names
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          TAR_NAME="${IMAGE_NAME}_${VERSION}_${PLATFORM_NAME}.tar"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "TAR_NAME=${TAR_NAME}" >> "$GITHUB_ENV"
+          echo "TAR_PATH=/tmp/${TAR_NAME}" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION_TAG=${IMAGE_NAME}:${VERSION}" >> "$GITHUB_ENV"
+          echo "IMAGE_LATEST_TAG=${IMAGE_NAME}:latest" >> "$GITHUB_ENV"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -28,14 +42,16 @@ jobs:
           context: ./server
           file: ./server/Dockerfile
           platforms: linux/amd64
-          tags: ai_tv_server:latest
-          outputs: type=docker,dest=/tmp/ai_tv_server_latest.tar
+          tags: |
+            ${{ env.IMAGE_VERSION_TAG }}
+            ${{ env.IMAGE_LATEST_TAG }}
+          outputs: type=docker,dest=${{ env.TAR_PATH }}
 
       - name: Upload server image artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai_tv_server_latest
-          path: /tmp/ai_tv_server_latest.tar
+          name: ${{ env.IMAGE_NAME }}_${{ env.VERSION }}_${{ env.PLATFORM_NAME }}
+          path: ${{ env.TAR_PATH }}
           if-no-files-found: error
           retention-days: 7
 
@@ -45,13 +61,16 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true
-          files: /tmp/ai_tv_server_latest.tar
+          files: ${{ env.TAR_PATH }}
 
       - name: Output usage
         shell: bash
         run: |
-          echo "Artifact ready: ai_tv_server_latest.tar"
+          echo "Artifact ready: ${TAR_NAME}"
+          echo "Image tags inside tar:"
+          echo "- ${IMAGE_VERSION_TAG}"
+          echo "- ${IMAGE_LATEST_TAG}"
           echo "After download, import with:"
-          echo "docker load -i ai_tv_server_latest.tar"
+          echo "docker load -i ${TAR_NAME}"
           echo "Run example:"
-          echo "docker run -d --name ai_tv -p 8000:8000 -e DATA_DIR=/data -e DB_PATH=/data/db/app.db -e BASIC_USER=admin -e BASIC_PASS=admin -v /srv/ai_tv_data:/data ai_tv_server:latest"
+          echo "docker run -d --name ai_tv -p 8000:8000 -e DATA_DIR=/data -e DB_PATH=/data/db/app.db -e BASIC_USER=admin -e BASIC_PASS=admin -v /srv/ai_tv_data:/data ${IMAGE_VERSION_TAG}"
