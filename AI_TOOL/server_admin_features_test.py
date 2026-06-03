@@ -210,10 +210,23 @@ def test_doc_list_filters_and_bulk_delete():
         cleanup_client(app, tmp)
 
 
+def test_upload_pages_show_progress_controls():
+    tmp, app, client = make_client()
+    try:
+        for path in ("/web/videos", "/web/docs", "/web/upload"):
+            resp = client.get(path, headers=AUTH_HEADERS)
+            assert resp.status_code == 200
+            assert "upload-progress" in resp.text
+            assert "XMLHttpRequest" in resp.text
+    finally:
+        cleanup_client(app, tmp)
+
+
 if __name__ == "__main__":
     test_status_page_and_api()
     test_failed_video_can_be_retried()
     test_video_list_filters_searches_and_sorts()
     test_video_bulk_delete_removes_records_and_files()
     test_doc_list_filters_and_bulk_delete()
+    test_upload_pages_show_progress_controls()
     print("server admin features ok")
