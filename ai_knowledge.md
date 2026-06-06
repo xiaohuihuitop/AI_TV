@@ -229,3 +229,12 @@
 - 关联文件: server/app/services/range.py, AI_TOOL/range_parse_test.mjs
 - 标签: 下载, Range, 移动端, 服务端
 - 关键词: uni.downloadFile, Range, 400, parse_range
+
+## [2026-06-06] 现象: 上传进度完成后仍看不到视频封面和信息
+- 触发条件: 后台上传大视频，浏览器进度到 100% 后跳回视频列表，但后台 worker 仍在生成封面、时长和尺寸
+- 根因: 浏览器上传进度只表示文件传输完成，不代表服务端视频处理完成；原页面没有处理队列和轮询反馈
+- 解决步骤: 新增 `/api/videos/tasks` 输出 pending/processing/failed 任务摘要；视频管理页新增“处理队列与日志”面板；上传视频后跳转到带监听参数的列表页；前端轮询任务状态并在 active 任务归零时刷新列表
+- 预防/规则: 大文件上传类功能应区分“传输进度”和“后台处理状态”，两者需要分别展示
+- 关联文件: server/app/services/video_tasks.py, server/app/api/routes.py, server/app/web/routes.py, server/app/templates/videos.html, server/app/static/video-tasks.js, server/app/static/upload.js
+- 标签: 服务端, 上传, 后台处理, 队列
+- 关键词: upload progress, pending, processing, video tasks, worker

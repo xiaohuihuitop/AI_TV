@@ -9,6 +9,7 @@ from app.db.repo import create_document, create_video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.range import iter_file, parse_range
 from app.services.system_status import collect_system_status
+from app.services.video_tasks import collect_video_tasks
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_credentials)])
 
@@ -53,6 +54,12 @@ def _apply_doc_filters(query, q: str | None, sort: str | None):
 def system_status(request: Request):
     with _get_session(request) as session:
         return collect_system_status(request.app, session)
+
+
+@router.get("/videos/tasks")
+def video_tasks(request: Request):
+    with _get_session(request) as session:
+        return collect_video_tasks(session)
 
 
 def _resolve_doc_extension(filename: str) -> str:

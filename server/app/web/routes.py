@@ -10,6 +10,7 @@ from app.db.models import Document, Video
 from app.db.repo import create_document, create_video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.system_status import collect_system_status
+from app.services.video_tasks import collect_video_tasks
 
 router = APIRouter(prefix="/web", dependencies=[Depends(verify_credentials)])
 templates = Jinja2Templates(directory="app/templates")
@@ -104,17 +105,30 @@ def _render_markdown_html(content: str) -> str:
     )
 
 @router.get("/videos", response_class=HTMLResponse)
-def videos(request: Request, status: str | None = None, q: str | None = None, sort: str | None = None):
+def videos(
+    request: Request,
+    status: str | None = None,
+    q: str | None = None,
+    sort: str | None = None,
+    watch: str | None = None,
+):
     """AI: 视频列表页。
     @param request: 当前请求。
     @return: HTML 响应。
     """
     with _get_session(request) as session:
         items = _apply_video_filters(session.query(Video), status, q, sort).all()
+        task_status = collect_video_tasks(session)
     return templates.TemplateResponse(
         request,
         "videos.html",
-        {"items": items, "active": "videos", "filters": {"status": status or "", "q": q or "", "sort": sort or ""}},
+        {
+            "items": items,
+            "active": "videos",
+            "filters": {"status": status or "", "q": q or "", "sort": sort or ""},
+            "task_status": task_status,
+            "watch_processing": watch == "processing",
+        },
     )
 
 

@@ -149,12 +149,50 @@ def test_video_list_filters_searches_and_sorts():
         searched = client.get("/web/videos?q=family", headers=AUTH_HEADERS)
         assert searched.status_code == 200
         assert "ready-family.mp4" in searched.text
-        assert "failed-trip.mp4" not in searched.text
+        assert 'video-management-title">failed-trip.mp4' not in searched.text
 
         api = client.get("/api/videos?status=failed&q=trip&sort=filename", headers=AUTH_HEADERS)
         assert api.status_code == 200
         payload = api.json()
         assert [item["filename"] for item in payload] == ["failed-trip.mp4"]
+    finally:
+        cleanup_client(app, tmp)
+
+
+def test_video_task_api_and_panel_show_processing_state():
+    tmp, app, client = make_client()
+    try:
+        add_video(app, "ready-family.mp4", status="ready")
+        add_video(app, "waiting-trip.mp4", status="pending")
+        add_video(app, "encoding-party.mp4", status="processing")
+        add_video(app, "broken.mp4", status="failed")
+
+        api = client.get("/api/videos/tasks", headers=AUTH_HEADERS)
+        assert api.status_code == 200
+        payload = api.json()
+        assert payload["counts"]["total"] == 4
+        assert payload["counts"]["pending"] == 1
+        assert payload["counts"]["processing"] == 1
+        assert payload["counts"]["failed"] == 1
+        assert payload["active_count"] == 2
+        assert payload["has_active"] is True
+        assert [item["filename"] for item in payload["items"]][:3] == [
+            "encoding-party.mp4",
+            "waiting-trip.mp4",
+            "broken.mp4",
+        ]
+        failed = [item for item in payload["items"] if item["filename"] == "broken.mp4"][0]
+        assert failed["message"] == "probe failed"
+        assert failed["retry_url"].endswith("/retry")
+
+        page = client.get("/web/videos?watch=processing", headers=AUTH_HEADERS)
+        assert page.status_code == 200
+        assert "处理队列与日志" in page.text
+        assert 'data-video-tasks' in page.text
+        assert 'data-watch="1"' in page.text
+        assert "/static/video-tasks.js" in page.text
+        assert "encoding-party.mp4" in page.text
+        assert "probe failed" in page.text
     finally:
         cleanup_client(app, tmp)
 
@@ -217,7 +255,12 @@ def test_upload_pages_show_progress_controls():
             resp = client.get(path, headers=AUTH_HEADERS)
             assert resp.status_code == 200
             assert "upload-progress" in resp.text
-            assert "XMLHttpRequest" in resp.text
+            assert "/static/upload.js" in resp.text
+
+        upload_js = client.get("/static/upload.js", headers=AUTH_HEADERS)
+        assert upload_js.status_code == 200
+        assert "XMLHttpRequest" in upload_js.text
+        assert "window.bindUpload" in upload_js.text
     finally:
         cleanup_client(app, tmp)
 
@@ -226,6 +269,7 @@ if __name__ == "__main__":
     test_status_page_and_api()
     test_failed_video_can_be_retried()
     test_video_list_filters_searches_and_sorts()
+    test_video_task_api_and_panel_show_processing_state()
     test_video_bulk_delete_removes_records_and_files()
     test_doc_list_filters_and_bulk_delete()
     test_upload_pages_show_progress_controls()
