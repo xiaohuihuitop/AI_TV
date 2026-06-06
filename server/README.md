@@ -2,41 +2,34 @@
 
 本文说明从 GitHub Actions / Release 下载服务端镜像 tar 后，如何在服务器或群晖 NAS 上导入、启动、升级和排查。
 
-## 1. 版本命名规则
+## 1. 镜像命名规则
 
 当推送 tag，例如：
 
 ```text
-build-v1.3
+build-v1.6
 ```
 
 GitHub Actions 会生成：
 
 ```text
-ai_tv_server_build-v1.3_amd64.tar
+ai_tv_server_latest.tar
 ```
 
-导入该 tar 后，本机 Docker 会出现两个镜像标签：
+导入该 tar 后，本机 Docker 会出现镜像标签：
 
 ```text
-ai_tv_server:build-v1.3
 ai_tv_server:latest
 ```
 
-建议正式部署时使用具体版本：
-
-```text
-ai_tv_server:build-v1.3
-```
-
-这样以后查看 compose 或 `docker images` 时，可以直接知道服务器正在跑哪个版本。`latest` 只作为方便测试或临时部署的兜底标签。
+`build-*` tag 只用于触发 GitHub Actions 构建和区分 Release；镜像文件名固定为 `ai_tv_server_latest.tar`，镜像标签固定为 `ai_tv_server:latest`。
 
 ## 2. 下载镜像文件
 
-在 GitHub Release 或 Actions artifact 中下载对应版本文件，例如：
+在 GitHub Release 或 Actions artifact 中下载：
 
 ```text
-ai_tv_server_build-v1.3_amd64.tar
+ai_tv_server_latest.tar
 ```
 
 `amd64` 适用于常见 Intel/AMD 服务器和多数 x86 群晖。如果设备是 ARM 架构，需要另外构建 `arm64` 镜像。
@@ -46,7 +39,7 @@ ai_tv_server_build-v1.3_amd64.tar
 把 tar 上传到服务器后执行：
 
 ```bash
-docker load -i ai_tv_server_build-v1.3_amd64.tar
+docker load -i ai_tv_server_latest.tar
 ```
 
 确认镜像已导入：
@@ -58,7 +51,6 @@ docker images | grep ai_tv_server
 正常应看到类似：
 
 ```text
-ai_tv_server   build-v1.3   ...
 ai_tv_server   latest       ...
 ```
 
@@ -83,14 +75,14 @@ mkdir -p /volume1/SSD/docker/TV/TV_data
 
 使用下载好的镜像 tar 时，compose 中应使用 `image`，不要使用 `build`。
 
-推荐写死具体版本：
+推荐写法：
 
 ```yaml
 version: "3.9"
 
 services:
   ai_tv:
-    image: ai_tv_server:build-v1.3
+    image: ai_tv_server:latest
     container_name: ai_tv
     ports:
       - "8000:8000"
@@ -105,14 +97,6 @@ services:
       - /volume1/SSD/docker/TV/TV_data:/data
     restart: unless-stopped
 ```
-
-如果你只是临时测试，也可以用：
-
-```yaml
-image: ai_tv_server:latest
-```
-
-但长期使用建议写具体版本，避免不知道当前跑的是哪一版。
 
 ## 6. 启动服务
 
@@ -203,27 +187,21 @@ qh.xhhtop.top:8000/public/index.json?user=admin&pass=admin
 
 ## 8. 升级镜像
 
-以从 `build-v1.3` 升级到 `build-v1.4` 为例：
+每次推送新的 `build-*` tag 后，GitHub Actions 会生成新的 `ai_tv_server_latest.tar`。升级步骤：
 
 1. 下载新文件：
 
 ```text
-ai_tv_server_build-v1.4_amd64.tar
+ai_tv_server_latest.tar
 ```
 
 2. 导入新镜像：
 
 ```bash
-docker load -i ai_tv_server_build-v1.4_amd64.tar
+docker load -i ai_tv_server_latest.tar
 ```
 
-3. 修改 `docker-compose.yml`：
-
-```yaml
-image: ai_tv_server:build-v1.4
-```
-
-4. 重新创建容器：
+3. 重新创建容器：
 
 ```bash
 docker compose down
@@ -237,7 +215,7 @@ docker-compose down
 docker-compose up -d
 ```
 
-5. 确认正在使用新镜像：
+4. 确认正在使用镜像：
 
 ```bash
 docker inspect ai_tv --format '{{.Config.Image}}'
@@ -246,20 +224,24 @@ docker inspect ai_tv --format '{{.Config.Image}}'
 应输出：
 
 ```text
-ai_tv_server:build-v1.4
+ai_tv_server:latest
 ```
 
 ## 9. 回滚旧版本
 
-如果新版本有问题，并且旧镜像还在本机：
+由于新构建固定覆盖 `ai_tv_server:latest`，建议升级前先保留旧 tar 文件，或在导入新 tar 前给当前镜像手动打一个备份标签：
 
-1. 修改 compose：
-
-```yaml
-image: ai_tv_server:build-v1.3
+```bash
+docker tag ai_tv_server:latest ai_tv_server:backup
 ```
 
-2. 重新创建容器：
+如果新版本有问题，可以改用备份镜像：
+
+```yaml
+image: ai_tv_server:backup
+```
+
+然后重新创建容器：
 
 ```bash
 docker compose down

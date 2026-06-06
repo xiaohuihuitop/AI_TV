@@ -238,3 +238,12 @@
 - 关联文件: server/app/services/video_tasks.py, server/app/api/routes.py, server/app/web/routes.py, server/app/templates/videos.html, server/app/static/video-tasks.js, server/app/static/upload.js
 - 标签: 服务端, 上传, 后台处理, 队列
 - 关键词: upload progress, pending, processing, video tasks, worker
+
+## [2026-06-07] 现象: 服务端镜像命名需要固定为 latest
+- 触发条件: 推送 `build-*` tag 触发 GitHub Actions 构建服务端 Docker 镜像
+- 根因: 版本化 tar 文件和版本化镜像 tag 会增加部署时修改 compose 的成本；用户希望下载文件和镜像标签固定
+- 解决步骤: 工作流产物固定为 `ai_tv_server_latest.tar`，镜像标签固定为 `ai_tv_server:latest`，README 按 latest 部署方式说明
+- 预防/规则: 服务端镜像自动构建默认只输出 latest；tag 仅用于触发构建和区分 Release，不作为 Docker 镜像 tag
+- 关联文件: .github/workflows/server-image-build.yml, server/README.md
+- 标签: 服务端, Docker, GitHub Actions, 部署
+- 关键词: ai_tv_server_latest.tar, ai_tv_server:latest, build-*
