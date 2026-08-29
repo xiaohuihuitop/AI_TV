@@ -36,6 +36,22 @@ function readLocalText(filePath) {
 }
 
 /**
+ * AI:将远端地址转换为 App 网络请求可用地址。
+ * @param {string} value AI:原始地址。
+ * @returns {string} AI:带 http/https 协议的远端地址。
+ */
+function normalizeRemoteUrl(value) {
+  const url = String(value || "").trim();
+  if (!url) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `http://${url.replace(/^\/+/, "")}`;
+}
+
+/**
  * AI:通过网络请求获取文本内容。
  * @param {string} url AI:远端地址。
  * @returns {Promise<string>} AI:远端文本内容。
@@ -43,7 +59,7 @@ function readLocalText(filePath) {
 function requestText(url) {
   return new Promise((resolve, reject) => {
     uni.request({
-      url,
+      url: normalizeRemoteUrl(url),
       success: (res) => {
         if (res.statusCode === 200) {
           const data = res.data;

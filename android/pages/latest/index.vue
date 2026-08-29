@@ -20,7 +20,7 @@
       <text class="error-text">{{ error }}</text>
     </view>
     <view class="columns">
-      <view class="column card cinematic-card">
+      <view class="column cinematic-card">
         <view v-if="activeItems.length === 0" class="placeholder muted">{{ emptyHint }}</view>
         <view
           v-for="(item, index) in activeItems"
@@ -85,7 +85,7 @@ import {
 import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
-import { defaultIndexUrl } from "../../utils/appConfig.js";
+import { defaultIndexUrl, normalizeRequestUrl } from "../../utils/appConfig.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -427,7 +427,7 @@ export default {
       this.loading = true;
       this.error = "";
       this.emptyHint = "暂无数据";
-      const requestUrl = appendCacheBuster(indexUrl);
+      const requestUrl = appendCacheBuster(normalizeRequestUrl(indexUrl));
       return new Promise((resolve) => {
         uni.request({
           url: requestUrl,
@@ -569,16 +569,17 @@ export default {
 }
 
 .columns {
-  display: flex;
-  gap: 12px;
+  display: block;
+  width: 100%;
 }
 
 .column {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
 }
 
 .cinematic-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;
 }
 
 .item {
@@ -623,24 +624,29 @@ export default {
 
 .item-meta {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 15px;
   width: 100%;
+  min-width: 0;
 }
 
 .item-meta text {
+  flex: 0 1 auto;
   max-width: 100%;
   box-sizing: border-box;
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: rgba(31, 27, 22, 0.05);
+  white-space: nowrap;
 }
 
 .video-card-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
   align-items: stretch;
   gap: 10px;
   width: 100%;
@@ -681,6 +687,8 @@ export default {
 }
 
 .item-card {
+  width: 100%;
+  min-width: 0;
   margin-top: 12px;
   padding: 16px 14px;
   border-radius: 12px;
@@ -750,5 +758,43 @@ export default {
 .error-text {
   color: #8a360e;
   font-size: 16px;
+}
+
+@media (max-width: 359px) {
+  .video-card-row {
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .item-cover {
+    width: 104px;
+    height: 66px;
+  }
+
+  .item-meta {
+    font-size: 14px;
+  }
+
+  .item-meta text {
+    padding: 3px 8px;
+  }
+
+  .download,
+  .downloaded,
+  .downloading {
+    min-width: 88px;
+  }
+}
+
+@media (min-width: 600px) {
+  .video-card-row {
+    grid-template-columns: 152px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .item-cover {
+    width: 152px;
+    height: 96px;
+  }
 }
 </style>

@@ -1,0 +1,16 @@
+{
+  "project": "C:/Users/xiaohuihui/Desktop/AI_TV/android",
+  "platform": "android",
+  "iscustom": false,
+  "safemode": true,
+  "android": {
+    "packagename": "com.xhhtop.aitv",
+    "androidpacktype": "3",
+    "channels": ""
+  },
+  "isconfusion": false,
+  "splashads": false,
+  "rpads": false,
+  "pushads": false,
+  "exchange": false
+}

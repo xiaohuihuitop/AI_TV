@@ -188,7 +188,7 @@ function resolveContentFormat(input) {
 
 .loading {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .content {
@@ -204,7 +204,7 @@ function resolveContentFormat(input) {
 }
 
 .content-html {
-  font-size: 15px;
+  font-size: 18px;
   line-height: 1.85;
   color: var(--color-text);
   font-family: var(--font-display);
@@ -212,8 +212,9 @@ function resolveContentFormat(input) {
 
 .content-webview {
   width: 100%;
-  height: 70vh;
-  min-height: 60vh;
+  height: calc(100vh - 230px);
+  min-height: 240px;
+  max-height: 720px;
 }
 
 .content-html :deep(h1),
@@ -336,7 +337,7 @@ function resolveContentFormat(input) {
 }
 
 .placeholder {
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .actions {
@@ -357,6 +358,20 @@ function resolveContentFormat(input) {
 
 .error-text {
   color: #b45309;
-  font-size: 12px;
+  font-size: 16px;
+}
+
+@media (max-width: 359px) {
+  .header {
+    margin-bottom: 14px;
+  }
+
+  .content-reading {
+    padding: 18px 16px;
+  }
+
+  .content-webview {
+    height: calc(100vh - 210px);
+  }
 }
 </style>

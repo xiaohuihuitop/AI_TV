@@ -2,6 +2,7 @@
 /.worktrees
 /backend/data
 /backend/db
+/android/unpackage/
 /android/unpackage/dist/
 __pycache__/
 .pytest_cache/

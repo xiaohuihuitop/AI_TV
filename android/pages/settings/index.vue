@@ -37,7 +37,7 @@
         </view>
       </view>
     </view>
-    <app-tab-bar active="settings" />
+    <app-tab-bar v-if="!showAddressModal" active="settings" />
   </view>
 </template>
 
@@ -186,15 +186,16 @@ export default {
 }
 
 .actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
   gap: 10px;
   margin-top: 16px;
 }
 
 .save {
-  min-width: 128px;
+  width: 100%;
+  min-width: 0;
   background: linear-gradient(135deg, #8a360e 0%, #c05621 100%);
   border-color: rgba(138, 54, 14, 0.5);
   color: #ffffff;
@@ -202,10 +203,12 @@ export default {
 }
 
 .restore {
-  min-width: 128px;
+  width: 100%;
+  min-width: 0;
 }
 
 .hint {
+  grid-column: 1 / -1;
   width: 100%;
   font-size: 16px;
 }
@@ -213,7 +216,7 @@ export default {
 .modal-mask {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -265,5 +268,29 @@ export default {
 
 .modal-btn {
   width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 359px) {
+  .header {
+    margin-bottom: 14px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .current-url {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .modal-mask {
+    padding: 12px;
+  }
+
+  .modal-card {
+    padding: 18px;
+  }
 }
 </style>

@@ -1,7 +1,7 @@
 ﻿<template>
   <view class="app-page">
     <view class="columns">
-      <view class="column card cinematic-card">
+      <view class="column cinematic-card">
         <view v-if="videoItems.length === 0" class="placeholder muted">暂无下载</view>
         <view
           v-for="(item, index) in videoItems"
@@ -251,16 +251,17 @@ export default {
 
 <style scoped>
 .columns {
-  display: flex;
-  gap: 12px;
+  display: block;
+  width: 100%;
 }
 
 .column {
-  flex: 1;
+  width: 100%;
+  min-width: 0;
 }
 
 .cinematic-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: transparent;
 }
 
 .item {
@@ -305,24 +306,29 @@ export default {
 
 .item-meta {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 15px;
   width: 100%;
+  min-width: 0;
 }
 
 .item-meta text {
+  flex: 0 1 auto;
   max-width: 100%;
   box-sizing: border-box;
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(31, 27, 22, 0.08);
   background: rgba(31, 27, 22, 0.05);
+  white-space: nowrap;
 }
 
 .video-card-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
   align-items: stretch;
   gap: 10px;
   width: 100%;
@@ -363,6 +369,8 @@ export default {
 }
 
 .item-card {
+  width: 100%;
+  min-width: 0;
   margin-top: 12px;
   padding: 16px 14px;
   border-radius: 12px;
@@ -411,5 +419,41 @@ export default {
   margin-top: 12px;
   font-size: 16px;
   letter-spacing: 0.04em;
+}
+
+@media (max-width: 359px) {
+  .video-card-row {
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .item-cover {
+    width: 104px;
+    height: 66px;
+  }
+
+  .item-meta {
+    font-size: 14px;
+  }
+
+  .item-meta text {
+    padding: 3px 8px;
+  }
+
+  .remove {
+    min-width: 88px;
+  }
+}
+
+@media (min-width: 600px) {
+  .video-card-row {
+    grid-template-columns: 152px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .item-cover {
+    width: 152px;
+    height: 96px;
+  }
 }
 </style>

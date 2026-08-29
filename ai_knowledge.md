@@ -247,3 +247,21 @@
 - 关联文件: .github/workflows/server-image-build.yml, server/README.md
 - 标签: 服务端, Docker, GitHub Actions, 部署
 - 关键词: ai_tv_server_latest.tar, ai_tv_server:latest, build-*
+
+## [2026-08-29] 现象: uni-app 客户端在不同屏幕下样式不一致或横向溢出
+- 触发条件: HBuilderX 运行到 Android 模拟器后切换 320dp、360dp、600dp 或横屏尺寸
+- 根因: 运行时全局样式放在 `uni.scss` 未稳定进入页面样式；列表使用不可收缩布局；播放器高度只按单一尺寸推算，未限制可用视口高度
+- 解决步骤: 将全局页面样式迁移到 `App.vue`；列表和操作区使用带 `minmax(0, 1fr)` 的响应式 Grid；播放器高度取 16:9 高度与页面可用高度的较小值，并在窗口变化时重算
+- 预防/规则: `uni.scss` 仅保存 Sass 变量和 mixin，运行时全局 CSS 放在 `App.vue`；固定媒体和按钮组必须同时验证窄屏、宽屏和横屏
+- 关联文件: android/App.vue, android/utils/layout.js, android/pages/latest/index.vue, android/pages/player/index.vue, AI_TOOL/android_responsive_layout_test.mjs
+- 标签: android, uni-app, 响应式, 横屏, 模拟器
+- 关键词: App.vue, uni.scss, minmax, calculateVideoHeight, onResize
+
+## [2026-08-29] 现象: 最新页顶部内容被遮挡且下拉只触发刷新
+- 触发条件: 最新页向上滚动列表后再向下回顶，媒体切换控件仍停在导航栏下面；继续下拉触发原生刷新但页面不再移动
+- 根因: `overflow-x: hidden` 同时应用到 `html/body/#app/page/.app-page/.uni-page-body/.uni-page-wrapper`；单轴 overflow 会使另一轴计算为 `auto`，多层元素因此形成纵向嵌套滚动，外层到顶时内层仍有滚动偏移
+- 解决步骤: 移除多层页面容器的全局 `overflow-x: hidden`；保留 `max-width`、`min-width: 0` 和响应式 Grid 约束；增加禁止该全局声明的回归断言
+- 预防/规则: uni-app 原生下拉刷新页面只能保留一个纵向滚动根；不要用多层全局 overflow 隐藏组件溢出，应在具体组件布局处消除溢出源
+- 关联文件: android/App.vue, AI_TOOL/android_responsive_layout_test.mjs
+- 标签: android, uni-app, 下拉刷新, 嵌套滚动, overflow
+- 关键词: overflow-x hidden, overflow-y auto, enablePullDownRefresh, scroll root

@@ -40,6 +40,7 @@
 
 <script>
 import { loadPlayerQueue, updatePlayerIndex } from "../../utils/playerQueue.js";
+import { calculateVideoHeight } from "../../utils/layout.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -105,6 +106,9 @@ export default {
     this.videoContext = uni.createVideoContext("playerVideo", this);
     this.playIfAuto();
   },
+  onResize() {
+    this.updateVideoSize();
+  },
   methods: {
     /**
      * AI:根据屏幕高度计算视频区域，并为底部按钮留出空间。
@@ -114,12 +118,7 @@ export default {
       const info = uni.getSystemInfoSync();
       const width = Number(info.windowWidth || info.screenWidth || 0);
       const height = Number(info.windowHeight || info.screenHeight || 0);
-      const safeWidth = Number.isFinite(width) && width > 0 ? width : 360;
-      const safeHeight = Number.isFinite(height) && height > 0 ? height : 640;
-      const baseHeight = Math.round((safeWidth * 9) / 16);
-      const reservedHeight = 96;
-      const maxHeight = Math.max(220, safeHeight - reservedHeight);
-      this.videoHeight = Math.max(baseHeight, maxHeight);
+      this.videoHeight = calculateVideoHeight(width, height);
     },
 
     /**
@@ -292,7 +291,7 @@ export default {
 }
 
 .player-page {
-  padding: 12px 0 24px;
+  padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
 }
 
 .video-shell {
@@ -336,23 +335,23 @@ export default {
 .actions {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  gap: 10px;
-  padding: 0 16px;
+  gap: 8px;
+  padding: 0;
 }
 
-.back {
-  min-width: 108px;
-  justify-self: center;
+.actions .btn {
+  width: 100%;
+  min-width: 0;
+  padding-right: 8px;
+  padding-left: 8px;
 }
 
-.prev {
-  justify-self: start;
-}
-
+.back,
+.prev,
 .next {
-  justify-self: end;
+  justify-self: stretch;
 }
 
 .actions .btn[disabled] {
@@ -368,5 +367,12 @@ export default {
 .error-text {
   color: #8a360e;
   font-size: 16px;
+}
+
+@media (min-width: 600px) {
+  .player-page {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
 }
 </style>

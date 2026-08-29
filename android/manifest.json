@@ -1,22 +1,43 @@
 {
-  "name": "AI_TV",
-  "appid": "__UNI__AI_TV",
-  "description": "AI_TV",
-  "versionName": "1.0.0",
-  "versionCode": "100",
-  "transformPx": false,
-  "vueVersion": "3",
-  "app-plus": {
-    "usingComponents": true,
-    "nvueStyleCompiler": "uni-app",
-    "compilerVersion": 3,
-    "splashscreen": {
-      "alwaysShowBeforeRender": true
+    "name" : "AI_TV",
+    "appid" : "__UNI__F18B1A1",
+    "description" : "AI_TV",
+    "versionName" : "1.0.0",
+    "versionCode" : "100",
+    "transformPx" : false,
+    "vueVersion" : "3",
+    "app-plus" : {
+        "usingComponents" : true,
+        "nvueStyleCompiler" : "uni-app",
+        "compilerVersion" : 3,
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true
+        },
+        "modules" : {},
+        "permissions" : {},
+        "distribute" : {
+            "icons" : {
+                "android" : {
+                    "hdpi" : "static/icons/app-icon-72.png",
+                    "xhdpi" : "static/icons/app-icon-96.png",
+                    "xxhdpi" : "static/icons/app-icon-144.png",
+                    "xxxhdpi" : "static/icons/app-icon-192.png"
+                }
+            },
+            "android" : {
+                "usesCleartextTraffic" : true,
+                "schemes" : "http,https",
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>"
+                ],
+                "custompermissions" : true
+            },
+            "ios" : {
+                "dSYMs" : false
+            }
+        }
     },
-    "modules": {},
-    "permissions": {},
-    "distribute": {
-      "android": {}
-    }
-  }
+    "locale" : "zh-Hans",
+    "fallbackLocale" : "zh-Hans"
 }

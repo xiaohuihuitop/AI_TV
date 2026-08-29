@@ -45,14 +45,16 @@ export default {
 
 <style scoped>
 .app-tabbar-spacer {
-  height: 104px;
+  height: calc(100px + env(safe-area-inset-bottom));
 }
 
 .app-tabbar {
   position: fixed;
-  left: 18px;
-  right: 18px;
+  left: 50%;
   bottom: calc(12px + env(safe-area-inset-bottom));
+  width: calc(100% - 24px);
+  max-width: 680px;
+  transform: translateX(-50%);
   z-index: 50;
   display: flex;
   gap: 8px;
@@ -83,5 +85,18 @@ export default {
 
 .app-tabbar-text {
   line-height: 1;
+}
+
+@media (max-width: 359px) {
+  .app-tabbar {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .app-tabbar-item {
+    min-height: 54px;
+    border-radius: 16px;
+    font-size: 17px;
+  }
 }
 </style>

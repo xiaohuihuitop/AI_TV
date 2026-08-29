@@ -72,7 +72,7 @@ export function createOfflineService(storage, downloader) {
     };
     try {
       updateEntry({ last_step: "开始下载" });
-      const result = await downloader.download(item.url, handleProgress);
+      const result = await downloader.download(normalizeRemoteUrl(item.url), handleProgress);
       if (!result || !result.tempFilePath) {
         throw new Error("下载失败：缺少临时文件");
       }
@@ -110,6 +110,22 @@ export function createOfflineService(storage, downloader) {
 }
 
 /**
+ * AI:将远端下载地址转换为 App 网络请求可用地址。
+ * @param {string} value AI:原始地址。
+ * @returns {string} AI:带 http/https 协议的远端地址。
+ */
+function normalizeRemoteUrl(value) {
+  const url = String(value || "").trim();
+  if (!url) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `http://${url.replace(/^\/+/, "")}`;
+}
+
+/**
  * AI:下载封面并写入本地路径（失败不影响主流程）。
  * @param {Object} item AI:条目信息。
  * @param {{download: function(string, function(number): void): Promise<{tempFilePath: string}>, save: function(string): Promise<{savedFilePath: string}>}} downloader AI:下载器。
@@ -127,7 +143,7 @@ async function tryDownloadCover(item, downloader, updateEntry) {
     return;
   }
   try {
-    const result = await downloader.download(coverUrl);
+    const result = await downloader.download(normalizeRemoteUrl(coverUrl));
     if (!result || !result.tempFilePath) {
       return;
     }
