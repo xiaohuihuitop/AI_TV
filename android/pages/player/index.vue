@@ -15,11 +15,13 @@
         :controls="true"
         :autoplay="autoPlay"
         object-fit="contain"
-        :show-fullscreen-btn="false"
+        :show-fullscreen-btn="true"
         :show-center-play-btn="true"
         :show-play-btn="true"
         :style="{ height: `${videoHeight}px` }"
         @ended="handleEnded"
+        @fullscreenchange="handleFullscreenChange"
+        @loadedmetadata="handleLoadedMetadata"
         @play="handlePlay"
       ></video>
       <cover-view v-if="hasEnded" class="replay-overlay">
@@ -40,7 +42,10 @@
 
 <script>
 import { loadPlayerQueue, updatePlayerIndex } from "../../utils/playerQueue.js";
-import { calculateVideoHeight } from "../../utils/layout.js";
+import {
+  calculateVideoHeight,
+  getVideoFullscreenDirection
+} from "../../utils/layout.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -65,7 +70,11 @@ export default {
       playlist: [],
       currentIndex: -1,
       hasEnded: false,
-      videoContext: null
+      videoContext: null,
+      hasRequestedFullscreen: false,
+      isFullscreen: false,
+      isPlaying: false,
+      pendingFullscreenDirection: null
     };
   },
   computed: {
@@ -172,6 +181,10 @@ export default {
       this.title = item && item.title ? item.title : "";
       this.error = "";
       this.hasEnded = false;
+      this.hasRequestedFullscreen = false;
+      this.isPlaying = false;
+      this.pendingFullscreenDirection = null;
+      this.prepareAutomaticFullscreen(item);
       if (typeof index === "number") {
         this.currentIndex = index;
         updatePlayerIndex(createUniStorage(), index);
@@ -220,6 +233,108 @@ export default {
      */
     handlePlay() {
       this.hasEnded = false;
+      this.isPlaying = true;
+      this.tryEnterFullscreen();
+    },
+
+    /**
+     * AI:在支持元数据事件的平台上记录视频方向。
+     * @param {{detail?: {width?: number, height?: number}}} event AI:视频元数据事件。
+     * @returns {void} AI:无返回值。
+     */
+    handleLoadedMetadata(event) {
+      const detail = event && event.detail ? event.detail : {};
+      this.setFullscreenDirection(detail.width, detail.height);
+    },
+
+    /**
+     * AI:优先读取清单宽高，缺失时使用封面尺寸判断视频方向。
+     * @param {Object} item AI:播放条目。
+     * @returns {void} AI:无返回值。
+     */
+    prepareAutomaticFullscreen(item) {
+      const width = Number(item && item.width ? item.width : 0);
+      const height = Number(item && item.height ? item.height : 0);
+      if (width > 0 && height > 0) {
+        this.setFullscreenDirection(width, height);
+        return;
+      }
+
+      const cover = item && typeof item.cover === "string" ? item.cover.trim() : "";
+      if (!cover) {
+        return;
+      }
+      const probedSource = this.source;
+      uni.getImageInfo({
+        src: cover,
+        success: (result) => {
+          if (this.source !== probedSource) {
+            return;
+          }
+          this.setFullscreenDirection(result && result.width, result && result.height);
+        }
+      });
+    },
+
+    /**
+     * AI:保存当前视频应使用的全屏方向，并在播放器就绪后尝试全屏。
+     * @param {number} width AI:视频或封面宽度。
+     * @param {number} height AI:视频或封面高度。
+     * @returns {void} AI:无返回值。
+     */
+    setFullscreenDirection(width, height) {
+      const safeWidth = Number(width || 0);
+      const safeHeight = Number(height || 0);
+      if (safeWidth <= 0 || safeHeight <= 0) {
+        return;
+      }
+      this.pendingFullscreenDirection = getVideoFullscreenDirection(safeWidth, safeHeight);
+      this.tryEnterFullscreen();
+    },
+
+    /**
+     * AI:播放开始且方向已知时，仅自动请求一次全屏。
+     * @returns {void} AI:无返回值。
+     */
+    tryEnterFullscreen() {
+      if (
+        !this.isPlaying ||
+        this.pendingFullscreenDirection === null ||
+        this.hasRequestedFullscreen ||
+        this.isFullscreen
+      ) {
+        return;
+      }
+
+      const direction = this.pendingFullscreenDirection;
+      const requestedSource = this.source;
+      this.hasRequestedFullscreen = true;
+      if (!this.videoContext) {
+        this.videoContext = uni.createVideoContext("playerVideo", this);
+      }
+      try {
+        const request = this.videoContext.requestFullScreen({ direction });
+        if (request && typeof request.catch === "function") {
+          request.catch(() => {
+            if (this.source === requestedSource) {
+              this.hasRequestedFullscreen = false;
+            }
+          });
+        }
+      } catch (error) {
+        if (this.source === requestedSource) {
+          this.hasRequestedFullscreen = false;
+        }
+      }
+    },
+
+    /**
+     * AI:同步原生播放器全屏状态，避免重复发起全屏请求。
+     * @param {{detail?: {fullScreen?: boolean}}} event AI:全屏状态事件。
+     * @returns {void} AI:无返回值。
+     */
+    handleFullscreenChange(event) {
+      this.isFullscreen = Boolean(event && event.detail && event.detail.fullScreen);
     },
 
     /**

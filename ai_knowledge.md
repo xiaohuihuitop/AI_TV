@@ -265,3 +265,12 @@
 - 关联文件: android/App.vue, AI_TOOL/android_responsive_layout_test.mjs
 - 标签: android, uni-app, 下拉刷新, 嵌套滚动, overflow
 - 关键词: overflow-x hidden, overflow-y auto, enablePullDownRefresh, scroll root
+
+## [2026-08-29] 现象: Android 视频播放后无法自动按方向全屏
+- 触发条件: uni-app App 端在 `<video @loadedmetadata>` 中读取宽高并调用 `VideoContext.requestFullScreen`
+- 根因: Android App 使用 HTML5+ 原生视频控件，该控件事件列表不包含 `loadedmetadata`，因此依赖该事件的自动全屏逻辑不会执行
+- 解决步骤: 优先使用清单宽高，缺失时通过 `uni.getImageInfo` 读取方向一致的封面尺寸；记录目标方向并等待原生 `play` 事件后调用 `requestFullScreen`；继续使用 `object-fit="contain"` 并保留手动全屏按钮
+- 预防/规则: uni-app App 原生组件行为必须以 App 端能力和真机/模拟器结果为准；视频自动全屏应在播放器开始播放后调用，不能只依赖 H5 元数据事件
+- 关联文件: android/pages/player/index.vue, android/utils/layout.js, AI_TOOL/android_player_fullscreen_test.mjs
+- 标签: android, uni-app, 视频, 自动全屏, 横竖屏
+- 关键词: loadedmetadata, getImageInfo, requestFullScreen, contain

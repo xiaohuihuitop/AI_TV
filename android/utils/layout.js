@@ -19,6 +19,18 @@ export function calculateVideoHeight(width, height) {
   return Math.max(MIN_VIDEO_HEIGHT, Math.min(preferredHeight, availableHeight));
 }
 
+/**
+ * Resolve the native fullscreen orientation from the video's real dimensions.
+ * @param {number} width Video width in pixels.
+ * @param {number} height Video height in pixels.
+ * @returns {0|90} Fullscreen direction used by uni-app VideoContext.
+ */
+export function getVideoFullscreenDirection(width, height) {
+  const safeWidth = Number(width);
+  const safeHeight = Number(height);
+  return safeWidth > 0 && safeHeight > 0 && safeWidth > safeHeight ? 90 : 0;
+}
+
 function normalizeDimension(value, fallback) {
   const dimension = Number(value);
   return Number.isFinite(dimension) && dimension > 0 ? dimension : fallback;
