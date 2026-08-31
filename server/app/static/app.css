@@ -693,6 +693,145 @@ body::before {
   color: var(--muted);
 }
 
+.mobile-preview-trigger {
+  white-space: nowrap;
+}
+
+.mobile-preview-dialog {
+  width: min(calc(100vw - 32px), 640px);
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 24px 56px rgba(16, 24, 28, 0.36);
+}
+
+.mobile-preview-dialog::backdrop {
+  background: rgba(16, 24, 28, 0.7);
+}
+
+.mobile-preview-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mobile-preview-dialog-head h2 {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-preview-dialog .icon-btn {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mobile-preview-dialog > .mobile-preview-phone {
+  margin: 16px auto;
+}
+
+.mobile-preview-dialog button:focus-visible {
+  outline: 3px solid #4b9b84;
+  outline-offset: 2px;
+}
+
+.mobile-preview-phone {
+  width: auto;
+  max-width: 100%;
+  height: min(68dvh, 560px);
+  aspect-ratio: 9 / 18.6;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 76px;
+  overflow: hidden;
+  border: 7px solid #0b0d0e;
+  border-radius: 30px;
+  background: #000;
+  box-shadow: 0 14px 28px rgba(16, 24, 28, 0.26);
+}
+
+.mobile-preview-phone.is-landscape {
+  width: min(100%, 560px);
+  height: auto;
+  aspect-ratio: 16 / 11.4;
+  border-radius: 22px;
+}
+
+.mobile-preview-screen {
+  position: relative;
+  min-height: 0;
+  background: #000;
+}
+
+.mobile-preview-screen video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+.mobile-preview-error {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 16px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  text-align: center;
+}
+
+.mobile-preview-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  background: #171b1e;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.mobile-preview-actions button {
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 6px;
+  background: #343a3f;
+  color: #fffaf4;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mobile-preview-actions .is-back {
+  background: #286953;
+  border-color: #4b9b84;
+}
+
+.mobile-preview-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 @media (max-width: 720px) {
   .page {
     flex-direction: column;
@@ -748,5 +887,15 @@ body::before {
   .path-row {
     grid-template-columns: 1fr;
     align-items: start;
+  }
+  .mobile-preview-dialog {
+    width: calc(100vw - 24px);
+  }
+  .mobile-preview-dialog > .mobile-preview-phone {
+    margin: 12px auto;
+  }
+  .mobile-preview-phone.is-landscape {
+    width: 100%;
+    border-width: 5px;
   }
 }

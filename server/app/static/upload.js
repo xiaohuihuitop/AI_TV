@@ -105,6 +105,9 @@
       const xhr = new XMLHttpRequest();
       xhr.open("POST", uploadUrl);
       xhr.withCredentials = true;
+      if (window.aiTvCsrfToken) {
+        xhr.setRequestHeader("X-CSRF-Token", window.aiTvCsrfToken);
+      }
       xhr.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) {
           setProgress((event.loaded / event.total) * 100);

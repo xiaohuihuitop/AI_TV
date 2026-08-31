@@ -25,6 +25,14 @@ from app.main import create_app
 AUTH_HEADERS = {"Authorization": "Basic " + b64encode(b"admin:admin").decode("ascii")}
 
 
+def csrf_headers(client):
+    page = client.get("/web/videos", headers=AUTH_HEADERS)
+    assert page.status_code == 200
+    token = client.cookies.get("ai_tv_csrf")
+    assert token
+    return {**AUTH_HEADERS, "X-CSRF-Token": token}
+
+
 def make_client():
     tmp = Path(tempfile.mkdtemp(prefix="ai_tv_server_test_"))
     data_dir = tmp / "data"
@@ -48,7 +56,7 @@ def cleanup_client(app, tmp):
     shutil.rmtree(tmp, ignore_errors=True)
 
 
-def add_video(app, filename, status="ready", description="none"):
+def add_video(app, filename, status="ready", description="none", width=None, height=None):
     engine = getattr(app.state, "engine", None) or get_engine(app.state.settings.db_path)
     session_maker = get_sessionmaker(engine)
     video_path = Path(app.state.storage.videos) / filename
@@ -59,6 +67,8 @@ def add_video(app, filename, status="ready", description="none"):
             path=str(video_path),
             status=status,
             description=description,
+            width=width,
+            height=height,
             created_at="2026-06-03T00:00:00",
             error_message="probe failed" if status == "failed" else None,
         )
@@ -119,7 +129,7 @@ def test_failed_video_can_be_retried():
 
         resp = client.post(
             f"/web/videos/{video_id}/retry",
-            headers=AUTH_HEADERS,
+            headers=csrf_headers(client),
             follow_redirects=False,
         )
         assert resp.status_code == 303
@@ -206,7 +216,7 @@ def test_video_bulk_delete_removes_records_and_files():
         resp = client.post(
             "/web/videos/bulk-delete",
             data={"ids": [str(first_id), str(second_id)]},
-            headers=AUTH_HEADERS,
+            headers=csrf_headers(client),
             follow_redirects=False,
         )
         assert resp.status_code == 303
@@ -235,7 +245,7 @@ def test_doc_list_filters_and_bulk_delete():
         resp = client.post(
             "/web/docs/bulk-delete",
             data={"ids": [str(notice_id), str(guide_id)]},
-            headers=AUTH_HEADERS,
+            headers=csrf_headers(client),
             follow_redirects=False,
         )
         assert resp.status_code == 303
@@ -265,6 +275,41 @@ def test_upload_pages_show_progress_controls():
         cleanup_client(app, tmp)
 
 
+def test_ready_videos_expose_mobile_preview_queue_only():
+    tmp, app, client = make_client()
+    try:
+        ready_id = add_video(app, "landscape.mp4", width=1920, height=1080)
+        add_video(app, "waiting.mp4", status="pending", width=1080, height=1920)
+
+        page = client.get("/web/videos", headers=AUTH_HEADERS)
+
+        assert page.status_code == 200
+        assert f'data-mobile-preview-id="{ready_id}"' in page.text
+        assert 'data-mobile-preview-title="landscape.mp4"' in page.text
+        assert 'data-mobile-preview-width="1920"' in page.text
+        assert 'data-mobile-preview-title="waiting.mp4"' not in page.text
+        assert 'id="mobile-preview-dialog"' in page.text
+        assert '/static/mobile-preview.js' in page.text
+
+        script = client.get("/static/mobile-preview.js", headers=AUTH_HEADERS)
+        assert script.status_code == 200
+        assert "dialog.showModal()" in script.text
+        assert "previewVideo.pause()" in script.text
+        assert "is-landscape" in script.text
+        assert "updateNavigation" in script.text
+        assert 'event.key === "Escape"' in script.text
+
+        css = client.get("/static/app.css", headers=AUTH_HEADERS)
+        assert css.status_code == 200
+        assert ".mobile-preview-dialog" in css.text
+        assert ".mobile-preview-phone.is-landscape" in css.text
+        assert "aspect-ratio: 16 / 11.4;" in css.text
+        assert "object-fit: contain" in css.text
+        assert ".mobile-preview-actions" in css.text
+    finally:
+        cleanup_client(app, tmp)
+
+
 if __name__ == "__main__":
     test_status_page_and_api()
     test_failed_video_can_be_retried()
@@ -273,4 +318,5 @@ if __name__ == "__main__":
     test_video_bulk_delete_removes_records_and_files()
     test_doc_list_filters_and_bulk_delete()
     test_upload_pages_show_progress_controls()
+    test_ready_videos_expose_mobile_preview_queue_only()
     print("server admin features ok")

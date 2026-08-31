@@ -1,18 +1,25 @@
-import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import markdown
 from app.core.auth import verify_credentials
-from app.core.validators import is_allowed_doc, is_allowed_video
+from app.core.csrf import verify_csrf
 from app.db.models import Document, Video
-from app.db.repo import create_document, create_video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.system_status import collect_system_status
+from app.services.uploads import UploadError, persist_document_uploads, persist_video_uploads
+from app.services.media_delete import (
+    delete_document_records,
+    delete_video_records,
+    retry_video_record,
+)
 from app.services.video_tasks import collect_video_tasks
 
-router = APIRouter(prefix="/web", dependencies=[Depends(verify_credentials)])
+router = APIRouter(
+    prefix="/web",
+    dependencies=[Depends(verify_credentials), Depends(verify_csrf)],
+)
 templates = Jinja2Templates(directory="app/templates")
 
 
@@ -50,22 +57,6 @@ def _apply_doc_filters(query, q: str | None, sort: str | None):
     if sort == "status":
         return query.order_by(Document.status.asc(), Document.id.desc())
     return query.order_by(Document.id.desc())
-
-
-def _delete_video_files(video: Video) -> None:
-    path = Path(video.path)
-    if path.exists():
-        path.unlink()
-    if video.cover_path:
-        cover = Path(video.cover_path)
-        if cover.exists():
-            cover.unlink()
-
-
-def _delete_doc_file(doc: Document) -> None:
-    path = Path(doc.path)
-    if path.exists():
-        path.unlink()
 
 
 def _resolve_doc_extension(filename: str) -> str:
@@ -173,14 +164,7 @@ def video_retry(request: Request, video_id: int):
         video = session.get(Video, video_id)
         if not video:
             raise HTTPException(status_code=404, detail="Not found")
-        if video.cover_path:
-            cover = Path(video.cover_path)
-            if cover.exists():
-                cover.unlink()
-        video.status = "pending"
-        video.error_message = None
-        video.cover_path = None
-        session.commit()
+        retry_video_record(session, video)
     return RedirectResponse(url="/web/videos", status_code=303)
 
 @router.get("/videos/{video_id}/cover")
@@ -210,9 +194,7 @@ def video_delete(request: Request, video_id: int):
         video = session.get(Video, video_id)
         if not video:
             raise HTTPException(status_code=404, detail="Not found")
-        _delete_video_files(video)
-        session.delete(video)
-        session.commit()
+        delete_video_records(session, [video])
     return RedirectResponse(url="/web/videos", status_code=303)
 
 
@@ -222,10 +204,7 @@ async def videos_bulk_delete(request: Request):
     ids = [int(item) for item in form.getlist("ids") if str(item).isdigit()]
     with _get_session(request) as session:
         items = session.query(Video).filter(Video.id.in_(ids)).all() if ids else []
-        for video in items:
-            _delete_video_files(video)
-            session.delete(video)
-        session.commit()
+        delete_video_records(session, items)
     return RedirectResponse(url="/web/videos", status_code=303)
 
 
@@ -276,9 +255,7 @@ def doc_delete(request: Request, doc_id: int):
         doc = session.get(Document, doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Not found")
-        _delete_doc_file(doc)
-        session.delete(doc)
-        session.commit()
+        delete_document_records(session, [doc])
     return RedirectResponse(url="/web/docs", status_code=303)
 
 
@@ -288,10 +265,7 @@ async def docs_bulk_delete(request: Request):
     ids = [int(item) for item in form.getlist("ids") if str(item).isdigit()]
     with _get_session(request) as session:
         items = session.query(Document).filter(Document.id.in_(ids)).all() if ids else []
-        for doc in items:
-            _delete_doc_file(doc)
-            session.delete(doc)
-        session.commit()
+        delete_document_records(session, items)
     return RedirectResponse(url="/web/docs", status_code=303)
 
 
@@ -337,17 +311,13 @@ def upload_video(request: Request, files: list[UploadFile] = File(...)):
     @param file: 上传文件。
     @return: 跳转响应。
     """
-    for item in files:
-        if not is_allowed_video(item.filename, item.content_type):
-            raise HTTPException(status_code=400, detail="Only MP4 allowed")
-
     with _get_session(request) as session:
-        for item in files:
-            uid = str(uuid.uuid4())
-            dst = request.app.state.storage.video_path(uid)
-            with dst.open("wb") as f:
-                f.write(item.file.read())
-            create_video(session, filename=item.filename, path=str(dst))
+        try:
+            persist_video_uploads(
+                session, files, request.app.state.storage, request.app.state.settings
+            )
+        except UploadError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return RedirectResponse(url="/web/videos", status_code=303)
 
 
@@ -358,16 +328,11 @@ def upload_doc(request: Request, files: list[UploadFile] = File(...)):
     @param file: 上传文件。
     @return: 跳转响应。
     """
-    for item in files:
-        if not is_allowed_doc(item.filename, item.content_type):
-            raise HTTPException(status_code=400, detail="Only HTML/Markdown allowed")
-
     with _get_session(request) as session:
-        for item in files:
-            uid = str(uuid.uuid4())
-            ext = _resolve_doc_extension(item.filename)
-            dst = request.app.state.storage.doc_path(uid, ext)
-            with dst.open("wb") as f:
-                f.write(item.file.read())
-            create_document(session, filename=item.filename, path=str(dst), title=None)
+        try:
+            persist_document_uploads(
+                session, files, request.app.state.storage, request.app.state.settings
+            )
+        except UploadError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return RedirectResponse(url="/web/docs", status_code=303)

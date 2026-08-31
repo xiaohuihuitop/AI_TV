@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="{{ request.state.csrf_token }}" />
     <title>VideoDoc Admin</title>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
@@ -22,5 +23,18 @@
         </div>
       </main>
     </div>
+    <script>
+      window.aiTvCsrfToken = document.querySelector('meta[name="csrf-token"]').content;
+      document.addEventListener("submit", function (event) {
+        var form = event.target;
+        if (!form || String(form.method || "").toLowerCase() !== "post") return;
+        if (form.querySelector('input[name="_csrf_token"]')) return;
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "_csrf_token";
+        input.value = window.aiTvCsrfToken;
+        form.appendChild(input);
+      }, true);
+    </script>
   </body>
 </html>

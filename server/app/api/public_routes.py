@@ -15,9 +15,14 @@ def _get_session(request: Request):
     @param request: 当前请求。
     @return: Session 实例。
     """
-    engine = get_engine(request.app.state.settings.db_path)
-    init_db(engine)
-    SessionLocal = get_sessionmaker(engine)
+    engine = getattr(request.app.state, "engine", None)
+    if not engine:
+        engine = get_engine(
+            request.app.state.settings.db_path,
+            busy_timeout_ms=request.app.state.settings.sqlite_busy_timeout_ms,
+        )
+        init_db(engine)
+    SessionLocal = getattr(request.app.state, "session_factory", None) or get_sessionmaker(engine)
     return SessionLocal()
 
 

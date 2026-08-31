@@ -133,6 +133,18 @@
             {% endif %}
           </div>
           <div class="actions video-management-actions">
+            {% if v.status == 'ready' %}
+              <button
+                class="btn ghost mobile-preview-trigger"
+                type="button"
+                data-mobile-preview
+                data-mobile-preview-id="{{ v.id }}"
+                data-mobile-preview-title="{{ v.filename }}"
+                data-mobile-preview-src="/api/videos/{{ v.id }}/download"
+                data-mobile-preview-width="{{ v.width or 0 }}"
+                data-mobile-preview-height="{{ v.height or 0 }}"
+              >手机预览</button>
+            {% endif %}
             <a class="btn ghost" href="/web/videos/{{ v.id }}">查看详情</a>
             {% if v.status == 'failed' %}
               <form class="inline-form" method="post" action="/web/videos/{{ v.id }}/retry">
@@ -150,8 +162,26 @@
     {% endfor %}
   </div>
 </section>
+<dialog id="mobile-preview-dialog" class="mobile-preview-dialog" aria-labelledby="mobile-preview-title">
+  <div class="mobile-preview-dialog-head">
+    <h2 id="mobile-preview-title">手机播放预览</h2>
+    <button class="icon-btn" type="button" data-mobile-preview-close aria-label="关闭手机预览">×</button>
+  </div>
+  <div class="mobile-preview-phone" data-mobile-preview-phone>
+    <div class="mobile-preview-screen">
+      <video data-mobile-preview-video controls preload="metadata"></video>
+      <p class="mobile-preview-error" data-mobile-preview-error hidden></p>
+    </div>
+    <div class="mobile-preview-actions">
+      <button type="button" data-mobile-preview-prev>上一个</button>
+      <button type="button" class="is-back" data-mobile-preview-back>返回</button>
+      <button type="button" data-mobile-preview-next>下一个</button>
+    </div>
+  </div>
+</dialog>
 <script src="/static/upload.js"></script>
 <script src="/static/video-tasks.js"></script>
+<script src="/static/mobile-preview.js"></script>
 <script>
   bindUpload({
     zoneId: "video-drop",

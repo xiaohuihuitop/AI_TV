@@ -51,6 +51,13 @@
       retryForm.className = "inline-form";
       retryForm.method = "post";
       retryForm.action = item.retry_url;
+      if (window.aiTvCsrfToken) {
+        const csrf = document.createElement("input");
+        csrf.type = "hidden";
+        csrf.name = "_csrf_token";
+        csrf.value = window.aiTvCsrfToken;
+        retryForm.appendChild(csrf);
+      }
       const retry = document.createElement("button");
       retry.className = "btn ghost task-retry";
       retry.type = "submit";

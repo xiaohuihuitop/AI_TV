@@ -1,6 +1,7 @@
 version: "3.9"
 services:
   ai_tv:
+    image: ai_tv_server:latest
     build: .
     container_name: ai_tv
     ports:
@@ -11,6 +12,18 @@ services:
       BASIC_USER: admin
       BASIC_PASS: admin
       WORKER_INTERVAL_SEC: "2"
+      MAX_VIDEO_UPLOAD_BYTES: "2147483648"
+      MAX_DOC_UPLOAD_BYTES: "20971520"
+      MAX_UPLOAD_FILES: "10"
+      UPLOAD_CHUNK_BYTES: "1048576"
+      STORAGE_RESERVE_BYTES: "134217728"
+      SQLITE_BUSY_TIMEOUT_MS: "5000"
+      CSRF_COOKIE_SECURE: "false"
+      FIX_DATA_PERMISSIONS: "true"
+      TZ: Asia/Shanghai
     volumes:
       - /srv/ai_tv_data:/data
+    init: true
+    stop_grace_period: 30s
+    read_only: true
     restart: unless-stopped

@@ -1,14 +1,13 @@
-import uuid
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from app.core.auth import verify_credentials
-from app.core.validators import is_allowed_doc, is_allowed_video
 from app.db.models import Document, Video
-from app.db.repo import create_document, create_video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.range import iter_file, parse_range
+from app.services.media_delete import delete_document_records, delete_video_records
 from app.services.system_status import collect_system_status
+from app.services.uploads import UploadError, persist_document_uploads, persist_video_uploads
 from app.services.video_tasks import collect_video_tasks
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_credentials)])
@@ -88,19 +87,14 @@ def upload_video(request: Request, files: list[UploadFile] = File(...)):
     @param file: 上传文件。
     @return: 处理状态。
     """
-    for item in files:
-        if not is_allowed_video(item.filename, item.content_type):
-            raise HTTPException(status_code=400, detail="Only MP4 allowed")
-
-    results: list[dict] = []
     with _get_session(request) as session:
-        for item in files:
-            uid = str(uuid.uuid4())
-            dst = request.app.state.storage.video_path(uid)
-            with dst.open("wb") as f:
-                f.write(item.file.read())
-            video = create_video(session, filename=item.filename, path=str(dst))
-            results.append({"id": video.id, "status": video.status})
+        try:
+            videos = persist_video_uploads(
+                session, files, request.app.state.storage, request.app.state.settings
+            )
+        except UploadError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        results = [{"id": video.id, "status": video.status} for video in videos]
     if len(results) == 1:
         return results[0]
     return {"count": len(results), "items": results}
@@ -113,20 +107,14 @@ def upload_doc(request: Request, files: list[UploadFile] = File(...)):
     @param file: 上传文件。
     @return: 处理状态。
     """
-    for item in files:
-        if not is_allowed_doc(item.filename, item.content_type):
-            raise HTTPException(status_code=400, detail="Only HTML/Markdown allowed")
-
-    results: list[dict] = []
     with _get_session(request) as session:
-        for item in files:
-            uid = str(uuid.uuid4())
-            ext = _resolve_doc_extension(item.filename)
-            dst = request.app.state.storage.doc_path(uid, ext)
-            with dst.open("wb") as f:
-                f.write(item.file.read())
-            doc = create_document(session, filename=item.filename, path=str(dst), title=None)
-            results.append({"id": doc.id, "status": doc.status})
+        try:
+            docs = persist_document_uploads(
+                session, files, request.app.state.storage, request.app.state.settings
+            )
+        except UploadError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        results = [{"id": doc.id, "status": doc.status} for doc in docs]
     if len(results) == 1:
         return results[0]
     return {"count": len(results), "items": results}
@@ -214,15 +202,7 @@ def delete_video(request: Request, video_id: int):
         video = session.get(Video, video_id)
         if not video:
             raise HTTPException(status_code=404, detail="Not found")
-        path = Path(video.path)
-        if path.exists():
-            path.unlink()
-        if video.cover_path:
-            cover = Path(video.cover_path)
-            if cover.exists():
-                cover.unlink()
-        session.delete(video)
-        session.commit()
+        delete_video_records(session, [video])
         return {"ok": True}
 
 
@@ -279,9 +259,5 @@ def delete_doc(request: Request, doc_id: int):
         doc = session.get(Document, doc_id)
         if not doc:
             raise HTTPException(status_code=404, detail="Not found")
-        path = Path(doc.path)
-        if path.exists():
-            path.unlink()
-        session.delete(doc)
-        session.commit()
+        delete_document_records(session, [doc])
         return {"ok": True}

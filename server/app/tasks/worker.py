@@ -1,4 +1,5 @@
 from pathlib import Path
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 from app.core.paths import StoragePaths
 from app.db.models import Video
@@ -21,28 +22,72 @@ class VideoWorker:
         self._storage = storage
         self._process_func = process_func
 
-    def run_once(self) -> None:
+    def run_once(self) -> bool:
         """AI: 执行一次任务处理。
         @return: None
         """
-        session: Session = self._session_factory()
-        video = session.query(Video).filter(Video.status == "pending").first()
-        if not video:
-            session.close()
-            return
-        video.status = "processing"
-        session.commit()
-        uid = Path(video.path).stem
+        claimed = self._claim_next()
+        if not claimed:
+            return False
+        video_id, video_path = claimed
+        uid = Path(video_path).stem
         cover_path = self._storage.cover_path(uid)
         try:
-            info = self._process_func(Path(video.path), cover_path)
+            info = self._process_func(Path(video_path), cover_path)
+        except Exception as exc:
+            with self._session_factory() as session:
+                video = session.get(Video, video_id)
+                if video and video.status == "processing":
+                    video.status = "failed"
+                    video.error_message = str(exc)[:1024]
+                    session.commit()
+            return True
+
+        with self._session_factory() as session:
+            video = session.get(Video, video_id)
+            if not video:
+                cover_path.unlink(missing_ok=True)
+                return True
+            if video.status != "processing":
+                return True
             video.width = info["width"]
             video.height = info["height"]
             video.duration_seconds = info["duration"]
             video.cover_path = str(cover_path)
             video.status = "ready"
-        except Exception as exc:
-            video.status = "failed"
-            video.error_message = str(exc)
+            video.error_message = None
+            session.commit()
+        return True
+
+    def _claim_next(self) -> tuple[int, str] | None:
+        with self._session_factory() as session:
+            candidate = (
+                session.query(Video.id, Video.path)
+                .filter(Video.status == "pending")
+                .order_by(Video.id.asc())
+                .first()
+            )
+            if not candidate:
+                return None
+            result = session.execute(
+                update(Video)
+                .where(Video.id == candidate.id, Video.status == "pending")
+                .values(status="processing", error_message=None)
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                return None
+            session.commit()
+            return candidate.id, candidate.path
+
+
+def recover_interrupted_videos(session_factory) -> int:
+    """Return tasks interrupted by a process restart to the pending queue."""
+    with session_factory() as session:
+        result = session.execute(
+            update(Video)
+            .where(Video.status == "processing")
+            .values(status="pending", error_message=None)
+        )
         session.commit()
-        session.close()
+        return int(result.rowcount or 0)

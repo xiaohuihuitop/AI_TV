@@ -59,9 +59,11 @@ ai_tv_server   latest       ...
 服务端所有持久化数据都放在容器内 `/data`：
 
 - `/data/db/app.db`：数据库
+- `/data/db/backups`：数据库备份
 - `/data/videos`：视频文件
 - `/data/covers`：封面
 - `/data/docs`：文档
+- `/data/tmp`：上传请求临时文件
 
 群晖示例目录：
 
@@ -92,11 +94,35 @@ services:
       BASIC_USER: admin
       BASIC_PASS: admin
       WORKER_INTERVAL_SEC: "2"
+      MAX_VIDEO_UPLOAD_BYTES: "2147483648"
+      MAX_DOC_UPLOAD_BYTES: "20971520"
+      MAX_UPLOAD_FILES: "10"
+      UPLOAD_CHUNK_BYTES: "1048576"
+      STORAGE_RESERVE_BYTES: "134217728"
+      SQLITE_BUSY_TIMEOUT_MS: "5000"
+      CSRF_COOKIE_SECURE: "false"
+      FIX_DATA_PERMISSIONS: "true"
       TZ: Asia/Shanghai
     volumes:
       - /volume1/SSD/docker/TV/TV_data:/data
+    init: true
+    stop_grace_period: 30s
+    read_only: true
     restart: unless-stopped
 ```
+
+这些配置的含义：
+
+- `MAX_VIDEO_UPLOAD_BYTES`：单个视频最大字节数，默认 2GB。
+- `MAX_DOC_UPLOAD_BYTES`：单个文档最大字节数，默认 20MB。
+- `MAX_UPLOAD_FILES`：一次最多上传的文件数，默认 10。
+- `UPLOAD_CHUNK_BYTES`：服务端写盘块大小，默认 1MB。
+- `STORAGE_RESERVE_BYTES`：写入后必须保留的磁盘空间，默认 128MB。
+- `SQLITE_BUSY_TIMEOUT_MS`：SQLite 锁等待时间，默认 5000ms。
+- `CSRF_COOKIE_SECURE`：当前使用 HTTP 时必须为 `false`；以后全部切换为 HTTPS 后改成 `true`。
+- `FIX_DATA_PERMISSIONS`：首次使用新版镜像时修正旧 `/data` 卷权限，默认 `true`。
+
+镜像内服务进程以 UID/GID `10001:10001` 运行。入口脚本只在数据目录中没有 `.ai_tv_permissions_v1` 标记时递归修正一次权限，旧数据量较大时首次启动可能需要等待。确认首次启动成功后可以保留默认值；如果 NAS 禁止容器执行 `chown`，需在宿主机手动让 UID `10001` 可写数据目录，再设置 `FIX_DATA_PERMISSIONS: "false"`。
 
 ## 6. 启动服务
 
@@ -135,8 +161,10 @@ admin / admin
 健康检查：
 
 ```bash
-curl -u admin:admin http://服务器IP:8000/health
+curl http://服务器IP:8000/healthz
 ```
+
+`/healthz` 不需要账号密码，只检查数据库连接和数据目录是否可用，供 Docker 健康检查使用。原有需要 Basic Auth 的 `/health` 仍然保留。
 
 系统状态页：
 
@@ -185,7 +213,48 @@ App 清单地址示例：
 qh.xhhtop.top:8000/public/index.json?user=admin&pass=admin
 ```
 
-## 8. 升级镜像
+本次可靠性加固没有改变 App 协议：清单和资源 URL 仍沿用现有 `user`、`pass` 查询参数认证，手机客户端不需要同步修改。
+
+## 8. 上传与后台处理
+
+上传文件会先按固定大小分块写入同目录 `.part` 临时文件，完整写入后再原子替换为正式文件。任一批次上传失败时，本批数据库记录和已写文件都会回滚，不会留下半个正式文件。
+
+视频上传成功后仍需由后台 worker 生成封面并识别时长和尺寸。容器非正常中断时，处于 `processing` 的任务会在下次启动时自动恢复为 `pending` 并重新处理。后台页面中的上传百分比只代表文件传输进度，处理状态请在视频管理页的“处理队列与日志”查看。
+
+后台 `/web` 写操作带 CSRF 校验。正常通过后台页面操作无需额外配置；脚本调用写接口时应使用 `/api` 接口和 Basic Auth，不要模拟后台表单。
+
+## 9. 数据库备份与恢复
+
+数据库使用 SQLite WAL 和锁等待配置。运行中创建备份时使用 SQLite 官方在线备份接口，不要直接复制正在使用的 `app.db`。
+
+创建备份：
+
+```bash
+docker exec --user 10001:10001 ai_tv python /app/scripts/backup_database.py
+```
+
+命令会输出备份路径，默认写入：
+
+```text
+/data/db/backups/app_YYYYMMDD_HHMMSS.db
+```
+
+恢复数据库前必须停止主容器，避免旧连接继续写入。以下示例把备份恢复到同一个挂载目录：
+
+```bash
+docker compose stop ai_tv
+docker run --rm \
+  -v /volume1/SSD/docker/TV/TV_data:/data \
+  -e DATA_DIR=/data \
+  -e DB_PATH=/data/db/app.db \
+  ai_tv_server:latest \
+  python /app/scripts/restore_database.py /data/db/backups/app_YYYYMMDD_HHMMSS.db
+docker compose start ai_tv
+```
+
+旧版 Compose 把 `docker compose` 换成 `docker-compose`。恢复脚本会先执行 SQLite 完整性检查，并将恢复前的数据库保留为 `app.db.pre_restore_时间.bak`。视频、封面和文档文件不包含在数据库备份中；完整灾备还需要同时备份整个宿主机 `TV_data` 目录。
+
+## 10. 升级镜像
 
 每次推送新的 `build-*` tag 后，GitHub Actions 会生成新的 `ai_tv_server_latest.tar`。升级步骤：
 
@@ -205,14 +274,14 @@ docker load -i ai_tv_server_latest.tar
 
 ```bash
 docker compose down
-docker compose up -d
+docker compose up -d --force-recreate
 ```
 
 旧版 docker-compose：
 
 ```bash
 docker-compose down
-docker-compose up -d
+docker-compose up -d --force-recreate
 ```
 
 4. 确认正在使用镜像：
@@ -227,7 +296,7 @@ docker inspect ai_tv --format '{{.Config.Image}}'
 ai_tv_server:latest
 ```
 
-## 9. 回滚旧版本
+## 11. 回滚旧版本
 
 由于新构建固定覆盖 `ai_tv_server:latest`，建议升级前先保留旧 tar 文件，或在导入新 tar 前给当前镜像手动打一个备份标签：
 
@@ -250,7 +319,7 @@ docker compose up -d
 
 数据目录仍然挂载到同一个 `/data`，视频、封面和数据库不会因为切换镜像而消失。
 
-## 10. 常见问题
+## 12. 常见问题
 
 ### 启动时报端口被占用
 
@@ -315,14 +384,28 @@ ls -lah /volume1/SSD/docker/TV/TV_data/db
 
 应看到宿主机目录挂载到容器 `/data`。
 
+如果日志提示数据目录对 UID `10001` 不可写，先确认 `FIX_DATA_PERMISSIONS: "true"`，等待首次权限迁移完成。NAS 不允许容器修改所有者时，需要在宿主机管理界面或 SSH 中授予 UID/GID `10001:10001` 对该目录的读写权限。
+
 ### 修改 compose 后没有生效
 
 仅重启容器可能不会应用新的环境变量、镜像版本或挂载配置。重新创建容器：
 
 ```bash
 docker compose down
-docker compose up -d
+docker compose up -d --force-recreate
 ```
+
+### 容器显示 unhealthy
+
+先查看健康检查和应用日志：
+
+```bash
+docker inspect ai_tv --format '{{json .State.Health}}'
+docker logs --tail 200 ai_tv
+curl -v http://127.0.0.1:8000/healthz
+```
+
+重点检查 `/data` 挂载权限、`DB_PATH` 是否位于已挂载的数据目录，以及 SQLite 数据库是否完整。`/healthz` 不要求认证，不应在 URL 中附带管理员密码。
 
 ### 后台页面样式没有变化
 

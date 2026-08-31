@@ -25,7 +25,7 @@ def create_video(session: Session, filename: str, path: str) -> Video:
         description="无",
     )
     session.add(video)
-    session.commit()
+    session.flush()
     session.refresh(video)
     return video
 
@@ -49,7 +49,7 @@ def create_document(session: Session, filename: str, path: str, title: str | Non
     """
     doc = Document(filename=filename, path=path, title=title, status="ready", created_at=_now_str())
     session.add(doc)
-    session.commit()
+    session.flush()
     session.refresh(doc)
     return doc
 
