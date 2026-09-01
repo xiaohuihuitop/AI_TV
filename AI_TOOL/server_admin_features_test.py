@@ -310,6 +310,34 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         cleanup_client(app, tmp)
 
 
+def test_public_index_uses_forwarded_https_origin():
+    tmp, app, client = make_client()
+    try:
+        video_id = add_video(app, "landscape.mp4", width=1920, height=1080)
+        add_doc(app, "notice.html")
+        cover_path = Path(app.state.storage.covers) / "landscape.jpg"
+        cover_path.write_bytes(b"cover")
+        with app.state.session_factory() as session:
+            session.get(Video, video_id).cover_path = str(cover_path)
+            session.commit()
+        response = client.get(
+            "/public/index.json?user=admin&pass=admin",
+            headers={
+                "Host": "tv.xiaohuihuitop.top",
+                "X-Forwarded-Proto": "https",
+                "X-Forwarded-Host": "tv.xiaohuihuitop.top",
+            },
+        )
+        assert response.status_code == 200
+        item = response.json()["items"][0]
+        assert item["url"].startswith("https://tv.xiaohuihuitop.top/")
+        assert item["cover"].startswith("https://tv.xiaohuihuitop.top/")
+        article = [entry for entry in response.json()["items"] if entry["type"] == "article"][0]
+        assert article["url"].startswith("https://tv.xiaohuihuitop.top/")
+    finally:
+        cleanup_client(app, tmp)
+
+
 if __name__ == "__main__":
     test_status_page_and_api()
     test_failed_video_can_be_retried()
@@ -319,4 +347,5 @@ if __name__ == "__main__":
     test_doc_list_filters_and_bulk_delete()
     test_upload_pages_show_progress_controls()
     test_ready_videos_expose_mobile_preview_queue_only()
+    test_public_index_uses_forwarded_https_origin()
     print("server admin features ok")

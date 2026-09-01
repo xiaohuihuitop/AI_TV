@@ -86,6 +86,11 @@ import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlin
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 import { defaultIndexUrl, normalizeRequestUrl } from "../../utils/appConfig.js";
+import { restoreStandardSystemUi } from "../../utils/immersivePlayer.js";
+
+function resolvePlusRuntime() {
+  return typeof plus !== "undefined" ? plus : null;
+}
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -220,6 +225,7 @@ export default {
     }
   },
   onShow() {
+    restoreStandardSystemUi(resolvePlusRuntime);
     if (typeof uni.hideTabBar === "function") {
       uni.hideTabBar({ animation: false });
     }

@@ -33,7 +33,10 @@ def _build_base_url_with_auth(request: Request, use_query_auth: bool) -> tuple[s
     @return: (base_url, query_suffix)
     """
     settings = request.app.state.settings
-    base_url = str(request.base_url).rstrip("/")
+    parsed_base_url = urlsplit(str(request.base_url).rstrip("/"))
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip().lower()
+    scheme = forwarded_proto if forwarded_proto in {"http", "https"} else parsed_base_url.scheme
+    base_url = urlunsplit((scheme, parsed_base_url.netloc, "", "", "")).rstrip("/")
     if use_query_auth:
         query = f"user={quote(settings.basic_user)}&pass={quote(settings.basic_pass)}"
         return base_url, f"?{query}"

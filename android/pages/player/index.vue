@@ -1,41 +1,42 @@
 <template>
-  <view class="app-page player-page">
+  <view class="app-page player-page" :class="{ 'is-immersive': isImmersive }">
     <view class="header hero">
       <text class="title">{{ title || "播放" }}</text>
       <text class="subtitle muted">视频播放预览</text>
     </view>
-    <view v-if="error" class="error-card card">
-      <text class="error-text">{{ error }}</text>
-    </view>
-    <view v-else class="video-shell">
-      <video
-        class="video-player"
-        id="playerVideo"
-        :src="source"
-        :controls="true"
-        :autoplay="autoPlay"
-        object-fit="contain"
-        :show-fullscreen-btn="true"
-        :show-center-play-btn="true"
-        :show-play-btn="true"
-        :style="{ height: `${videoHeight}px` }"
-        @ended="handleEnded"
-        @fullscreenchange="handleFullscreenChange"
-        @loadedmetadata="handleLoadedMetadata"
-        @play="handlePlay"
-      ></video>
-      <cover-view v-if="hasEnded" class="replay-overlay">
-        <cover-view class="replay-btn" @click="replay">重播</cover-view>
-      </cover-view>
-    </view>
-    <view class="actions">
-      <button class="btn btn-ghost nav prev" size="mini" :disabled="!hasPrev" @click="playPrev">
-        上一个
-      </button>
-      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
-      <button class="btn btn-ghost nav next" size="mini" :disabled="!hasNext" @click="playNext">
-        下一个
-      </button>
+    <view class="video-shell">
+      <view class="video-stage" :style="{ height: `${videoHeight}px` }">
+        <view v-if="error" class="error-card card">
+          <text class="error-text">{{ error }}</text>
+        </view>
+        <video
+          v-else
+          class="video-player"
+          id="playerVideo"
+          :src="source"
+          :controls="true"
+          :autoplay="autoPlay"
+          object-fit="contain"
+          :show-fullscreen-btn="false"
+          :show-center-play-btn="true"
+          :show-play-btn="true"
+          @ended="handleEnded"
+          @loadedmetadata="handleLoadedMetadata"
+          @play="handlePlay"
+        ></video>
+        <cover-view v-if="hasEnded && !error" class="replay-overlay">
+          <cover-view class="replay-btn" @click="replay">重播</cover-view>
+        </cover-view>
+      </view>
+      <view class="immersive-actions">
+        <button class="btn btn-ghost nav prev" size="mini" :disabled="!hasPrev" @click="playPrev">
+          上一个
+        </button>
+        <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
+        <button class="btn btn-ghost nav next" size="mini" :disabled="!hasNext" @click="playNext">
+          下一个
+        </button>
+      </view>
     </view>
   </view>
 </template>
@@ -43,9 +44,20 @@
 <script>
 import { loadPlayerQueue, updatePlayerIndex } from "../../utils/playerQueue.js";
 import {
+  calculateImmersiveVideoHeight,
   calculateVideoHeight,
-  getVideoFullscreenDirection
+  getVideoOrientationLock,
+  isViewportReadyForOrientation,
+  isViewportStable
 } from "../../utils/layout.js";
+import { createImmersivePlayerController } from "../../utils/immersivePlayer.js";
+
+const ACTION_BAR_HEIGHT = 76;
+const IMMERSIVE_TRANSITION_DELAY_MS = 120;
+
+function resolvePlusRuntime() {
+  return typeof plus !== "undefined" ? plus : null;
+}
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -71,10 +83,12 @@ export default {
       currentIndex: -1,
       hasEnded: false,
       videoContext: null,
-      hasRequestedFullscreen: false,
-      isFullscreen: false,
       isPlaying: false,
-      pendingFullscreenDirection: null
+      isImmersive: false,
+      pendingOrientationLock: "",
+      safeBottom: 0,
+      immersiveTransitionTimer: null,
+      immersiveController: createImmersivePlayerController(resolvePlusRuntime)
     };
   },
   computed: {
@@ -118,6 +132,13 @@ export default {
   onResize() {
     this.updateVideoSize();
   },
+  onBackPress() {
+    this.exitImmersiveMode();
+    return false;
+  },
+  onUnload() {
+    this.exitImmersiveMode();
+  },
   methods: {
     /**
      * AI:根据屏幕高度计算视频区域，并为底部按钮留出空间。
@@ -127,7 +148,23 @@ export default {
       const info = uni.getSystemInfoSync();
       const width = Number(info.windowWidth || info.screenWidth || 0);
       const height = Number(info.windowHeight || info.screenHeight || 0);
-      this.videoHeight = calculateVideoHeight(width, height);
+      const safeAreaInsets = info.safeAreaInsets || {};
+      this.safeBottom = Math.max(0, Number(safeAreaInsets.bottom || 0));
+      this.videoHeight = this.isImmersive
+        ? calculateImmersiveVideoHeight(height, ACTION_BAR_HEIGHT, this.safeBottom)
+        : calculateVideoHeight(width, height);
+      if (
+        this.isImmersive
+      ) {
+        const viewportReady =
+          this.immersiveTransitionTimer === null && isViewportStable(width, height);
+        const orientationReady = isViewportReadyForOrientation(
+          width,
+          height,
+          this.pendingOrientationLock
+        );
+        this.immersiveController.finishEnter(viewportReady, orientationReady);
+      }
     },
 
     /**
@@ -181,9 +218,8 @@ export default {
       this.title = item && item.title ? item.title : "";
       this.error = "";
       this.hasEnded = false;
-      this.hasRequestedFullscreen = false;
       this.isPlaying = false;
-      this.pendingFullscreenDirection = null;
+      this.pendingOrientationLock = "";
       this.prepareAutomaticFullscreen(item);
       if (typeof index === "number") {
         this.currentIndex = index;
@@ -234,7 +270,7 @@ export default {
     handlePlay() {
       this.hasEnded = false;
       this.isPlaying = true;
-      this.tryEnterFullscreen();
+      this.tryEnterImmersiveMode();
     },
 
     /**
@@ -288,53 +324,39 @@ export default {
       if (safeWidth <= 0 || safeHeight <= 0) {
         return;
       }
-      this.pendingFullscreenDirection = getVideoFullscreenDirection(safeWidth, safeHeight);
-      this.tryEnterFullscreen();
+      this.pendingOrientationLock = getVideoOrientationLock(safeWidth, safeHeight);
+      this.tryEnterImmersiveMode();
     },
 
     /**
-     * AI:播放开始且方向已知时，仅自动请求一次全屏。
+     * AI:播放开始且方向已知时进入页面级沉浸式播放。
      * @returns {void} AI:无返回值。
      */
-    tryEnterFullscreen() {
-      if (
-        !this.isPlaying ||
-        this.pendingFullscreenDirection === null ||
-        this.hasRequestedFullscreen ||
-        this.isFullscreen
-      ) {
+    tryEnterImmersiveMode() {
+      if (!this.isPlaying || !this.pendingOrientationLock) {
         return;
       }
-
-      const direction = this.pendingFullscreenDirection;
-      const requestedSource = this.source;
-      this.hasRequestedFullscreen = true;
-      if (!this.videoContext) {
-        this.videoContext = uni.createVideoContext("playerVideo", this);
+      const entered = this.immersiveController.enter(this.pendingOrientationLock);
+      this.isImmersive = entered;
+      if (entered) {
+        clearTimeout(this.immersiveTransitionTimer);
+        this.immersiveTransitionTimer = setTimeout(() => {
+          this.immersiveTransitionTimer = null;
+          this.updateVideoSize();
+        }, IMMERSIVE_TRANSITION_DELAY_MS);
       }
-      try {
-        const request = this.videoContext.requestFullScreen({ direction });
-        if (request && typeof request.catch === "function") {
-          request.catch(() => {
-            if (this.source === requestedSource) {
-              this.hasRequestedFullscreen = false;
-            }
-          });
-        }
-      } catch (error) {
-        if (this.source === requestedSource) {
-          this.hasRequestedFullscreen = false;
-        }
-      }
+      this.$nextTick(() => this.updateVideoSize());
     },
 
     /**
-     * AI:同步原生播放器全屏状态，避免重复发起全屏请求。
-     * @param {{detail?: {fullScreen?: boolean}}} event AI:全屏状态事件。
+     * AI:退出沉浸式状态并恢复系统界面和方向。
      * @returns {void} AI:无返回值。
      */
-    handleFullscreenChange(event) {
-      this.isFullscreen = Boolean(event && event.detail && event.detail.fullScreen);
+    exitImmersiveMode() {
+      clearTimeout(this.immersiveTransitionTimer);
+      this.immersiveTransitionTimer = null;
+      this.immersiveController.exit();
+      this.isImmersive = false;
     },
 
     /**
@@ -381,6 +403,7 @@ export default {
      * @returns {void} AI:无返回值。
      */
     goBack() {
+      this.exitImmersiveMode();
       uni.navigateBack();
     }
   }
@@ -407,11 +430,25 @@ export default {
 
 .player-page {
   padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+  background: #f7f2ea;
+}
+
+.player-page.is-immersive {
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #000000;
 }
 
 .video-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   margin-bottom: 16px;
-  position: relative;
   background: #000000;
   border-radius: 18px;
   overflow: hidden;
@@ -419,8 +456,29 @@ export default {
   box-shadow: 0 22px 42px rgba(31, 27, 22, 0.26);
 }
 
+.is-immersive .video-shell {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.video-stage {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000000;
+}
+
 .video-player {
   width: 100%;
+  height: 100%;
   display: block;
   background: #000000;
 }
@@ -447,20 +505,43 @@ export default {
   min-width: 132px;
 }
 
-.actions {
-  margin-top: 16px;
+.immersive-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  margin-top: 16px;
   padding: 0;
 }
 
-.actions .btn {
+.immersive-actions .btn {
   width: 100%;
   min-width: 0;
+  min-height: 56px;
   padding-right: 8px;
   padding-left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fffaf4;
+  background: #343a3f;
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.immersive-actions .back {
+  background: #286953;
+  border-color: #4b9b84;
+}
+
+.is-immersive .immersive-actions {
+  flex: 0 0 auto;
+  height: calc(76px + env(safe-area-inset-bottom));
+  margin: 0;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: #171b1e;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .back,
@@ -469,12 +550,14 @@ export default {
   justify-self: stretch;
 }
 
-.actions .btn[disabled] {
+.immersive-actions .btn[disabled] {
   opacity: 0.45;
 }
 
 .error-card {
-  margin: 0 16px 16px;
+  width: calc(100% - 32px);
+  margin: 16px;
+  box-sizing: border-box;
   background: rgba(255, 242, 233, 0.9);
   border: 1px solid rgba(217, 108, 47, 0.25);
 }
@@ -488,6 +571,10 @@ export default {
   .player-page {
     padding-right: 24px;
     padding-left: 24px;
+  }
+
+  .player-page.is-immersive {
+    padding: 0;
   }
 }
 </style>

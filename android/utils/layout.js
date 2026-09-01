@@ -31,6 +31,66 @@ export function getVideoFullscreenDirection(width, height) {
   return safeWidth > 0 && safeHeight > 0 && safeWidth > safeHeight ? 90 : 0;
 }
 
+/**
+ * Resolve the HTML5+ orientation lock used by the immersive player page.
+ * @param {number} width Video width in pixels.
+ * @param {number} height Video height in pixels.
+ * @returns {"landscape-primary"|"portrait-primary"} Screen orientation lock.
+ */
+export function getVideoOrientationLock(width, height) {
+  return Number(width) > Number(height)
+    ? "landscape-primary"
+    : "portrait-primary";
+}
+
+/**
+ * Reserve the action bar and bottom safe area from the immersive video region.
+ * @param {number} windowHeight Available window height in CSS pixels.
+ * @param {number} actionHeight Action bar height in CSS pixels.
+ * @param {number} safeBottom Bottom safe-area inset in CSS pixels.
+ * @returns {number} Video region height in CSS pixels.
+ */
+export function calculateImmersiveVideoHeight(windowHeight, actionHeight, safeBottom) {
+  const height = Math.max(0, Number(windowHeight) || 0);
+  const reserved =
+    Math.max(0, Number(actionHeight) || 0) + Math.max(0, Number(safeBottom) || 0);
+  return Math.max(0, Math.round(height - reserved));
+}
+
+/**
+ * Check whether rotation has produced a stable viewport before hiding system UI.
+ * @param {number} width Current viewport width.
+ * @param {number} height Current viewport height.
+ * @param {string} orientation Target HTML5+ orientation lock.
+ * @returns {boolean} Whether immersive chrome can be hidden safely.
+ */
+export function isViewportReadyForOrientation(width, height, orientation) {
+  const safeWidth = Math.max(0, Number(width || 0));
+  const safeHeight = Math.max(0, Number(height || 0));
+  if (!isViewportStable(safeWidth, safeHeight)) {
+    return false;
+  }
+  if (orientation === "landscape-primary") {
+    return safeWidth > safeHeight;
+  }
+  if (orientation === "portrait-primary") {
+    return safeHeight >= safeWidth;
+  }
+  return false;
+}
+
+/**
+ * Reject transient App-Plus viewport sizes produced while system UI is changing.
+ * @param {number} width Current viewport width.
+ * @param {number} height Current viewport height.
+ * @returns {boolean} Whether the viewport is large enough for rotation.
+ */
+export function isViewportStable(width, height) {
+  const safeWidth = Math.max(0, Number(width || 0));
+  const safeHeight = Math.max(0, Number(height || 0));
+  return Math.min(safeWidth, safeHeight) >= 160;
+}
+
 function normalizeDimension(value, fallback) {
   const dimension = Number(value);
   return Number.isFinite(dimension) && dimension > 0 ? dimension : fallback;

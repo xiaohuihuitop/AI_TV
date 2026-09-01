@@ -66,7 +66,7 @@ Expected: PASS for the new helper assertions; source assertions may still fail u
 
 - [ ] **Step 1: Write failing adapter tests with a fake `plus` runtime**
 
-Test that `enterImmersivePlayer(plusRuntime, orientation)` calls `setFullscreen(true)` and `lockOrientation(orientation)` once per state, that changing orientation only relocks orientation, and that `exitImmersivePlayer` calls `unlockOrientation()` plus `setFullscreen(false)` once.
+Test that `enterImmersivePlayer(plusRuntime, orientation)` locks orientation before hiding system chrome, that changing orientation only relocks orientation, and that `exitImmersivePlayer` locks back to portrait before restoring system chrome.
 
 ```js
 const calls = [];
@@ -84,10 +84,10 @@ controller.enter("portrait-primary");
 controller.exit();
 controller.exit();
 assert.deepEqual(calls, [
-  ["fullscreen", true],
   ["lock", "landscape-primary"],
+  ["fullscreen", true],
   ["lock", "portrait-primary"],
-  ["unlock"],
+  ["lock", "portrait-primary"],
   ["fullscreen", false]
 ]);
 ```
@@ -217,4 +217,3 @@ git diff -- android AI_TOOL docs/project ai_knowledge.md
 ```
 
 Expected: only task-related files plus the known user-owned `android/.hbuilderx/launch.json` and `tmp/` remain; no whitespace errors in task files.
-

@@ -274,3 +274,59 @@
 - 关联文件: android/pages/player/index.vue, android/utils/layout.js, AI_TOOL/android_player_fullscreen_test.mjs
 - 标签: android, uni-app, 视频, 自动全屏, 横竖屏
 - 关键词: loadedmetadata, getImageInfo, requestFullScreen, contain
+
+## [2026-08-29] 现象: 页面级全屏旋转后播放器高度坍缩
+- 触发条件: App-Plus 播放横屏视频时，先调用 `plus.navigator.setFullscreen(true)` 和 `hideSystemNavigation()`，再调用 `plus.screen.lockOrientation("landscape-primary")`
+- 根因: 系统栏先隐藏后再旋转时，uni-app 播放器页面 WebView 使用了错误的旋转中间高度；系统窗口已是 1920x1080，但页面 WebView 只有 1920x240，DOM 中的 `100vh` 也随之变为 80dp
+- 解决步骤: 页面级播放器进入时先锁定视频方向，再隐藏状态栏和系统导航栏；退出时先锁回 `portrait-primary`，再恢复系统栏；视频和三个导航按钮使用上下独立布局；原生恢复任一步失败时保留活动状态供生命周期再次清理；沉浸页显式解除全局内容最大宽度
+- 预防/规则: App-Plus 沉浸式页面的原生 API 调用顺序必须用模拟器或真机验证；方向锁定必须先于系统栏隐藏；原生 API 部分失败必须保留可重试状态；全屏组件必须覆盖全局容器的 `max-width`，不能只依赖 DOM 响应式测试
+- 关联文件: android/utils/immersivePlayer.js, android/pages/player/index.vue, android/utils/layout.js, AI_TOOL/android_immersive_player_test.mjs, AI_TOOL/android_player_fullscreen_test.mjs
+- 标签: android, uni-app, App-Plus, 沉浸式, 旋转, WebView
+- 关键词: lockOrientation, setFullscreen, hideSystemNavigation, WebView height, 100vh
+
+## [2026-08-30] 现象: 源码已修复但模拟器仍显示旧播放器
+- 触发条件: HBuilderX 已生成新的 `app-plus` 编译产物，但模拟器页面仍出现视频区域坍缩或缺少最新系统栏恢复行为
+- 根因: HBuilderX 监听进程生成了新的本地 `app-service.js`，但差量同步没有把该文件更新到模拟器，设备继续执行旧 bundle
+- 解决步骤: 对比本地与设备端 `app-service.js` 的文件大小和本次代码标识；重新同步完整 `app-plus` 产物并重启调试基座；再执行原始复现步骤和视觉验收
+- 预防/规则: App-Plus 真机或模拟器结果与源码不一致时，必须先验证设备端 bundle 版本；不能用本地编译成功替代设备部署成功
+- 关联文件: android/unpackage/dist/dev/app-plus/app-service.js, android/utils/immersivePlayer.js, android/pages/player/index.vue
+- 标签: android, uni-app, HBuilderX, 模拟器, 热更新
+- 关键词: app-service.js, 差量同步, 旧 bundle, HBuilderX launch
+
+## [2026-08-30] 现象: 服务端异常中断可能留下半文件、卡住任务或不一致数据
+- 触发条件: 大文件上传超限或磁盘不足、删除时数据库提交失败、视频识别中容器重启，或运行中直接复制 WAL 模式数据库
+- 根因: 上传曾整文件读入并直接写正式路径；文件删除先于数据库提交且无补偿；`processing` 状态没有启动恢复；SQLite 缺少锁等待和一致性备份流程
+- 解决步骤: 上传分块写 `.part` 并原子替换，批次失败统一回滚；删除前同盘暂存，提交失败恢复；worker 条件更新领取并在启动时恢复中断任务；SQLite 启用 WAL、busy timeout 和版本迁移，使用 `sqlite3.Connection.backup` 备份并在停机状态校验恢复；Docker 使用非 root 用户和健康检查
+- 预防/规则: 文件与数据库联合变更必须有明确提交顺序和补偿；后台任务状态必须可在进程重启后恢复；运行中的 SQLite 不可用普通文件复制作为一致备份；容器级能力必须在真实 Docker 环境补验
+- 关联文件: server/app/services/uploads.py, server/app/services/media_delete.py, server/app/tasks/worker.py, server/app/db/session.py, server/app/services/database_backup.py, server/Dockerfile, server/README.md, AI_TOOL/server_reliability_test.py
+- 标签: server, upload, sqlite, worker, docker, reliability
+- 关键词: atomic replace, transaction rollback, WAL, backup, processing recovery, non-root
+
+## [2026-09-01] 现象: 长辈手机无法依赖 GitHub 手动获取新版本
+- 触发条件: 需要让 APK 内的页面和业务逻辑自动更新，但用户手机可能无法访问 GitHub，也不希望频繁手动安装 WGT
+- 根因: GitHub Release 不是稳定的手机客户端更新入口，且 APK 与 WGT 的更新边界没有落地
+- 解决步骤: 使用 `tv.xiaohuihuitop.top` 统一提供管理、public 清单和 WGT 更新；客户端 App-Plus 启动/回前台检查 HTTPS `update.json`，仅安装更高版本的 WGT；`/update/` 由反代直接提供宿主机持久化静态文件
+- 预防/规则: WGT 只能更新页面、JS、CSS 和业务逻辑；发布顺序必须先上传 WGT 再发布 `update.json`；播放页不得自动重启；HTTPS 反代必须传递 `Host` 和 `X-Forwarded-Proto`，保证清单资源地址使用 HTTPS
+- 关联文件: android/utils/updateService.js, android/App.vue, android/utils/appConfig.js, server/README.md, android/Doc/APP打包说明.md, AI_TOOL/android_update_service_test.mjs
+- 标签: android, WGT, App-Plus, 自动更新, HTTPS, reverse-proxy
+- 关键词: update.json, plus.runtime.install, tv.xiaohuihuitop.top, update directory
+
+## [2026-09-01] 事实: WGT 已生成但线上升级目录尚未发布
+- 触发条件: 需要用旧版 APK 验证 `tv.xiaohuihuitop.top` 的自动更新
+- 已验证: HBuilderX 5.07 生成 `android/unpackage/release/wgt/ai-tv-1.0.1.wgt`，大小 306509 字节，WGT manifest 为版本 `1.0.1 / 101` 且不含 `adid`；全部 Android Node 回归、Python compileall 和 git diff check 通过
+- 线上状态: `https://tv.xiaohuihuitop.top/` 返回 302，`/update/update.json` 返回 404，尚未完成静态目录反代和清单发布
+- APK 状态: 同日生成的 APK 资源 manifest 含 DCloud 云端注入的 `adid: 122993130201`，源码和 WGT 未配置该值；无广告 APK 必须先清空云端广告 AppID 后重新打包
+- 预防/规则: 先上传 WGT，再发布 update.json；发布清单的 `size_bytes` 必须与实际文件大小一致；本地构建成功不等于线上自动更新成功
+- 关联文件: android/manifest.json, android/unpackage/release/wgt/ai-tv-1.0.1.wgt, android/Doc/APP打包说明.md, server/README.md
+- 标签: android, WGT, APK, HBuilderX, DCloud, auto-update, deployment
+- 关键词: 1.0.1, 306509, update.json 404, adid
+
+## [2026-09-01] 根因: 反代 HTTPS 下 public 资源地址仍为 HTTP
+- 现象: `https://tv.xiaohuihuitop.top/public/index.json` 返回的视频、封面和文档 URL 使用 `http://`
+- 根因: `server/app/api/public_routes.py` 直接使用 `request.base_url`，当前 Uvicorn 启动方式没有自动信任 `X-Forwarded-Proto`
+- 修复: 公共清单基址计算读取首个合法的 `X-Forwarded-Proto`，Host 继续使用反代传入的 Host；新增 `test_public_index_uses_forwarded_https_origin`
+- 验证: 本地服务端管理/可靠性回归以及 Android Node、Python compileall、git diff check 通过；公网仍是旧镜像，需部署后复核
+- 预防/规则: 反代必须传递 `Host`、`X-Forwarded-For` 和 `X-Forwarded-Proto`；代码修复完成不等于线上镜像已更新
+- 关联文件: server/app/api/public_routes.py, AI_TOOL/server_admin_features_test.py, server/README.md
+- 标签: server, reverse-proxy, HTTPS, public-index, deployment
+- 关键词: X-Forwarded-Proto, request.base_url, http resource URL

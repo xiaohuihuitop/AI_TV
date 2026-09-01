@@ -25,7 +25,7 @@
           class="modal-input"
           v-model="draftUrl"
           confirm-type="done"
-          placeholder="qh.xhhtop.top:8000/public/index.json?user=admin&pass=admin"
+          placeholder="https://tv.xiaohuihuitop.top/public/index.json?user=admin&pass=admin"
         />
         <view class="modal-actions">
           <button class="btn btn-ghost modal-btn" size="mini" @click="closeAddressDialog">

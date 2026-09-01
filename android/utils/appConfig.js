@@ -1,5 +1,8 @@
+export const updateManifestUrl =
+  "https://tv.xiaohuihuitop.top/update/update.json";
+
 export const defaultIndexUrl =
-  "qh.xhhtop.top:8000/public/index.json?user=admin&pass=admin";
+  "https://tv.xiaohuihuitop.top/public/index.json?user=admin&pass=admin";
 
 /**
  * AI:将用户填写的清单地址转换为 App 网络请求可用地址。
