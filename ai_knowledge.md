@@ -330,3 +330,12 @@
 - 关联文件: server/app/api/public_routes.py, AI_TOOL/server_admin_features_test.py, server/README.md
 - 标签: server, reverse-proxy, HTTPS, public-index, deployment
 - 关键词: X-Forwarded-Proto, request.base_url, http resource URL
+
+## [2026-09-12] 根因: 视频 Range 分段响应缺少媒体类型导致浏览器预览失败
+- 现象: 后台“手机预览”加载真实 MP4 后显示“无法播放”，即使无 Range 的下载响应已带 `Content-Type: video/mp4`。
+- 根因: 浏览器播放器会发起 `Range` 请求；服务端的 `StreamingResponse` 仅返回 `Content-Range`、`Accept-Ranges` 和 `Content-Length`，未指定 `media_type`，206 响应因此缺失 `Content-Type`。
+- 修复: API 和 public 两个视频下载接口的 FileResponse 与 StreamingResponse 均显式声明 `video/mp4`；回归测试同时断言两个接口的 206 状态、范围头、媒体类型和分段正文。
+- 预防/规则: 任何支持 Range 的媒体接口都必须验证无 Range 的 200 和 Range 的 206 响应具有一致且正确的媒体类型，不能仅测试下载成功或范围字节。
+- 关联文件: server/app/api/routes.py, server/app/api/public_routes.py, AI_TOOL/server_admin_features_test.py
+- 标签: server, video, range, streaming, content-type, browser
+- 关键词: StreamingResponse, Range, 206, video/mp4, Content-Type

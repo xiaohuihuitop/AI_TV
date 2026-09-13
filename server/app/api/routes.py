@@ -180,7 +180,7 @@ def download_video(request: Request, video_id: int, range: str | None = Header(d
         if not path.exists():
             raise HTTPException(status_code=404, detail="File missing")
         if not range:
-            return FileResponse(path)
+            return FileResponse(path, media_type="video/mp4", headers={"Accept-Ranges": "bytes"})
         size = path.stat().st_size
         start, end = parse_range(range, size)
         headers = {
@@ -188,7 +188,9 @@ def download_video(request: Request, video_id: int, range: str | None = Header(d
             "Accept-Ranges": "bytes",
             "Content-Length": str(end - start + 1),
         }
-        return StreamingResponse(iter_file(path, start, end), status_code=206, headers=headers)
+        return StreamingResponse(
+            iter_file(path, start, end), media_type="video/mp4", status_code=206, headers=headers
+        )
 
 
 @router.delete("/videos/{video_id}")

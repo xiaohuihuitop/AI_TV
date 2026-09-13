@@ -723,6 +723,7 @@ body::before {
 }
 
 .mobile-preview-dialog-head h2 {
+  flex: 1 1 auto;
   min-width: 0;
   margin: 0;
   overflow: hidden;
@@ -742,6 +743,43 @@ body::before {
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
+}
+
+.mobile-preview-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 0;
+}
+
+.mobile-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid #c2d2ca;
+  border-radius: 6px;
+  background: #edf5f0;
+  color: #1b5848;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.mobile-preview-badge.is-contain {
+  border-color: #c9d7df;
+  background: #eef5f8;
+  color: #28576b;
+}
+
+.mobile-preview-layout-note {
+  margin: 10px 16px 0;
+  padding: 9px 11px;
+  border-left: 3px solid #4b9b84;
+  background: #f1f5f2;
+  color: #46565a;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .mobile-preview-dialog > .mobile-preview-phone {
@@ -807,7 +845,7 @@ body::before {
   gap: 6px;
   padding: 8px;
   background: #171b1e;
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: 2px solid #557079;
 }
 
 .mobile-preview-actions button {
@@ -893,6 +931,14 @@ body::before {
   }
   .mobile-preview-dialog > .mobile-preview-phone {
     margin: 12px auto;
+  }
+  .mobile-preview-context {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+  .mobile-preview-layout-note {
+    margin-right: 12px;
+    margin-left: 12px;
   }
   .mobile-preview-phone.is-landscape {
     width: 100%;

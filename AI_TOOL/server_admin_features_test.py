@@ -289,6 +289,11 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert 'data-mobile-preview-width="1920"' in page.text
         assert 'data-mobile-preview-title="waiting.mp4"' not in page.text
         assert 'id="mobile-preview-dialog"' in page.text
+        assert 'data-mobile-preview-orientation' in page.text
+        assert 'data-mobile-preview-dimensions' in page.text
+        assert 'data-mobile-preview-layout-note' in page.text
+        assert "完整显示，不裁切" in page.text
+        assert "76px" in page.text
         assert '/static/mobile-preview.js' in page.text
 
         script = client.get("/static/mobile-preview.js", headers=AUTH_HEADERS)
@@ -296,6 +301,9 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert "dialog.showModal()" in script.text
         assert "previewVideo.pause()" in script.text
         assert "is-landscape" in script.text
+        assert "getPlaybackLayout" in script.text
+        assert "横屏播放" in script.text
+        assert "竖屏播放" in script.text
         assert "updateNavigation" in script.text
         assert 'event.key === "Escape"' in script.text
 
@@ -305,7 +313,27 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert ".mobile-preview-phone.is-landscape" in css.text
         assert "aspect-ratio: 16 / 11.4;" in css.text
         assert "object-fit: contain" in css.text
+        assert ".mobile-preview-context" in css.text
+        assert ".mobile-preview-layout-note" in css.text
         assert ".mobile-preview-actions" in css.text
+    finally:
+        cleanup_client(app, tmp)
+
+
+def test_video_range_responses_keep_mp4_content_type():
+    tmp, app, client = make_client()
+    try:
+        video_id = add_video(app, "stream.mp4")
+        headers = {**AUTH_HEADERS, "Range": "bytes=0-3"}
+
+        for path in (f"/api/videos/{video_id}/download", f"/public/videos/{video_id}/download"):
+            response = client.get(path, headers=headers)
+
+            assert response.status_code == 206
+            assert response.headers["content-type"] == "video/mp4"
+            assert response.headers["accept-ranges"] == "bytes"
+            assert response.headers["content-range"] == "bytes 0-3/5"
+            assert response.content == b"vide"
     finally:
         cleanup_client(app, tmp)
 
@@ -347,5 +375,6 @@ if __name__ == "__main__":
     test_doc_list_filters_and_bulk_delete()
     test_upload_pages_show_progress_controls()
     test_ready_videos_expose_mobile_preview_queue_only()
+    test_video_range_responses_keep_mp4_content_type()
     test_public_index_uses_forwarded_https_origin()
     print("server admin features ok")
