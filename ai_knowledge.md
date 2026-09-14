@@ -348,3 +348,13 @@
 - 关联文件: server/app/static/app.css, server/app/static/mobile-preview.js, server/app/templates/videos.html, AI_TOOL/server_admin_features_test.py
 - 标签: server, web, video, preview, responsive, css, visual-test
 - 关键词: aspect-ratio, max-width, 20:9, 9:20, mobile preview, contain
+
+## [2026-09-15] 根因: 正式后台不能只用数据库宽高决定手机客户端播放方向
+- 现象: `VID_20250930_210507.mp4` 的数据库记录为 `1920 x 1080`，但手机客户端最终按竖屏显示；后台若直接比较 `width > height` 会展示错误的横屏模型。
+- 根因: 原始视频流宽高、旋转元数据、封面最终尺寸和客户端实际渲染方向可能不一致；后台只读取数据库记录无法代表最终播放效果。
+- 解决步骤: 预览按钮传入受保护的封面地址；前端优先读取 `Image.naturalWidth/naturalHeight`，封面不可用时读取已加载视频的 `videoWidth/videoHeight`，最后回退数据库宽高。模型只在固定 `9:20` 与 `20:9` 两种尺寸间切换，视频使用 `object-fit: contain`。
+- 版本规则: `Settings.app_version` 作为唯一运行时来源；Dockerfile 用 `ARG APP_VERSION` 写入 OCI label 和 `ENV`，GitHub Actions 用 `github.ref_name` 传入构建 tag；运行镜像仍固定为 `ai_tv_server:latest`，不改变部署命令。
+- 预防/规则: 视觉预览必须以客户端最终可见的封面或视频显示尺寸为方向依据；固定手机模型时只允许小窗口按可用空间等比例缩放，不随素材宽高改变模型比例；部署后需检查后台版本号和实际视频播放。
+- 关联文件: server/app/templates/videos.html, server/app/static/mobile-preview.js, server/app/static/app.css, server/app/core/config.py, server/app/services/system_status.py, server/Dockerfile, .github/workflows/server-image-build.yml, AI_TOOL/server_admin_features_test.py
+- 标签: server, web, video, preview, orientation, docker, version
+- 关键词: cover orientation, naturalWidth, videoWidth, APP_VERSION, github.ref_name, 20:9, 9:20

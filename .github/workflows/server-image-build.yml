@@ -34,6 +34,8 @@ jobs:
           file: ./server/Dockerfile
           platforms: linux/amd64
           tags: ${{ env.IMAGE_TAG }}
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
           outputs: type=docker,dest=${{ env.TAR_PATH }}
 
       - name: Upload server image artifact

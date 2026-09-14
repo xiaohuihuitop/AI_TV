@@ -107,6 +107,7 @@ def test_status_page_and_api():
         api_resp = client.get("/api/system/status", headers=AUTH_HEADERS)
         assert api_resp.status_code == 200
         data = api_resp.json()
+        assert data["app"]["version"] == "dev"
         assert data["storage"]["data_dir"]["exists"] is True
         assert data["database"]["exists"] is True
         assert data["counts"]["videos"]["total"] == 2
@@ -286,6 +287,7 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert page.status_code == 200
         assert f'data-mobile-preview-id="{ready_id}"' in page.text
         assert 'data-mobile-preview-title="landscape.mp4"' in page.text
+        assert f'data-mobile-preview-cover="/web/videos/{ready_id}/cover"' in page.text
         assert 'data-mobile-preview-width="1920"' in page.text
         assert 'data-mobile-preview-title="waiting.mp4"' not in page.text
         assert 'id="mobile-preview-dialog"' in page.text
@@ -301,6 +303,9 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert "dialog.showModal()" in script.text
         assert "previewVideo.pause()" in script.text
         assert "is-landscape" in script.text
+        assert "coverLandscape" in script.text
+        assert "naturalWidth > image.naturalHeight" in script.text
+        assert "videoWidth > previewVideo.videoHeight" in script.text
         assert "togglePlayback" in script.text
         assert "syncMediaControls" in script.text
         assert '"loadedmetadata"' in script.text
@@ -312,15 +317,25 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert ".mobile-preview-dialog" in css.text
         assert ".mobile-preview-phone.is-landscape" in css.text
         assert "aspect-ratio: 9 / 20;" in css.text
-        assert "aspect-ratio: 2 / 1;" in css.text
-        assert "width: auto;" in css.text
-        assert "height: min(76dvh, 620px);" in css.text
+        assert "aspect-ratio: 20 / 9;" in css.text
+        assert "width: min(var(--phone-width), calc((100dvh - 96px) * 320 / 711));" in css.text
+        assert "height: min(var(--phone-height), calc(100dvh - 96px));" in css.text
         assert "max-width: 100%;" in css.text
         assert "white-space: nowrap;" in css.text
         assert "grid-template-rows: minmax(0, 1fr) 76px;" in css.text
         assert "object-fit: contain" in css.text
         assert ".mobile-preview-media-controls" in css.text
         assert ".mobile-preview-actions" in css.text
+
+        system_page = client.get("/web/system", headers=AUTH_HEADERS)
+        assert "版本 dev" in system_page.text
+
+        dockerfile = (ROOT / "server" / "Dockerfile").read_text(encoding="utf-8")
+        assert "ARG APP_VERSION=dev" in dockerfile
+        assert 'org.opencontainers.image.version="${APP_VERSION}"' in dockerfile
+        assert "APP_VERSION=${APP_VERSION}" in dockerfile
+        workflow = (ROOT / ".github" / "workflows" / "server-image-build.yml").read_text(encoding="utf-8")
+        assert "APP_VERSION=${{ github.ref_name }}" in workflow
     finally:
         cleanup_client(app, tmp)
 

@@ -1,10 +1,14 @@
 FROM python:3.10-slim
 
+ARG APP_VERSION=dev
+
 LABEL org.opencontainers.image.title="AI TV Server"
+LABEL org.opencontainers.image.version="${APP_VERSION}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    TMPDIR=/data/tmp
+    TMPDIR=/data/tmp \
+    APP_VERSION=${APP_VERSION}
 
 WORKDIR /app
 

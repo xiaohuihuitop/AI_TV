@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     db_path: str = "./data/db/app.db"
     basic_user: str = "admin"
     basic_pass: str = "admin"
+    app_version: str = "dev"
     worker_interval_sec: int = Field(default=2, ge=1)
     enable_worker: bool = True
     max_video_upload_bytes: int = Field(default=2 * 1024 * 1024 * 1024, ge=1)

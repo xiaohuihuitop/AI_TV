@@ -11,6 +11,7 @@
     <div class="page">
       <aside class="sidebar">
         <div class="brand">VideoDoc Admin</div>
+        <div class="brand-version">版本 {{ request.app.state.settings.app_version }}</div>
         <nav class="side-nav">
           <a href="/web/videos" class="{% if active == 'videos' %}active{% endif %}">视频管理</a>
           <a href="/web/docs" class="{% if active == 'docs' %}active{% endif %}">文档管理</a>

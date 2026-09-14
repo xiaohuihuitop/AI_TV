@@ -9,8 +9,11 @@
     id: trigger.dataset.mobilePreviewId,
     title: trigger.dataset.mobilePreviewTitle,
     src: trigger.dataset.mobilePreviewSrc,
+    cover: trigger.dataset.mobilePreviewCover || "",
     width: Number(trigger.dataset.mobilePreviewWidth || 0),
     height: Number(trigger.dataset.mobilePreviewHeight || 0),
+    coverLandscape: null,
+    coverLoading: false,
     trigger,
   }));
   const previewTitle = dialog.querySelector("#mobile-preview-title");
@@ -27,6 +30,33 @@
   const close = dialog.querySelector("[data-mobile-preview-close]");
   let activeIndex = -1;
   let opener = null;
+
+  function applyOrientation(landscape) {
+    previewPhone.classList.toggle("is-landscape", landscape);
+    previewPhone.setAttribute(
+      "aria-label",
+      landscape ? "横屏手机播放器模拟" : "竖屏手机播放器模拟",
+    );
+  }
+
+  function preloadCover(item) {
+    if (!item.cover || item.coverLoading || item.coverLandscape !== null) {
+      return;
+    }
+    item.coverLoading = true;
+    const image = new Image();
+    image.onload = () => {
+      item.coverLoading = false;
+      item.coverLandscape = image.naturalWidth > image.naturalHeight;
+      if (playlist[activeIndex] === item) {
+        applyOrientation(item.coverLandscape);
+      }
+    };
+    image.onerror = () => {
+      item.coverLoading = false;
+    };
+    image.src = item.cover;
+  }
 
   function updateNavigation() {
     previous.disabled = activeIndex <= 0;
@@ -94,22 +124,23 @@
   function displayItem(index) {
     activeIndex = index;
     const item = playlist[index];
-    const landscape = item.width > item.height;
+    const landscape = item.coverLandscape ?? item.width > item.height;
     previewTitle.textContent = `手机播放预览：${item.title}`;
-    previewPhone.classList.toggle("is-landscape", landscape);
-    previewPhone.setAttribute("aria-label", landscape ? "横屏手机播放器模拟" : "竖屏手机播放器模拟");
+    applyOrientation(landscape);
     previewError.hidden = true;
     previewVideo.pause();
     previewVideo.removeAttribute("src");
     resetMediaControls();
     previewVideo.src = item.src;
     previewVideo.load();
+    preloadCover(item);
     updateNavigation();
   }
 
   function openAt(index) {
     opener = playlist[index].trigger;
     displayItem(index);
+    document.body.classList.add("mobile-preview-open");
     dialog.showModal();
     close.focus();
   }
@@ -119,6 +150,8 @@
       dialog.close();
     }
   }
+
+  playlist.forEach(preloadCover);
 
   triggers.forEach((trigger, index) => {
     trigger.addEventListener("click", () => openAt(index));
@@ -148,6 +181,7 @@
     }
   });
   dialog.addEventListener("close", () => {
+    document.body.classList.remove("mobile-preview-open");
     previewVideo.pause();
     previewVideo.removeAttribute("src");
     previewVideo.load();
@@ -163,7 +197,14 @@
     const item = playlist[activeIndex];
     showPlaybackError(item ? `无法播放：${item.title}` : "无法播放视频");
   });
-  previewVideo.addEventListener("loadedmetadata", syncMediaControls);
+  previewVideo.addEventListener("loadedmetadata", () => {
+    const item = playlist[activeIndex];
+    if (item && item.coverLandscape === null) {
+      item.coverLandscape = previewVideo.videoWidth > previewVideo.videoHeight;
+      applyOrientation(item.coverLandscape);
+    }
+    syncMediaControls();
+  });
   previewVideo.addEventListener("durationchange", syncMediaControls);
   previewVideo.addEventListener("timeupdate", syncMediaControls);
   previewVideo.addEventListener("play", syncMediaControls);

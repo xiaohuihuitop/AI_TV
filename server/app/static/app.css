@@ -23,6 +23,10 @@ body {
   min-height: 100vh;
 }
 
+body.mobile-preview-open {
+  overflow: hidden;
+}
+
 body::before {
   content: "";
   position: fixed;
@@ -53,6 +57,13 @@ body::before {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 1px;
+}
+
+.brand-version {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .side-nav {
@@ -698,19 +709,24 @@ body::before {
 }
 
 .mobile-preview-dialog {
-  width: min(calc(100vw - 32px), 640px);
-  max-height: calc(100dvh - 32px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  max-height: none;
+  margin: 0;
   padding: 0;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: 0 24px 56px rgba(16, 24, 28, 0.36);
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: #111719;
+  color: #edf3f2;
+  box-shadow: none;
 }
 
 .mobile-preview-dialog::backdrop {
-  background: rgba(16, 24, 28, 0.7);
+  background: #111719;
 }
 
 .mobile-preview-dialog-head {
@@ -718,8 +734,10 @@ body::before {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
+  min-height: 72px;
+  padding: 14px 28px;
+  background: #1a2225;
+  border-bottom: 1px solid #3a4649;
 }
 
 .mobile-preview-dialog-head h2 {
@@ -727,7 +745,7 @@ body::before {
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  font-size: 18px;
+  font-size: 20px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -736,17 +754,17 @@ body::before {
   width: 40px;
   height: 40px;
   flex: 0 0 auto;
-  border: 1px solid var(--border);
+  border: 1px solid #526268;
   border-radius: 6px;
-  background: transparent;
-  color: var(--ink);
+  background: #222c30;
+  color: #ffffff;
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
 
 .mobile-preview-dialog > .mobile-preview-phone {
-  margin: 16px auto;
+  margin: auto;
 }
 
 .mobile-preview-dialog button:focus-visible {
@@ -755,26 +773,29 @@ body::before {
 }
 
 .mobile-preview-phone {
-  width: auto;
-  max-width: min(100%, 300px);
-  height: min(76dvh, 620px);
+  --phone-width: 320px;
+  --phone-height: 711px;
+  width: min(var(--phone-width), calc((100dvh - 96px) * 320 / 711));
+  height: min(var(--phone-height), calc(100dvh - 96px));
   aspect-ratio: 9 / 20;
   display: grid;
   grid-template-rows: minmax(0, 1fr) 76px;
   overflow: hidden;
-  border: 7px solid #0b0d0e;
-  border-radius: 30px;
+  border: 7px solid #050708;
+  border-radius: 34px;
   background: #000;
-  box-shadow: 0 14px 28px rgba(16, 24, 28, 0.26);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.48);
 }
 
 .mobile-preview-phone.is-landscape {
-  width: min(100%, 640px);
+  --phone-width: 711px;
+  --phone-height: 320px;
+  width: min(var(--phone-width), calc(100vw - 56px));
   max-width: 100%;
-  height: auto;
-  aspect-ratio: 2 / 1;
+  height: min(var(--phone-height), calc((100vw - 56px) * 320 / 711));
+  aspect-ratio: 20 / 9;
   grid-template-rows: minmax(0, 1fr) 76px;
-  border-radius: 26px;
+  border-radius: 30px;
 }
 
 .mobile-preview-screen {
@@ -800,11 +821,11 @@ body::before {
   display: grid;
   grid-template-columns: 32px auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
-  min-height: 48px;
-  padding: 7px 12px;
+  gap: 12px;
+  min-height: 54px;
+  padding: 8px 16px;
   box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.68);
+  background: rgba(0, 0, 0, 0.74);
   color: #ffffff;
 }
 
@@ -841,7 +862,7 @@ body::before {
 .mobile-preview-time {
   color: #ffffff;
   font-variant-numeric: tabular-nums;
-  font-size: 13px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
@@ -870,17 +891,17 @@ body::before {
 .mobile-preview-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
   padding: 8px 10px;
   background: #171b1e;
-  border-top: 2px solid #557079;
+  border-top: 1px solid #526067;
 }
 
 .mobile-preview-actions button {
   min-width: 0;
   min-height: 52px;
   padding: 0 4px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  border: 1px solid #667075;
   border-radius: 999px;
   background: #343a3f;
   color: #fffaf4;
@@ -893,7 +914,7 @@ body::before {
 
 .mobile-preview-actions .is-back {
   background: #286953;
-  border-color: #4b9b84;
+  border-color: #5eb693;
 }
 
 .mobile-preview-actions button:disabled {
@@ -958,13 +979,38 @@ body::before {
     align-items: start;
   }
   .mobile-preview-dialog {
-    width: calc(100vw - 24px);
+    width: 100vw;
+    height: 100vh;
+  }
+  .mobile-preview-dialog-head {
+    min-height: 64px;
+    padding: 10px 16px;
+  }
+  .mobile-preview-dialog-head h2 {
+    font-size: 17px;
   }
   .mobile-preview-dialog > .mobile-preview-phone {
-    margin: 12px auto;
+    margin: auto;
+  }
+  .mobile-preview-phone {
+    width: min(320px, calc((100dvh - 88px) * 320 / 711));
+    height: min(711px, calc(100dvh - 88px));
   }
   .mobile-preview-phone.is-landscape {
-    width: 100%;
+    width: min(711px, calc(100vw - 24px));
+    height: min(320px, calc((100vw - 24px) * 320 / 711));
     border-width: 5px;
+  }
+  .mobile-preview-media-controls {
+    gap: 8px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+  .mobile-preview-actions {
+    gap: 6px;
+    padding: 6px;
+  }
+  .mobile-preview-actions button {
+    font-size: 16px;
   }
 }

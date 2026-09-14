@@ -16,7 +16,7 @@ def collect_system_status(app, session: Session) -> dict:
     return {
         "app": {
             "name": "AI TV Server",
-            "version": os.getenv("APP_VERSION") or os.getenv("IMAGE_TAG") or "unknown",
+            "version": cfg.app_version,
             "timezone": os.getenv("TZ", ""),
         },
         "config": {
