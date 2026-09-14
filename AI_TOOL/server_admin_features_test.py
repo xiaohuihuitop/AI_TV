@@ -289,11 +289,11 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert 'data-mobile-preview-width="1920"' in page.text
         assert 'data-mobile-preview-title="waiting.mp4"' not in page.text
         assert 'id="mobile-preview-dialog"' in page.text
-        assert 'data-mobile-preview-orientation' in page.text
-        assert 'data-mobile-preview-dimensions' in page.text
-        assert 'data-mobile-preview-layout-note' in page.text
-        assert "完整显示，不裁切" in page.text
-        assert "76px" in page.text
+        assert 'data-mobile-preview-play' in page.text
+        assert 'data-mobile-preview-current-time' in page.text
+        assert 'data-mobile-preview-progress' in page.text
+        assert 'data-mobile-preview-duration' in page.text
+        assert 'data-mobile-preview-orientation' not in page.text
         assert '/static/mobile-preview.js' in page.text
 
         script = client.get("/static/mobile-preview.js", headers=AUTH_HEADERS)
@@ -301,9 +301,9 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert "dialog.showModal()" in script.text
         assert "previewVideo.pause()" in script.text
         assert "is-landscape" in script.text
-        assert "getPlaybackLayout" in script.text
-        assert "横屏播放" in script.text
-        assert "竖屏播放" in script.text
+        assert "togglePlayback" in script.text
+        assert "syncMediaControls" in script.text
+        assert '"loadedmetadata"' in script.text
         assert "updateNavigation" in script.text
         assert 'event.key === "Escape"' in script.text
 
@@ -311,10 +311,15 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert css.status_code == 200
         assert ".mobile-preview-dialog" in css.text
         assert ".mobile-preview-phone.is-landscape" in css.text
-        assert "aspect-ratio: 16 / 11.4;" in css.text
+        assert "aspect-ratio: 9 / 20;" in css.text
+        assert "aspect-ratio: 2 / 1;" in css.text
+        assert "width: auto;" in css.text
+        assert "height: min(76dvh, 620px);" in css.text
+        assert "max-width: 100%;" in css.text
+        assert "white-space: nowrap;" in css.text
+        assert "grid-template-rows: minmax(0, 1fr) 76px;" in css.text
         assert "object-fit: contain" in css.text
-        assert ".mobile-preview-context" in css.text
-        assert ".mobile-preview-layout-note" in css.text
+        assert ".mobile-preview-media-controls" in css.text
         assert ".mobile-preview-actions" in css.text
     finally:
         cleanup_client(app, tmp)

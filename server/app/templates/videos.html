@@ -167,17 +167,17 @@
     <h2 id="mobile-preview-title">手机播放预览</h2>
     <button class="icon-btn" type="button" data-mobile-preview-close aria-label="关闭手机预览">×</button>
   </div>
-  <div class="mobile-preview-context" aria-live="polite" aria-label="手机客户端播放效果">
-    <span class="mobile-preview-badge" data-mobile-preview-orientation>方向待识别</span>
-    <span class="mobile-preview-badge" data-mobile-preview-dimensions>画面尺寸待识别</span>
-    <span class="mobile-preview-badge is-contain">完整显示，不裁切</span>
-  </div>
-  <p class="mobile-preview-layout-note" data-mobile-preview-layout-note>
-    视频区完整显示；底部操作栏为 76px，三个按钮独立显示，不遮挡视频。
-  </p>
   <div class="mobile-preview-phone" data-mobile-preview-phone>
     <div class="mobile-preview-screen">
-      <video data-mobile-preview-video controls preload="metadata"></video>
+      <video data-mobile-preview-video preload="metadata" aria-label="视频画面"></video>
+      <div class="mobile-preview-media-controls" data-mobile-preview-media-controls>
+        <button class="mobile-preview-play-toggle" type="button" data-mobile-preview-play aria-label="播放">
+          <span class="mobile-preview-play-icon" aria-hidden="true"></span>
+        </button>
+        <span class="mobile-preview-time" data-mobile-preview-current-time>0:00</span>
+        <input class="mobile-preview-progress" type="range" min="0" max="1" value="0" step="0.1" data-mobile-preview-progress aria-label="播放进度" />
+        <span class="mobile-preview-time" data-mobile-preview-duration>--:--</span>
+      </div>
       <p class="mobile-preview-error" data-mobile-preview-error hidden></p>
     </div>
     <div class="mobile-preview-actions">

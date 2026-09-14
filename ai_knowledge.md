@@ -339,3 +339,12 @@
 - 关联文件: server/app/api/routes.py, server/app/api/public_routes.py, AI_TOOL/server_admin_features_test.py
 - 标签: server, video, range, streaming, content-type, browser
 - 关键词: StreamingResponse, Range, 206, video/mp4, Content-Type
+
+## [2026-09-14] 现象: 后台手机预览与客户端真机比例和按钮布局不一致
+- 触发条件: 后台预览同时为竖屏模型固定 `width`、`height` 和 `aspect-ratio`，横屏模型又继承竖屏的 `max-width`；窄窗口中的三枚中文按钮保留默认水平内边距。
+- 根因: `aspect-ratio` 不能在宽高均已确定时重新约束盒子尺寸；横屏覆盖宽度后未覆盖竖屏最大宽度；按钮可用宽度不足时文本换行。
+- 解决步骤: 竖屏模型改为由受视口限制的高度推导宽度，保持 `9:20`；横屏显式覆盖最大宽度并保持 `20:9`；底部按钮改为固定单行、紧凑内边距；加入自定义播放、时间与进度控件，使用本地可播放横竖屏素材做浏览器验收。
+- 预防/规则: 手机模型必须只确定一个尺寸再由 `aspect-ratio` 推导另一个尺寸；变体样式要显式覆盖基础尺寸限制；应以真机截图比例和实际可播放视频做视觉验收，不能只检查 CSS 字符串或文字说明。
+- 关联文件: server/app/static/app.css, server/app/static/mobile-preview.js, server/app/templates/videos.html, AI_TOOL/server_admin_features_test.py
+- 标签: server, web, video, preview, responsive, css, visual-test
+- 关键词: aspect-ratio, max-width, 20:9, 9:20, mobile preview, contain

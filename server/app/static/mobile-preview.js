@@ -17,9 +17,10 @@
   const previewPhone = dialog.querySelector("[data-mobile-preview-phone]");
   const previewVideo = dialog.querySelector("[data-mobile-preview-video]");
   const previewError = dialog.querySelector("[data-mobile-preview-error]");
-  const previewOrientation = dialog.querySelector("[data-mobile-preview-orientation]");
-  const previewDimensions = dialog.querySelector("[data-mobile-preview-dimensions]");
-  const previewLayoutNote = dialog.querySelector("[data-mobile-preview-layout-note]");
+  const previewPlay = dialog.querySelector("[data-mobile-preview-play]");
+  const previewCurrentTime = dialog.querySelector("[data-mobile-preview-current-time]");
+  const previewProgress = dialog.querySelector("[data-mobile-preview-progress]");
+  const previewDuration = dialog.querySelector("[data-mobile-preview-duration]");
   const previous = dialog.querySelector("[data-mobile-preview-prev]");
   const next = dialog.querySelector("[data-mobile-preview-next]");
   const back = dialog.querySelector("[data-mobile-preview-back]");
@@ -32,31 +33,75 @@
     next.disabled = activeIndex < 0 || activeIndex >= playlist.length - 1;
   }
 
-  function getPlaybackLayout(item) {
-    const hasDimensions = item.width > 0 && item.height > 0;
-    const landscape = hasDimensions && item.width > item.height;
-    return {
-      landscape,
-      orientation: hasDimensions ? (landscape ? "横屏播放" : "竖屏播放") : "方向待识别",
-      dimensions: hasDimensions ? `画面 ${item.width} × ${item.height}` : "画面尺寸待识别",
-      note: hasDimensions
-        ? "视频区完整显示，不裁切；底部操作栏为 76px，三个按钮独立显示，不遮挡视频。"
-        : "尺寸尚未识别，手机方向待客户端读取视频或封面后确定；底部操作栏为 76px，三个按钮独立显示。",
-    };
+  function formatTime(value) {
+    const seconds = Math.max(0, Math.floor(Number(value) || 0));
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = String(seconds % 60).padStart(2, "0");
+    if (minutes < 60) {
+      return `${minutes}:${remainingSeconds}`;
+    }
+    const hours = Math.floor(minutes / 60);
+    return `${hours}:${String(minutes % 60).padStart(2, "0")}:${remainingSeconds}`;
+  }
+
+  function getKnownDuration() {
+    const duration = Number(previewVideo.duration);
+    return Number.isFinite(duration) && duration > 0 ? duration : 0;
+  }
+
+  function syncMediaControls() {
+    const duration = getKnownDuration();
+    const currentTime = Math.min(Math.max(0, Number(previewVideo.currentTime) || 0), duration || 0);
+    previewCurrentTime.textContent = formatTime(currentTime);
+    previewDuration.textContent = duration ? formatTime(duration) : "--:--";
+    previewProgress.max = String(Math.max(1, duration));
+    previewProgress.value = String(currentTime);
+    previewPlay.classList.toggle("is-playing", !previewVideo.paused && !previewVideo.ended);
+    previewPlay.setAttribute("aria-label", previewVideo.paused || previewVideo.ended ? "播放" : "暂停");
+  }
+
+  function resetMediaControls() {
+    previewCurrentTime.textContent = "0:00";
+    previewDuration.textContent = "--:--";
+    previewProgress.max = "1";
+    previewProgress.value = "0";
+    previewPlay.classList.remove("is-playing");
+    previewPlay.setAttribute("aria-label", "播放");
+  }
+
+  function showPlaybackError(message) {
+    previewError.textContent = message;
+    previewError.hidden = false;
+  }
+
+  function togglePlayback() {
+    if (!previewVideo.src) {
+      return;
+    }
+    if (!previewVideo.paused && !previewVideo.ended) {
+      previewVideo.pause();
+      return;
+    }
+    const playRequest = previewVideo.play();
+    if (playRequest && typeof playRequest.catch === "function") {
+      playRequest.catch(() => {
+        const item = playlist[activeIndex];
+        showPlaybackError(item ? `无法播放：${item.title}` : "无法播放视频");
+      });
+    }
   }
 
   function displayItem(index) {
     activeIndex = index;
     const item = playlist[index];
-    const layout = getPlaybackLayout(item);
+    const landscape = item.width > item.height;
     previewTitle.textContent = `手机播放预览：${item.title}`;
-    previewPhone.classList.toggle("is-landscape", layout.landscape);
-    previewOrientation.textContent = layout.orientation;
-    previewDimensions.textContent = layout.dimensions;
-    previewLayoutNote.textContent = layout.note;
+    previewPhone.classList.toggle("is-landscape", landscape);
+    previewPhone.setAttribute("aria-label", landscape ? "横屏手机播放器模拟" : "竖屏手机播放器模拟");
     previewError.hidden = true;
     previewVideo.pause();
     previewVideo.removeAttribute("src");
+    resetMediaControls();
     previewVideo.src = item.src;
     previewVideo.load();
     updateNavigation();
@@ -80,6 +125,15 @@
   });
   previous.addEventListener("click", () => displayItem(activeIndex - 1));
   next.addEventListener("click", () => displayItem(activeIndex + 1));
+  previewPlay.addEventListener("click", togglePlayback);
+  previewProgress.addEventListener("input", () => {
+    const duration = getKnownDuration();
+    if (!duration) {
+      return;
+    }
+    previewVideo.currentTime = Math.min(Number(previewProgress.value) || 0, duration);
+    syncMediaControls();
+  });
   back.addEventListener("click", closePreview);
   close.addEventListener("click", closePreview);
   dialog.addEventListener("click", (event) => {
@@ -97,6 +151,7 @@
     previewVideo.pause();
     previewVideo.removeAttribute("src");
     previewVideo.load();
+    resetMediaControls();
     activeIndex = -1;
     updateNavigation();
     if (opener) {
@@ -106,7 +161,12 @@
   });
   previewVideo.addEventListener("error", () => {
     const item = playlist[activeIndex];
-    previewError.textContent = item ? `无法播放：${item.title}` : "无法播放视频";
-    previewError.hidden = false;
+    showPlaybackError(item ? `无法播放：${item.title}` : "无法播放视频");
   });
+  previewVideo.addEventListener("loadedmetadata", syncMediaControls);
+  previewVideo.addEventListener("durationchange", syncMediaControls);
+  previewVideo.addEventListener("timeupdate", syncMediaControls);
+  previewVideo.addEventListener("play", syncMediaControls);
+  previewVideo.addEventListener("pause", syncMediaControls);
+  previewVideo.addEventListener("ended", syncMediaControls);
 })();
