@@ -13,7 +13,7 @@
           <text class="item-title video-title">{{ item.title }}</text>
           <view class="video-card-row">
             <view class="item-cover">
-              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
+              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" lazy-load />
             </view>
             <view class="video-info-panel">
               <view class="item-meta muted">
@@ -189,7 +189,7 @@ export default {
         cover: resolveCoverUrl(item)
       }));
       this.videoItems = list.filter((item) => item.type === "video");
-      return list.some((item) => item.status !== "done");
+      return list.some((item) => item.status === "downloading");
     },
     /**
      * AI:启动下载进度刷新定时器。
@@ -233,7 +233,10 @@ export default {
           }
           const storage = createUniStorage();
           const service = createOfflineService(storage, createEmptyDownloader());
-          removeLocalFile(item.local_path)
+          Promise.all([
+            removeLocalFile(item.local_path),
+            removeLocalFile(item.cover_local_path)
+          ])
             .catch(() => null)
             .then(() => service.removeDownload(item.id))
             .then(() => {

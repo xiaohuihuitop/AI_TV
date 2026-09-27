@@ -34,7 +34,7 @@
             <text class="item-title video-title">{{ item.title }}</text>
             <view class="video-card-row">
               <view class="item-cover">
-                <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
+                <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" lazy-load @error="markCoverRefreshNeeded" />
               </view>
               <view class="video-info-panel">
                 <view class="item-meta muted">
@@ -60,7 +60,7 @@
           </template>
           <template v-else>
             <view class="item-cover">
-              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" />
+              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" lazy-load @error="markCoverRefreshNeeded" />
             </view>
             <view class="item-main">
               <text class="item-title">{{ item.title }}</text>
@@ -205,7 +205,12 @@ export default {
       videoItems: [],
       articleItems: [],
       downloadStatusMap: {},
-      downloadRefreshTimer: null
+      downloadRefreshTimer: null,
+      pageVisible: false,
+      indexRequest: null,
+      indexRequestUrl: "",
+      indexRequestSequence: 0,
+      coverRefreshNeeded: false
     };
   },
   computed: {
@@ -225,6 +230,7 @@ export default {
     }
   },
   onShow() {
+    this.pageVisible = true;
     restoreStandardSystemUi(resolvePlusRuntime);
     if (typeof uni.hideTabBar === "function") {
       uni.hideTabBar({ animation: false });
@@ -236,9 +242,11 @@ export default {
     this.fetchIndex();
   },
   onHide() {
+    this.pageVisible = false;
     this.stopDownloadWatcher();
   },
   onUnload() {
+    this.pageVisible = false;
     this.stopDownloadWatcher();
   },
   /**
@@ -250,7 +258,7 @@ export default {
       uni.stopPullDownRefresh();
       return;
     }
-    Promise.resolve(this.fetchIndex())
+    Promise.resolve(this.fetchIndex(true))
       .catch(() => {})
       .finally(() => {
         uni.stopPullDownRefresh();
@@ -264,6 +272,9 @@ export default {
      */
     setActiveType(type) {
       this.activeType = type;
+    },
+    markCoverRefreshNeeded() {
+      this.coverRefreshNeeded = true;
     },
     /**
      * AI:刷新已下载的视频标记。
@@ -282,6 +293,9 @@ export default {
      * @returns {void} AI:无返回值。
      */
     startDownloadWatcher() {
+      if (!this.pageVisible) {
+        return;
+      }
       this.stopDownloadWatcher();
       this.downloadRefreshTimer = setInterval(() => {
         const hasDownloading = this.refreshDownloadStatus();
@@ -419,7 +433,7 @@ export default {
      * AI:拉取清单并更新页面数据。
      * @returns {Promise<boolean>} AI:返回 Promise，用于结束加载状态。
      */
-    fetchIndex() {
+    fetchIndex(forceRefresh = false) {
       const storage = createUniStorage();
       const adapter = createStorageAdapter(storage);
       const indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
@@ -430,17 +444,27 @@ export default {
         this.emptyHint = "暂无数据";
         return Promise.resolve(false);
       }
+      const normalizedUrl = normalizeRequestUrl(indexUrl);
+      if (this.indexRequest && this.indexRequestUrl === normalizedUrl) {
+        return this.indexRequest;
+      }
+      const requestSequence = this.indexRequestSequence + 1;
+      this.indexRequestSequence = requestSequence;
+      this.indexRequestUrl = normalizedUrl;
       this.loading = true;
       this.error = "";
       this.emptyHint = "暂无数据";
-      const requestUrl = appendCacheBuster(normalizeRequestUrl(indexUrl));
-      return new Promise((resolve) => {
+      const requestUrl = forceRefresh ? appendCacheBuster(normalizedUrl) : normalizedUrl;
+      this.indexRequest = new Promise((resolve) => {
         uni.request({
           url: requestUrl,
           success: (res) => {
+            if (requestSequence !== this.indexRequestSequence) {
+              return;
+            }
             if (res.statusCode === 200 && res.data) {
               adapter.setJson(indexCacheKey, res.data);
-              this.applyItems(res.data);
+              this.applyItems(res.data, forceRefresh || this.coverRefreshNeeded);
               return;
             }
             if (res.statusCode === 401 || res.statusCode === 403) {
@@ -454,24 +478,35 @@ export default {
             this.applyCache(adapter);
           },
           fail: () => {
+            if (requestSequence !== this.indexRequestSequence) {
+              return;
+            }
             this.applyCache(adapter);
           },
           complete: () => {
-            this.loading = false;
+            if (requestSequence === this.indexRequestSequence) {
+              this.loading = false;
+              this.indexRequest = null;
+              this.indexRequestUrl = "";
+            }
             resolve(true);
           }
         });
       });
+      return this.indexRequest;
     },
     /**
      * AI:将清单数据应用到页面状态。
      * @param {Object} data AI:清单数据。
      * @returns {void} AI:无返回值。
      */
-    applyItems(data) {
+    applyItems(data, refreshCovers = false) {
       const normalized = normalizeIndexItems(data);
       const withLocalCover = applyLocalDownload(normalized.items, this.downloadStatusMap);
-      const refreshed = refreshCoverUrls(withLocalCover, Date.now());
+      const refreshed = refreshCovers ? refreshCoverUrls(withLocalCover, Date.now()) : withLocalCover;
+      if (refreshCovers) {
+        this.coverRefreshNeeded = false;
+      }
       this.videoItems = refreshed.filter((item) => item.type === "video");
       this.articleItems = refreshed.filter((item) => item.type === "article");
       this.emptyHint = "暂无数据";
@@ -512,6 +547,9 @@ export default {
       const storage = createUniStorage();
       const service = createOfflineService(storage, createUniDownloader());
       const refreshDownloadProgress = () => {
+        if (!this.pageVisible) {
+          return;
+        }
         const hasDownloading = this.refreshDownloadStatus();
         if (hasDownloading && !this.downloadRefreshTimer) {
           this.startDownloadWatcher();

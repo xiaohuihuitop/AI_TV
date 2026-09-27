@@ -92,6 +92,37 @@ const blocked = createUpdateService({
 });
 assert.equal((await blocked.check()).status, "blocked-playing");
 
+let playbackActive = false;
+let blockedDownloadCount = 0;
+let lastBlockedCheckAt = 0;
+const blockedAfterDownloadEvents = [];
+const blockedAfterDownload = createUpdateService({
+  getCurrentVersion: async () => "1.0.0",
+  requestManifest: async () => valid,
+  download: async () => {
+    blockedDownloadCount += 1;
+    if (blockedDownloadCount === 1) {
+      playbackActive = true;
+    }
+    return { tempFilePath: "/tmp/playing.wgt" };
+  },
+  getFileSize: async () => 123,
+  removeFile: async (path) => blockedAfterDownloadEvents.push(["remove", path]),
+  install: async (path) => blockedAfterDownloadEvents.push(["install", path]),
+  restart: () => blockedAfterDownloadEvents.push(["restart"]),
+  isPlaybackActive: () => playbackActive,
+  now: () => 1500,
+  getLastCheckAt: () => lastBlockedCheckAt,
+  setLastCheckAt: (value) => {
+    lastBlockedCheckAt = value;
+  }
+});
+assert.equal((await blockedAfterDownload.check()).status, "blocked-playing");
+assert.deepEqual(blockedAfterDownloadEvents, [["remove", "/tmp/playing.wgt"]]);
+assert.equal(lastBlockedCheckAt, 0);
+playbackActive = false;
+assert.equal((await blockedAfterDownload.check()).status, "installed");
+
 const sizeFailure = createUpdateService({
   getCurrentVersion: async () => "1.0.0",
   requestManifest: async () => valid,

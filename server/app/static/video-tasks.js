@@ -13,6 +13,29 @@
   let previousActive = Number(root.dataset.activeCount || "0");
   let polling = shouldWatch || previousActive > 0;
   let stopped = false;
+  let timer = null;
+  let refreshInFlight = null;
+
+  const stopPolling = () => {
+    if (timer !== null) {
+      window.clearInterval(timer);
+      timer = null;
+    }
+  };
+
+  const clearWatchParameter = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("watch");
+    window.history.replaceState({}, "", url.toString());
+    return url.toString();
+  };
+
+  const startPolling = () => {
+    if (stopped || timer !== null || !polling || document.hidden) {
+      return;
+    }
+    timer = window.setInterval(refresh, 2500);
+  };
 
   const setText = (node, text) => {
     if (node) {
@@ -94,33 +117,63 @@
         : "当前没有等待识别的视频。"
     );
 
+    if (shouldWatch && activeCount === 0) {
+      clearWatchParameter();
+    }
+
     if (previousActive > 0 && activeCount === 0) {
       stopped = true;
-      window.setTimeout(() => window.location.reload(), 800);
+      stopPolling();
+      window.setTimeout(() => window.location.replace(window.location.href), 800);
       return;
     }
 
+    if (activeCount === 0) {
+      polling = false;
+      stopPolling();
+    } else {
+      polling = true;
+      startPolling();
+    }
     previousActive = activeCount;
-    polling = polling || activeCount > 0;
   };
 
-  const refresh = async () => {
+  const refresh = () => {
     if (stopped) {
-      return;
+      return Promise.resolve();
     }
-    try {
-      const response = await fetch(endpoint, { credentials: "same-origin" });
-      if (!response.ok) {
-        return;
-      }
-      render(await response.json());
-    } catch (error) {
-      setText(note, "状态刷新失败，稍后会自动重试。");
+    if (refreshInFlight) {
+      return refreshInFlight;
     }
+    refreshInFlight = fetch(endpoint, { credentials: "same-origin" })
+      .then((response) => {
+        if (!response.ok) {
+          return null;
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        if (payload && !stopped) {
+          render(payload);
+        }
+      })
+      .catch(() => {
+        setText(note, "状态刷新失败，稍后会自动重试。");
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
+    return refreshInFlight;
   };
 
   refresh();
-  if (polling) {
-    window.setInterval(refresh, 2500);
-  }
+  startPolling();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopPolling();
+      return;
+    }
+    refresh();
+    startPolling();
+  });
 })();

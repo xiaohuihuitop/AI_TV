@@ -204,6 +204,14 @@ def test_video_task_api_and_panel_show_processing_state():
         assert "/static/video-tasks.js" in page.text
         assert "encoding-party.mp4" in page.text
         assert "probe failed" in page.text
+
+        script = client.get("/static/video-tasks.js", headers=AUTH_HEADERS)
+        assert script.status_code == 200
+        assert "window.clearInterval" in script.text
+        assert 'url.searchParams.delete("watch")' in script.text
+        assert "shouldWatch && activeCount === 0" in script.text
+        assert "if (refreshInFlight)" in script.text
+        assert 'document.addEventListener("visibilitychange"' in script.text
     finally:
         cleanup_client(app, tmp)
 

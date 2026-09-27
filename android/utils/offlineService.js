@@ -63,11 +63,16 @@ export function createOfflineService(storage, downloader) {
         last_step: step || "失败"
       });
     };
+    let lastPersistedProgress = 0;
     const handleProgress = (value) => {
       const progress = normalizeProgress(value);
-      updateEntry({ progress, status: "downloading", last_step: "下载中" });
-      if (typeof onProgress === "function") {
-        onProgress(progress);
+      const persistedProgress = Math.floor(progress / 5) * 5;
+      if (persistedProgress > lastPersistedProgress || progress >= 100) {
+        lastPersistedProgress = persistedProgress;
+        updateEntry({ progress, status: "downloading", last_step: "下载中" });
+        if (typeof onProgress === "function") {
+          onProgress(progress);
+        }
       }
     };
     try {

@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import threading
 from base64 import b64encode
 from contextlib import closing
 from pathlib import Path
@@ -28,6 +29,7 @@ from app.core.paths import StoragePaths
 from app.db.models import Video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.main import create_app
+from app.services.range import iter_file
 from app.services.uploads import (
     InvalidUpload,
     StorageSpaceLow,
@@ -54,6 +56,7 @@ class FakeUpload:
     def __init__(self, filename: str, content: bytes, content_type: str):
         self.filename = filename
         self.content_type = content_type
+        self.size = len(content)
         self.file = RecordingFile(content)
 
 
@@ -152,6 +155,175 @@ def test_upload_respects_storage_reserve():
                 pass
         assert not destination.exists()
         assert not destination.with_suffix(".mp4.part").exists()
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_upload_checks_storage_space_without_polling_every_chunk():
+    root = Path(tempfile.mkdtemp(prefix="ai_tv_upload_space_checks_"))
+    try:
+        upload = FakeUpload("video.mp4", b"123456789", "video/mp4")
+        destination = root / "video.mp4"
+        with patch(
+            "app.services.uploads.shutil.disk_usage",
+            return_value=SimpleNamespace(free=100),
+        ) as disk_usage:
+            size = save_upload_file(
+                upload,
+                destination,
+                max_bytes=10,
+                chunk_bytes=3,
+                reserve_bytes=4,
+            )
+        assert size == 9
+        assert disk_usage.call_count == 1
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_concurrent_uploads_reserve_space_across_requests():
+    root = Path(tempfile.mkdtemp(prefix="ai_tv_upload_reservations_"))
+    first_started = threading.Event()
+    release_first = threading.Event()
+    results = []
+
+    class BlockingFile(RecordingFile):
+        def read(self, size=-1):
+            first_started.set()
+            release_first.wait(timeout=2)
+            return super().read(size)
+
+    def run_upload(name, blocking=False):
+        upload = FakeUpload(name, b"1234", "video/mp4")
+        if blocking:
+            upload.file = BlockingFile(b"1234")
+        try:
+            save_upload_file(
+                upload,
+                root / name,
+                max_bytes=4,
+                chunk_bytes=4,
+                reserve_bytes=4,
+            )
+            results.append("saved")
+        except StorageSpaceLow:
+            results.append("blocked")
+
+    try:
+        with patch(
+            "app.services.uploads.shutil.disk_usage",
+            return_value=SimpleNamespace(free=10),
+        ):
+            first = threading.Thread(target=run_upload, args=("first.mp4", True))
+            second = threading.Thread(target=run_upload, args=("second.mp4",))
+            first.start()
+            assert first_started.wait(timeout=2)
+            second.start()
+            second.join(timeout=2)
+            release_first.set()
+            first.join(timeout=2)
+        assert sorted(results) == ["blocked", "saved"]
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_upload_rejects_invalid_declared_size_without_leaking_reservation():
+    root = Path(tempfile.mkdtemp(prefix="ai_tv_upload_invalid_size_"))
+    try:
+        invalid = FakeUpload("invalid.mp4", b"12", "video/mp4")
+        invalid.size = -1
+        with patch(
+            "app.services.uploads.shutil.disk_usage",
+            return_value=SimpleNamespace(free=6),
+        ):
+            try:
+                save_upload_file(
+                    invalid,
+                    root / "invalid.mp4",
+                    max_bytes=4,
+                    chunk_bytes=2,
+                    reserve_bytes=4,
+                )
+                raise AssertionError("expected InvalidUpload")
+            except InvalidUpload:
+                pass
+
+            valid = FakeUpload("valid.mp4", b"12", "video/mp4")
+            assert save_upload_file(
+                valid,
+                root / "valid.mp4",
+                max_bytes=4,
+                chunk_bytes=2,
+                reserve_bytes=4,
+            ) == 2
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_written_upload_bytes_are_not_counted_as_reserved():
+    root = Path(tempfile.mkdtemp(prefix="ai_tv_upload_written_reservation_"))
+    first_chunk_written = threading.Event()
+    release_first = threading.Event()
+    results = []
+
+    class PauseAfterFirstChunk(RecordingFile):
+        def __init__(self, content):
+            super().__init__(content)
+            self.read_count = 0
+
+        def read(self, size=-1):
+            self.read_count += 1
+            if self.read_count == 2:
+                first_chunk_written.set()
+                release_first.wait(timeout=2)
+            return super().read(size)
+
+    def run_first():
+        upload = FakeUpload("first.mp4", b"12345678", "video/mp4")
+        upload.file = PauseAfterFirstChunk(b"12345678")
+        try:
+            save_upload_file(
+                upload,
+                root / "first.mp4",
+                max_bytes=8,
+                chunk_bytes=4,
+                reserve_bytes=4,
+            )
+            results.append("first-saved")
+        except StorageSpaceLow:
+            results.append("first-blocked")
+
+    try:
+        with patch(
+            "app.services.uploads.shutil.disk_usage",
+            side_effect=[SimpleNamespace(free=16), SimpleNamespace(free=12)],
+        ):
+            first = threading.Thread(target=run_first)
+            first.start()
+            assert first_chunk_written.wait(timeout=2)
+            second = FakeUpload("second.mp4", b"1234", "video/mp4")
+            assert save_upload_file(
+                second,
+                root / "second.mp4",
+                max_bytes=4,
+                chunk_bytes=4,
+                reserve_bytes=4,
+            ) == 4
+            release_first.set()
+            first.join(timeout=2)
+        assert results == ["first-saved"]
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_range_stream_uses_large_default_chunks():
+    root = Path(tempfile.mkdtemp(prefix="ai_tv_range_chunks_"))
+    try:
+        path = root / "video.mp4"
+        path.write_bytes(b"x" * (512 * 1024))
+        chunks = list(iter_file(path, 0, path.stat().st_size - 1))
+        assert len(chunks[0]) == 256 * 1024
+        assert len(chunks) == 2
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -308,9 +480,64 @@ def test_sqlite_uses_wal_busy_timeout_and_migration_versions():
             versions = conn.exec_driver_sql(
                 "SELECT version FROM schema_migrations ORDER BY version"
             ).scalars().all()
-            assert versions == [1]
+            assert versions == [1, 2]
+            indexes = conn.exec_driver_sql("PRAGMA index_list(videos)").fetchall()
+            assert any(row[1] == "ix_videos_status_id" for row in indexes)
     finally:
         engine.dispose()
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_existing_database_migrates_status_index_without_losing_rows():
+    root = Path(tempfile.mkdtemp(prefix="ai_tv_sqlite_upgrade_"))
+    db_path = root / "app.db"
+    try:
+        with closing(sqlite3.connect(db_path)) as conn:
+            conn.executescript(
+                """
+                CREATE TABLE videos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filename VARCHAR(255) NOT NULL,
+                    path VARCHAR(1024) NOT NULL,
+                    cover_path VARCHAR(1024),
+                    width INTEGER,
+                    height INTEGER,
+                    duration_seconds FLOAT,
+                    description VARCHAR(20),
+                    status VARCHAR(32) NOT NULL,
+                    error_message VARCHAR(1024),
+                    created_at VARCHAR(32) NOT NULL
+                );
+                CREATE TABLE documents (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filename VARCHAR(255) NOT NULL,
+                    path VARCHAR(1024) NOT NULL,
+                    title VARCHAR(255),
+                    status VARCHAR(32) NOT NULL,
+                    error_message VARCHAR(1024),
+                    created_at VARCHAR(32) NOT NULL
+                );
+                CREATE TABLE schema_migrations (
+                    version INTEGER PRIMARY KEY,
+                    applied_at VARCHAR(32) NOT NULL
+                );
+                INSERT INTO schema_migrations(version, applied_at) VALUES (1, CURRENT_TIMESTAMP);
+                INSERT INTO videos(filename, path, description, status, created_at)
+                VALUES ('existing.mp4', '/existing.mp4', '无', 'ready', '2026-09-27T00:00:00');
+                """
+            )
+        engine = get_engine(str(db_path))
+        init_db(engine)
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("SELECT COUNT(*) FROM videos").scalar() == 1
+            versions = conn.exec_driver_sql(
+                "SELECT version FROM schema_migrations ORDER BY version"
+            ).scalars().all()
+            assert versions == [1, 2]
+            indexes = conn.exec_driver_sql("PRAGMA index_list(videos)").fetchall()
+            assert any(row[1] == "ix_videos_status_id" for row in indexes)
+        engine.dispose()
+    finally:
         shutil.rmtree(root, ignore_errors=True)
 
 
@@ -426,12 +653,18 @@ if __name__ == "__main__":
     test_upload_file_is_chunked_and_atomic()
     test_upload_limit_removes_partial_file()
     test_upload_respects_storage_reserve()
+    test_upload_checks_storage_space_without_polling_every_chunk()
+    test_concurrent_uploads_reserve_space_across_requests()
+    test_upload_rejects_invalid_declared_size_without_leaking_reservation()
+    test_written_upload_bytes_are_not_counted_as_reserved()
+    test_range_stream_uses_large_default_chunks()
     test_upload_rejects_oversized_batch_before_writing()
     test_upload_batch_rolls_back_database_and_files()
     test_delete_restores_files_when_database_commit_fails()
     test_worker_recovers_and_records_failures()
     test_worker_discards_cover_when_record_is_deleted_during_processing()
     test_sqlite_uses_wal_busy_timeout_and_migration_versions()
+    test_existing_database_migrates_status_index_without_losing_rows()
     test_database_backup_and_restore_preserve_data()
     test_web_post_requires_csrf_token()
     test_upload_endpoint_enforces_limit_without_leaving_files()

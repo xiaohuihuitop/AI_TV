@@ -38,7 +38,10 @@ def init_db(engine=None) -> None:
 
 
 def _apply_migrations(engine) -> None:
-    migrations = ((1, _ensure_video_description),)
+    migrations = (
+        (1, _ensure_video_description),
+        (2, _ensure_video_status_index),
+    )
     with engine.begin() as conn:
         conn.execute(
             text(
@@ -70,6 +73,11 @@ def _ensure_video_description(conn) -> None:
     conn.execute(
         text("UPDATE videos SET description='无' WHERE description IS NULL OR description=''")
     )
+
+
+def _ensure_video_status_index(conn) -> None:
+    """Ensure worker status lookups use an index on existing databases."""
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_videos_status_id ON videos(status, id)"))
 
 
 def get_sessionmaker(engine=None):

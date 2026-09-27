@@ -230,6 +230,14 @@ export function createUpdateService(deps = {}, options = {}) {
       }
     }
 
+    if (typeof deps.isPlaybackActive === "function" && deps.isPlaybackActive()) {
+      await removeFile();
+      if (typeof deps.setLastCheckAt === "function") {
+        deps.setLastCheckAt(0);
+      }
+      return { status: "blocked-playing", version: manifest.version };
+    }
+
     try {
       await deps.install(localPath);
     } catch (error) {

@@ -1,5 +1,6 @@
 import os
 import shutil
+import threading
 import uuid
 from pathlib import Path
 
@@ -8,6 +9,10 @@ from sqlalchemy.orm import Session
 from app.core.paths import StoragePaths
 from app.core.validators import is_allowed_doc, is_allowed_video
 from app.db.repo import create_document, create_video
+
+
+_reservation_lock = threading.Lock()
+_reserved_bytes: dict[int, int] = {}
 
 
 class UploadError(Exception):
@@ -39,6 +44,11 @@ def save_upload_file(
     partial = destination.with_suffix(f"{destination.suffix}.part")
     _unlink_if_exists(partial)
     total = 0
+    reservation_key = destination.parent.stat().st_dev
+    expected_size = _expected_upload_size(upload, max_bytes)
+    reserved_bytes = expected_size if reserve_bytes > 0 else 0
+    if reserved_bytes > 0:
+        _reserve_upload_space(reservation_key, destination.parent, reserved_bytes, reserve_bytes)
     try:
         with partial.open("wb") as output:
             while True:
@@ -48,11 +58,20 @@ def save_upload_file(
                 total += len(chunk)
                 if total > max_bytes:
                     raise UploadTooLarge(f"文件超过大小限制：{max_bytes} 字节")
-                if reserve_bytes > 0:
-                    free_bytes = shutil.disk_usage(destination.parent).free
-                    if free_bytes - len(chunk) < reserve_bytes:
-                        raise StorageSpaceLow("数据目录剩余空间不足")
-                output.write(chunk)
+                if reserve_bytes > 0 and len(chunk) > reserved_bytes:
+                    additional = len(chunk) - reserved_bytes
+                    _reserve_upload_space(
+                        reservation_key,
+                        destination.parent,
+                        additional,
+                        reserve_bytes,
+                    )
+                    reserved_bytes += additional
+                if reserved_bytes > 0:
+                    _write_reserved_chunk(output, chunk, reservation_key)
+                    reserved_bytes -= len(chunk)
+                else:
+                    output.write(chunk)
             if total == 0:
                 raise InvalidUpload("不能上传空文件")
             output.flush()
@@ -63,6 +82,54 @@ def save_upload_file(
         _unlink_if_exists(partial)
         _unlink_if_exists(destination)
         raise
+    finally:
+        if reserved_bytes > 0:
+            _release_upload_space(reservation_key, reserved_bytes)
+
+
+def _expected_upload_size(upload, max_bytes: int) -> int:
+    raw_size = getattr(upload, "size", None)
+    if raw_size is None:
+        return max_bytes
+    if isinstance(raw_size, bool):
+        raise InvalidUpload("文件大小信息无效")
+    try:
+        size = int(raw_size)
+    except (TypeError, ValueError) as error:
+        raise InvalidUpload("文件大小信息无效") from error
+    if size < 0:
+        raise InvalidUpload("文件大小信息无效")
+    if size > max_bytes:
+        raise UploadTooLarge(f"文件超过大小限制：{max_bytes} 字节")
+    return size
+
+
+def _write_reserved_chunk(output, chunk: bytes, key: int) -> None:
+    with _reservation_lock:
+        output.write(chunk)
+        remaining = max(0, _reserved_bytes.get(key, 0) - len(chunk))
+        if remaining:
+            _reserved_bytes[key] = remaining
+        else:
+            _reserved_bytes.pop(key, None)
+
+
+def _reserve_upload_space(key: int, directory: Path, requested: int, reserve_bytes: int) -> None:
+    with _reservation_lock:
+        free_bytes = shutil.disk_usage(directory).free
+        already_reserved = _reserved_bytes.get(key, 0)
+        if free_bytes - already_reserved - requested < reserve_bytes:
+            raise StorageSpaceLow("数据目录剩余空间不足")
+        _reserved_bytes[key] = already_reserved + requested
+
+
+def _release_upload_space(key: int, released: int) -> None:
+    with _reservation_lock:
+        remaining = max(0, _reserved_bytes.get(key, 0) - released)
+        if remaining:
+            _reserved_bytes[key] = remaining
+        else:
+            _reserved_bytes.pop(key, None)
 
 
 def persist_video_uploads(session: Session, files, storage: StoragePaths, settings):

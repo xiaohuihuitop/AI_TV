@@ -358,3 +358,21 @@
 - 关联文件: server/app/templates/videos.html, server/app/static/mobile-preview.js, server/app/static/app.css, server/app/core/config.py, server/app/services/system_status.py, server/Dockerfile, .github/workflows/server-image-build.yml, AI_TOOL/server_admin_features_test.py
 - 标签: server, web, video, preview, orientation, docker, version
 - 关键词: cover orientation, naturalWidth, videoWidth, APP_VERSION, github.ref_name, 20:9, 9:20
+
+## [2026-09-27] 现象: 服务端视频传输、上传和任务轮询存在持续资源放大
+- 触发条件: 大文件 Range 播放、多请求并发上传、历史视频表增长，或上传后的后台标签页长期打开。
+- 根因: Range 默认 8 KiB 导致大量 Python 迭代；上传逐块查询磁盘且请求之间没有共享容量预算；worker 的 `status` 查询无复合索引；后台轮询不会在任务完成或页面隐藏时可靠停止，也可能产生重叠请求。
+- 解决步骤: Range 块调整为 256 KiB；SQLite v2 迁移增加 `videos(status, id)`；同一文件系统按未落盘字节做进程级预留，并在受锁保护的写入后转为真实占用；任务轮询合并进行中请求、跟随页面可见性并在归零时移除 `watch`。
+- 预防/规则: 容量预留不能与已落盘空间重复计算，也不能只看单个请求；高频轮询必须有停止条件、可见性控制和 in-flight 合并；索引变更必须验证旧库带数据迁移。
+- 关联文件: server/app/services/range.py, server/app/services/uploads.py, server/app/db/models.py, server/app/db/session.py, server/app/static/video-tasks.js, AI_TOOL/server_reliability_test.py, AI_TOOL/server_admin_features_test.py
+- 标签: server, performance, streaming, upload, sqlite, polling
+- 关键词: 256 KiB, reservation, unpersisted bytes, status index, visibilitychange, in-flight
+
+## [2026-09-27] 现象: Android 下载和清单刷新造成同步写入、后台轮询与缓存穿透
+- 触发条件: 大视频下载产生高频进度事件、下载后立即播放、失败记录留在离线页、频繁切页或慢网下修改服务器地址。
+- 根因: 每个进度事件都同步读写完整下载列表并刷新响应式数组；隐藏页面可被回调重新启动轮询；failed 被当作进行中；清单和封面每次 onShow 都追加时间戳；并发清单请求没有按 URL 和请求代次隔离。
+- 解决步骤: 下载持久化和 UI 回调按 5% 节流；轮询只处理 downloading 且受页面可见性控制；图片启用懒加载，只有实际加载失败或下拉刷新才更新 URL；同 URL 请求合并，不同 URL 用代次丢弃旧响应；WGT 安装前复查播放状态并清除被阻断检查的冷却时间。
+- 预防/规则: 原生高频事件不能直接触发同步存储和全表渲染；页面生命周期结束后回调不得重新启动定时器；缓存绕过必须由明确的失败或用户刷新触发；异步响应应用前必须验证仍属于当前配置。
+- 关联文件: android/utils/offlineService.js, android/pages/latest/index.vue, android/pages/offline/index.vue, android/utils/updateService.js, AI_TOOL/offline_download_race_test.mjs, AI_TOOL/android_performance_test.mjs, AI_TOOL/android_update_service_test.mjs
+- 标签: android, performance, download, storage, cache, lifecycle, race
+- 关键词: progress throttle, setStorageSync, pageVisible, lazy-load, request sequence, WGT playback guard

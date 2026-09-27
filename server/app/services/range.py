@@ -50,7 +50,7 @@ def parse_positive_int(value: str, fallback: int) -> int:
     return max(parsed, 0)
 
 
-def iter_file(path: Path, start: int, end: int, chunk_size: int = 8192):
+def iter_file(path: Path, start: int, end: int, chunk_size: int = 256 * 1024):
     """AI: 读取文件分片流。
     @param path: 文件路径。
     @param start: 起始偏移。
