@@ -298,15 +298,6 @@ def doc_preview(request: Request, doc_id: int):
         return FileResponse(path, media_type=_resolve_doc_media_type(path))
 
 
-@router.get("/upload", response_class=HTMLResponse)
-def upload_page(request: Request):
-    """AI: 上传页面。
-    @param request: 当前请求。
-    @return: HTML 响应。
-    """
-    return templates.TemplateResponse(request, "upload.html", {"active": ""})
-
-
 @router.post("/upload/video")
 def upload_video(request: Request, files: list[UploadFile] = File(...)):
     """AI: Web 上传视频。

@@ -277,11 +277,18 @@ def test_doc_list_filters_and_bulk_delete():
 def test_upload_pages_show_progress_controls():
     tmp, app, client = make_client()
     try:
-        for path in ("/web/videos", "/web/docs", "/web/upload"):
+        for path in ("/web/videos", "/web/docs"):
             resp = client.get(path, headers=AUTH_HEADERS)
             assert resp.status_code == 200
             assert "upload-progress" in resp.text
             assert "/static/upload.js" in resp.text
+
+        orphan = client.get("/web/upload", headers=AUTH_HEADERS)
+        assert orphan.status_code == 404
+
+        for endpoint in ("/web/upload/video", "/web/upload/doc"):
+            probe = client.post(endpoint, headers=AUTH_HEADERS)
+            assert probe.status_code != 404
 
         upload_js = client.get("/static/upload.js", headers=AUTH_HEADERS)
         assert upload_js.status_code == 200
