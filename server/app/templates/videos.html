@@ -13,10 +13,10 @@
       <span>状态</span>
       <select class="text-input compact" name="status">
         <option value="" {% if not filters.status %}selected{% endif %}>全部</option>
-        <option value="ready" {% if filters.status == 'ready' %}selected{% endif %}>ready</option>
-        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>pending</option>
-        <option value="processing" {% if filters.status == 'processing' %}selected{% endif %}>processing</option>
-        <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>failed</option>
+        <option value="ready" {% if filters.status == 'ready' %}selected{% endif %}>已完成</option>
+        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>等待识别</option>
+        <option value="processing" {% if filters.status == 'processing' %}selected{% endif %}>识别中</option>
+        <option value="failed" {% if filters.status == 'failed' %}selected{% endif %}>识别失败</option>
       </select>
     </label>
     <label class="filter-field">
@@ -44,7 +44,7 @@
       <div class="upload-progress-track">
         <div class="upload-progress-bar"></div>
       </div>
-      <div class="upload-progress-text">0%</div>
+      <div class="upload-progress-text" aria-live="polite">0%</div>
     </div>
     <div class="actions">
       <button id="video-upload-btn" class="btn" type="button">上传视频</button>
@@ -60,7 +60,7 @@
     <div class="task-panel-head">
       <div>
         <div class="card-title">处理队列与日志</div>
-        <div class="task-note" data-task-note>
+        <div class="task-note" data-task-note aria-live="polite">
           {% if task_status['has_active'] %}
             页面会自动刷新识别状态，处理完成后会更新封面和信息。
           {% else %}
@@ -114,7 +114,7 @@
         <div class="video-management-main">
           <div class="video-management-header">
             <div class="video-management-title">{{ v.filename }}</div>
-            <span class="pill">{{ v.status }}</span>
+            <span class="pill {{ 'pill-ok' if v.status == 'ready' else ('pill-warn' if v.status in ('pending', 'processing') else 'pill-danger') }}">{{ {'ready': '已完成', 'pending': '等待识别', 'processing': '识别中', 'failed': '识别失败'}.get(v.status, v.status) }}</span>
           </div>
           <div class="video-management-info">
             <div class="video-info-row">

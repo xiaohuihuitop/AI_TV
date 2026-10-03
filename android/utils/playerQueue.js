@@ -1,7 +1,7 @@
 /**
- * AI:?????????????
- * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:????????
- * @returns {{list: Array, index: number}} AI:????????
+ * AI:读取本地缓存的播放队列和当前索引。
+ * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:存储读写适配器。
+ * @returns {{list: Array, index: number}} AI:播放队列与索引。
  */
 export function loadPlayerQueue(storage) {
   const list = parseList(storage.get("player_queue"));
@@ -10,11 +10,11 @@ export function loadPlayerQueue(storage) {
 }
 
 /**
- * AI:?????????????
- * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:????????
- * @param {Array} list AI:?????
- * @param {number} index AI:?????
- * @returns {void} AI:?????
+ * AI:保存播放队列与当前索引。
+ * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:存储读写适配器。
+ * @param {Array} list AI:播放队列。
+ * @param {number} index AI:当前索引。
+ * @returns {void} AI:无返回值。
  */
 export function savePlayerQueue(storage, list, index) {
   const safeList = Array.isArray(list) ? list : [];
@@ -23,10 +23,10 @@ export function savePlayerQueue(storage, list, index) {
 }
 
 /**
- * AI:?????????????
- * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:????????
- * @param {number} index AI:?????
- * @returns {void} AI:?????
+ * AI:仅更新播放队列当前索引。
+ * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:存储读写适配器。
+ * @param {number} index AI:当前索引。
+ * @returns {void} AI:无返回值。
  */
 export function updatePlayerIndex(storage, index) {
   storage.set("player_queue_index", String(normalizeIndex(index)));

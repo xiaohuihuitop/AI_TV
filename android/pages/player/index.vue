@@ -8,6 +8,7 @@
       <view class="video-stage" :style="{ height: `${videoHeight}px` }">
         <view v-if="error" class="error-card card">
           <text class="error-text">{{ error }}</text>
+          <button class="btn error-retry" size="mini" @click="retryCurrent">重试播放</button>
         </view>
         <video
           v-else
@@ -23,6 +24,7 @@
           @ended="handleEnded"
           @loadedmetadata="handleLoadedMetadata"
           @play="handlePlay"
+          @error="handleVideoError"
         ></video>
         <cover-view v-if="hasEnded && !error" class="replay-overlay">
           <cover-view class="replay-btn" @click="replay">重播</cover-view>
@@ -261,6 +263,34 @@ export default {
      */
     handleEnded() {
       this.hasEnded = true;
+    },
+
+    /**
+     * AI:处理视频加载或播放失败，退出沉浸式并给出可重试的提示。
+     * @returns {void} AI:无返回值。
+     */
+    handleVideoError() {
+      if (!this.source) {
+        return;
+      }
+      this.exitImmersiveMode();
+      this.isPlaying = false;
+      this.hasEnded = false;
+      this.error = "视频播放失败，请检查网络后重试";
+    },
+
+    /**
+     * AI:重新加载当前视频并尝试播放。
+     * @returns {void} AI:无返回值。
+     */
+    retryCurrent() {
+      const item = this.currentIndex >= 0 ? this.playlist[this.currentIndex] : null;
+      if (item) {
+        this.applyItem(item, this.currentIndex, true);
+        return;
+      }
+      this.error = "";
+      this.playNow();
     },
 
     /**
@@ -558,6 +588,10 @@ export default {
   width: calc(100% - 32px);
   margin: 16px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   background: rgba(255, 242, 233, 0.9);
   border: 1px solid rgba(217, 108, 47, 0.25);
 }
@@ -565,6 +599,17 @@ export default {
 .error-text {
   color: #8a360e;
   font-size: 16px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.error-retry {
+  min-width: 180px;
+  min-height: 52px;
+  color: #ffffff;
+  background: #8a360e;
+  border-color: rgba(138, 54, 14, 0.5);
+  font-size: 18px;
 }
 
 @media (min-width: 600px) {

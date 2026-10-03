@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -26,6 +26,18 @@
     </div>
     <script>
       window.aiTvCsrfToken = document.querySelector('meta[name="csrf-token"]').content;
+      (function () {
+        var bulkForms = document.querySelectorAll("form[id$='-bulk-form']");
+        Array.prototype.forEach.call(bulkForms, function (form) {
+          var button = document.querySelector('.bulk-bar button[form="' + form.id + '"]');
+          if (!button) return;
+          var syncDisabled = function () {
+            button.disabled = !form.querySelector("input[name='ids']:checked");
+          };
+          form.addEventListener("change", syncDisabled);
+          syncDisabled();
+        });
+      })();
       document.addEventListener("submit", function (event) {
         var form = event.target;
         if (!form || String(form.method || "").toLowerCase() !== "post") return;

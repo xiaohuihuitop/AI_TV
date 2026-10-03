@@ -39,7 +39,7 @@
       </div>
     </form>
     {% if video.cover_path %}
-      <img class="detail-cover" src="/web/videos/{{ video.id }}/cover" alt="cover" style="max-height:240px;object-fit:cover;" />
+      <img class="detail-cover" src="/web/videos/{{ video.id }}/cover" alt="cover" />
     {% endif %}
     <video class="player" controls src="/api/videos/{{ video.id }}/download"></video>
   </div>

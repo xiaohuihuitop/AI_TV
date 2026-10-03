@@ -9,7 +9,7 @@
       <text class="current-url">{{ indexUrl }}</text>
       <view class="actions">
         <button class="btn btn-primary save" size="mini" @click="openAddressDialog">
-          连接设置
+          修改地址
         </button>
         <button class="btn btn-ghost restore" size="mini" @click="restoreDefaultUrl">
           恢复默认

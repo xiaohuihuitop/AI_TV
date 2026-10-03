@@ -92,6 +92,25 @@
       button.textContent = originalButtonText;
     };
 
+    const extractErrorDetail = (responseText) => {
+      if (!responseText) {
+        return "";
+      }
+      try {
+        const parsed = JSON.parse(responseText);
+        const detail = parsed && parsed.detail;
+        if (typeof detail === "string") {
+          return detail;
+        }
+        if (Array.isArray(detail) && detail.length > 0 && detail[0] && detail[0].msg) {
+          return String(detail[0].msg);
+        }
+      } catch (error) {
+        return "";
+      }
+      return "";
+    };
+
     const uploadSelected = () => {
       if (selected.length === 0) {
         alert("请先选择文件");
@@ -119,10 +138,13 @@
           window.location = redirectUrl;
           return;
         }
-        alert(xhr.responseText || "上传失败");
+        resetProgress();
+        const detail = extractErrorDetail(xhr.responseText);
+        alert(detail || "上传失败，请稍后重试");
         resetButton();
       });
       xhr.addEventListener("error", () => {
+        resetProgress();
         alert("上传失败，请检查网络");
         resetButton();
       });

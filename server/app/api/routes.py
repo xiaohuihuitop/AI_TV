@@ -20,7 +20,10 @@ def _get_session(request: Request):
     """
     engine = getattr(request.app.state, "engine", None)
     if not engine:
-        engine = get_engine(request.app.state.settings.db_path)
+        engine = get_engine(
+            request.app.state.settings.db_path,
+            busy_timeout_ms=request.app.state.settings.sqlite_busy_timeout_ms,
+        )
         init_db(engine)
     SessionLocal = getattr(request.app.state, "session_factory", None) or get_sessionmaker(engine)
     return SessionLocal()

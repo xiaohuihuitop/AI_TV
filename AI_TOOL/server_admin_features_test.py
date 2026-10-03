@@ -156,6 +156,13 @@ def test_video_list_filters_searches_and_sorts():
         assert filtered.status_code == 200
         assert "failed-trip.mp4" in filtered.text
         assert "ready-family.mp4" not in filtered.text
+        assert '<span class="pill pill-danger">识别失败</span>' in filtered.text
+        assert ">ready</span>" not in filtered.text
+
+        listed = client.get("/web/videos", headers=AUTH_HEADERS)
+        assert listed.status_code == 200
+        assert '<span class="pill pill-ok">已完成</span>' in listed.text
+        assert '<span class="pill pill-warn">等待识别</span>' not in listed.text
 
         searched = client.get("/web/videos?q=family", headers=AUTH_HEADERS)
         assert searched.status_code == 200
@@ -280,6 +287,8 @@ def test_upload_pages_show_progress_controls():
         assert upload_js.status_code == 200
         assert "XMLHttpRequest" in upload_js.text
         assert "window.bindUpload" in upload_js.text
+        assert "extractErrorDetail" in upload_js.text
+        assert "resetProgress()" in upload_js.text.split("xhr.addEventListener(\"load\"", 1)[1].split("xhr.addEventListener(\"error\"", 1)[0]
     finally:
         cleanup_client(app, tmp)
 
@@ -337,6 +346,9 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert ".mobile-preview-actions" in css.text
         assert ".mobile-preview-error[hidden]" in css.text
         assert "display: none" in css.text.split(".mobile-preview-error[hidden]", 1)[1].split("}", 1)[0]
+        assert ".mobile-preview-dialog:not([open])" in css.text
+        assert ".pill-danger" in css.text
+        assert "height: 100dvh" in css.text
 
         system_page = client.get("/web/system", headers=AUTH_HEADERS)
         assert "版本 dev" in system_page.text
