@@ -385,3 +385,12 @@
 - 关联文件: server/app/static/app.css, server/app/templates/videos.html, AI_TOOL/server_admin_features_test.py
 - 标签: server, web, preview, css, hidden, click-through, playback
 - 关键词: hidden attribute, display grid, elementFromPoint, mobile-preview-error, play button blocked
+
+## [2026-10-03] 现象: v1.13 已部署但后台仍显示旧样式，播放修复未生效
+- 触发条件: 服务端静态文件仅带 ETag/Last-Modified，无 Cache-Control；旧文件距首次发布时间越长，浏览器启发式缓存免验证窗口越长，普通刷新不重新拉取。
+- 根因: 浏览器对 /static/app.css 使用启发式强缓存，部署新镜像后页面仍加载旧 CSS，隐藏错误层的修复对客户端不可见；用真实浏览器检查 document.styleSheets 证实加载的样式表缺少新规则。
+- 解决步骤: 新增 StaticCacheMiddleware 对 /static 响应统一设置 `Cache-Control: no-cache`（配合既有 ETag 走 304 协商缓存）；现场用带时间戳查询参数重载样式表验证修复立即生效，播放恢复。
+- 预防/规则: 服务端静态资源必须显式声明缓存策略，不能依赖浏览器启发式缓存；"已部署但页面行为未变"首先核对浏览器实际加载的资源版本（styleSheets/网络面板），再怀疑代码。
+- 关联文件: server/app/main.py, server/app/core/static_cache.py, AI_TOOL/server_admin_features_test.py
+- 标签: server, web, cache, deployment, static, css
+- 关键词: Cache-Control, no-cache, heuristic caching, ETag, stale stylesheet

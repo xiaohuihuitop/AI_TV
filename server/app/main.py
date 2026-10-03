@@ -11,6 +11,7 @@ from app.core.auth import verify_credentials
 from app.core.config import Settings, settings
 from app.core.csrf import CSRFMiddleware
 from app.core.paths import StoragePaths
+from app.core.static_cache import StaticCacheMiddleware
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.tasks.worker import VideoWorker, recover_interrupted_videos
 from app.web.routes import router as web_router
@@ -75,6 +76,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     app.state.engine = engine
     app.state.session_factory = SessionLocal
     app.add_middleware(CSRFMiddleware)
+    app.add_middleware(StaticCacheMiddleware)
 
     @app.get("/health", dependencies=[Depends(verify_credentials)])
     def health_check():

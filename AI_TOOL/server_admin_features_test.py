@@ -322,6 +322,7 @@ def test_ready_videos_expose_mobile_preview_queue_only():
 
         css = client.get("/static/app.css", headers=AUTH_HEADERS)
         assert css.status_code == 200
+        assert css.headers.get("cache-control") == "no-cache"
         assert ".mobile-preview-dialog" in css.text
         assert ".mobile-preview-phone.is-landscape" in css.text
         assert "aspect-ratio: 9 / 20;" in css.text
