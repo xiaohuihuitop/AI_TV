@@ -376,3 +376,12 @@
 - 关联文件: android/utils/offlineService.js, android/pages/latest/index.vue, android/pages/offline/index.vue, android/utils/updateService.js, AI_TOOL/offline_download_race_test.mjs, AI_TOOL/android_performance_test.mjs, AI_TOOL/android_update_service_test.mjs
 - 标签: android, performance, download, storage, cache, lifecycle, race
 - 关键词: progress throttle, setStorageSync, pageVisible, lazy-load, request sequence, WGT playback guard
+
+## [2026-10-03] 根因: 手机预览空错误层覆盖视频区导致后台无法点击播放
+- 现象: build-v1.12 部署后，后台"手机预览"画面被暗色遮罩覆盖，点击"播放"无任何反应，被误判为服务端视频接口故障。
+- 根因: videos.html 的空错误段落带 `hidden` 属性，但 app.css 的 `.mobile-preview-error` 作者样式设置 `display: grid`，优先级高于浏览器默认 `[hidden] { display: none }`，导致遮罩（inset:0、z-index:2、pointer-events:auto、72% 黑色背景）始终渲染并吞掉视频区全部点击；视频元素本身加载正常（readyState 4、元数据和 206 响应均正确）。
+- 修复: 补充 `.mobile-preview-error[hidden] { display: none; }`，与既有 `.upload-progress[hidden]` 模式一致；回归断言加入 server_admin_features_test.py。已在生产页面注入该规则实测：elementFromPoint 命中播放按钮、点击后播放进度正常推进。
+- 预防/规则: 带 `hidden` 属性的元素若类样式设置了 display，必须同时提供 `[hidden]` 覆盖规则；预览类 UI 故障要用真实浏览器点击命中（elementFromPoint）验证，不能只测 HTTP 接口；排查播放问题应先区分"接口故障"与"界面遮挡"。
+- 关联文件: server/app/static/app.css, server/app/templates/videos.html, AI_TOOL/server_admin_features_test.py
+- 标签: server, web, preview, css, hidden, click-through, playback
+- 关键词: hidden attribute, display grid, elementFromPoint, mobile-preview-error, play button blocked

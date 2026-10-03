@@ -888,6 +888,10 @@ body::before {
   text-align: center;
 }
 
+.mobile-preview-error[hidden] {
+  display: none;
+}
+
 .mobile-preview-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

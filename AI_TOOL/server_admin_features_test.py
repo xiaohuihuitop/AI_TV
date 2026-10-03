@@ -334,6 +334,8 @@ def test_ready_videos_expose_mobile_preview_queue_only():
         assert "object-fit: contain" in css.text
         assert ".mobile-preview-media-controls" in css.text
         assert ".mobile-preview-actions" in css.text
+        assert ".mobile-preview-error[hidden]" in css.text
+        assert "display: none" in css.text.split(".mobile-preview-error[hidden]", 1)[1].split("}", 1)[0]
 
         system_page = client.get("/web/system", headers=AUTH_HEADERS)
         assert "版本 dev" in system_page.text
