@@ -5,7 +5,9 @@
       <text class="subtitle muted">服务器清单地址</text>
     </view>
     <view class="panel">
-      <text class="label muted">当前地址</text>
+      <text class="label muted">当前版本</text>
+      <text class="version-line">{{ appVersionText }}</text>
+      <text class="label muted address-gap">当前地址</text>
       <text class="current-url">{{ indexUrl }}</text>
       <view class="actions">
         <button class="btn btn-primary save" size="mini" @click="openAddressDialog">
@@ -44,6 +46,7 @@
 <script>
 import AppTabBar from "../../components/AppTabBar.vue";
 import { defaultIndexUrl } from "../../utils/appConfig.js";
+import { formatAppVersion, readAppVersion } from "../../utils/appVersion.js";
 
 /**
  * AI:创建 uniapp 存储读写适配器。
@@ -68,7 +71,8 @@ export default {
       indexUrl: "",
       savedHint: "",
       showAddressModal: false,
-      draftUrl: ""
+      draftUrl: "",
+      appVersionText: "读取中…"
     };
   },
   onShow() {
@@ -77,6 +81,9 @@ export default {
     }
     const storage = createUniStorage();
     this.indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
+    readAppVersion().then((info) => {
+      this.appVersionText = formatAppVersion(info);
+    });
   },
   methods: {
     /**
@@ -168,6 +175,19 @@ export default {
 .label {
   font-size: 16px;
   letter-spacing: 0;
+}
+
+.version-line {
+  display: block;
+  margin-top: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.address-gap {
+  margin-top: 18px;
 }
 
 .current-url {
