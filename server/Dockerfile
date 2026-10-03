@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.10-alpine
 
 ARG APP_VERSION=dev
 
@@ -12,11 +12,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg gosu \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 app \
-    && useradd --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app
+RUN apk add --no-cache ffmpeg gosu \
+    && addgroup -g 10001 app \
+    && adduser -D -u 10001 -G app -h /app -s /sbin/nologin app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
