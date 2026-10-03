@@ -394,3 +394,12 @@
 - 关联文件: server/app/main.py, server/app/core/static_cache.py, AI_TOOL/server_admin_features_test.py
 - 标签: server, web, cache, deployment, static, css
 - 关键词: Cache-Control, no-cache, heuristic caching, ETag, stale stylesheet
+
+## [2026-10-03] 根因: 云打包 APK 缺少 VideoPlayer 模块导致手机 App 无法播放任何视频
+- 现象: 手机 App 打开视频后播放器页面黑屏，弹出 HTML5+ Runtime 提示"打包时未添加 videoplayer 模块"；服务端所有接口实测正常，WGT 热更新无效。
+- 根因: android/manifest.json 的 `app-plus.modules` 与 `permissions` 均为空，云打包产物不含 DCloud VideoPlayer 原生模块，而播放页使用 `<video>` 组件和 `uni.createVideoContext`；该配置使所有历史云打包 APK 都无法播放视频，且原生模块缺失只能重装 APK 修复。
+- 解决步骤: 在 manifest.json 声明 `"VideoPlayer": {}`；新增 AI_TOOL/android_packaging_test.mjs 断言（旧配置失败、新配置通过）；用 HBuilderX CLI 将项目以标准基座（自带模块）运行进 MuMu 模拟器，App 成功加载清单并真实播放视频（画面、进度推进、206 流式响应均确认）。
+- 预防/规则: uni-app App 端新增原生能力组件（video/map/live-push 等）时必须同步声明对应 modules，云打包后必须在真机/模拟器实测该能力；"服务端正常但 App 功能失效"优先检查云打包模块配置；涉及原生模块的缺陷不能只发 WGT。
+- 关联文件: android/manifest.json, android/pages/player/index.vue, AI_TOOL/android_packaging_test.mjs
+- 标签: android, uni-app, cloud-pack, VideoPlayer, manifest, emulator
+- 关键词: videoplayer 模块, app-plus.modules, 标准基座, HBuilderX cli, MuMu, 黑屏

@@ -13,7 +13,9 @@
         "splashscreen" : {
             "alwaysShowBeforeRender" : true
         },
-        "modules" : {},
+        "modules" : {
+            "VideoPlayer" : {}
+        },
         "permissions" : {},
         "distribute" : {
             "icons" : {
