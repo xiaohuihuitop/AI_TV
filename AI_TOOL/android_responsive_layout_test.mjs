@@ -18,14 +18,15 @@ const offline = await read("android/pages/offline/index.vue");
 const player = await read("android/pages/player/index.vue");
 const settings = await read("android/pages/settings/index.vue");
 const tabBar = await read("android/components/AppTabBar.vue");
+const mediaCard = await read("android/components/MediaListCard.vue");
 
 assert.match(app, /\.app-page\s*\{/);
 assert.match(app, /box-sizing:\s*border-box/);
 assert.doesNotMatch(app, /overflow-x:\s*hidden/);
-assert.match(latest, /grid-template-columns:\s*116px\s+minmax\(0,\s*1fr\)/);
-assert.match(latest, /flex-wrap:\s*wrap/);
-assert.match(offline, /grid-template-columns:\s*116px\s+minmax\(0,\s*1fr\)/);
-assert.match(offline, /flex-wrap:\s*wrap/);
+assert.match(mediaCard, /grid-template-columns:\s*112px\s+minmax\(0,\s*1fr\)/);
+assert.match(mediaCard, /flex-wrap:\s*wrap/);
+assert.match(mediaCard, /@media\s*\(max-width:\s*359px\)[\s\S]*?grid-template-columns:\s*100px\s+minmax\(0,\s*1fr\)/);
+assert.match(mediaCard, /@media\s*\(min-width:\s*600px\)[\s\S]*?grid-template-columns:\s*148px\s+minmax\(0,\s*1fr\)/);
 assert.match(player, /calculateImmersiveVideoHeight/);
 assert.match(player, /safeAreaInsets\.bottom/);
 assert.doesNotMatch(player, /Math\.max\(baseHeight,\s*maxHeight\)/);
@@ -33,6 +34,9 @@ assert.match(player, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)
 assert.match(settings, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
 assert.match(settings, /\.modal-mask\s*\{[\s\S]*?z-index:\s*100/);
 assert.match(settings, /<app-tab-bar\s+v-if="!showAddressModal"\s+active="settings"/);
-assert.match(tabBar, /max-width:\s*680px/);
+assert.match(tabBar, /position:\s*fixed/);
+assert.match(tabBar, /right:\s*0/);
+assert.match(tabBar, /left:\s*0/);
+assert.match(tabBar, /height:\s*calc\(76px\s*\+\s*env\(safe-area-inset-bottom\)\)/);
 
 console.log("android responsive layout tests passed");

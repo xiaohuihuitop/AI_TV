@@ -1,5 +1,5 @@
 <template>
-  <view class="app-page">
+  <view class="app-page latest-page">
     <view class="media-tabs">
       <view
         class="media-tab"
@@ -16,86 +16,86 @@
         图文
       </view>
     </view>
-    <view v-if="error" class="error-card card">
-      <text class="error-text">{{ error }}</text>
+
+    <view v-if="cacheNotice" class="feed-notice">
+      <text>{{ cacheNotice }}</text>
     </view>
-    <view class="columns">
-      <view class="column cinematic-card">
-        <view v-if="activeItems.length === 0" class="placeholder muted">{{ emptyHint }}</view>
-        <view
+
+    <view class="feed-content">
+      <view v-if="feedViewState === 'loading'" class="status-state muted">正在加载内容…</view>
+      <empty-state
+        v-else-if="feedViewState === 'error'"
+        :title="error"
+        description="请到设置页检查服务器地址，确认服务已经启动后下拉刷新。"
+      />
+      <empty-state
+        v-else-if="feedViewState === 'empty'"
+        :title="emptyTitle"
+        :description="emptyDescription"
+      />
+      <view v-else class="media-list">
+        <media-list-card
           v-for="(item, index) in activeItems"
-          :key="item.id"
-          class="item item-card"
-          :class="{ 'video-card': item.type === 'video' }"
-          :style="{ '--delay': `${index * 60}ms` }"
+          :key="`${item.type}-${item.id}`"
+          :item="item"
+          :duration-text="item.type === 'video' ? `时长 ${formatDuration(item.duration_seconds)}` : ''"
+          :size-text="item.type === 'video' ? `大小 ${formatSize(item.size_bytes)}` : ''"
           @click="handleItemClick(item, index)"
+          @cover-error="markCoverRefreshNeeded"
         >
-          <template v-if="item.type === 'video'">
-            <text class="item-title video-title">{{ item.title }}</text>
-            <view class="video-card-row">
-              <view class="item-cover">
-                <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" lazy-load @error="markCoverRefreshNeeded" />
-              </view>
-              <view class="video-info-panel">
-                <view class="item-meta muted">
-                  <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
-                  <text>大小：{{ formatSize(item.size_bytes) }}</text>
-                </view>
-                <view class="video-status-row">
-                  <button
-                    v-if="!isDownloaded(item) && !isDownloading(item)"
-                    class="btn btn-primary download"
-                    size="mini"
-                    @click.stop="addDownload(item)"
-                  >
-                    下载
-                  </button>
-                  <text v-else-if="isDownloading(item)" class="downloading muted">
-                    下载中{{ formatProgress(item) }}
-                  </text>
-                  <text v-else class="downloaded muted">已下载</text>
-                </view>
-              </view>
-            </view>
+          <template v-if="item.type === 'video'" v-slot:status>
+            <text v-if="isDownloading(item)" class="download-status pending">
+              下载中{{ formatProgress(item) }}
+            </text>
+            <text v-else-if="isDownloaded(item)" class="download-status done">已下载</text>
           </template>
-          <template v-else>
-            <view class="item-cover">
-              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" lazy-load @error="markCoverRefreshNeeded" />
-            </view>
-            <view class="item-main">
-              <text class="item-title">{{ item.title }}</text>
-            </view>
+          <template v-if="item.type === 'video'" v-slot:action>
+            <button
+              v-if="!isDownloaded(item) && !isDownloading(item)"
+              class="btn btn-primary download"
+              size="mini"
+              @click="addDownload(item)"
+            >
+              下载
+            </button>
           </template>
-        </view>
+        </media-list-card>
       </view>
     </view>
-    <view v-if="loading" class="loading muted">加载中...</view>
+
     <app-tab-bar active="latest" />
   </view>
 </template>
 
 <script>
 import AppTabBar from "../../components/AppTabBar.vue";
+import EmptyState from "../../components/EmptyState.vue";
+import MediaListCard from "../../components/MediaListCard.vue";
 import {
   normalizeIndexItems,
   createStorageAdapter,
   applyLocalDownload,
   refreshCoverUrls
 } from "../../utils/indexService.js";
-import { createOfflineService, buildDownloadStatusMap } from "../../utils/offlineService.js";
+import {
+  buildDownloadIdentity,
+  createOfflineService,
+  buildDownloadStatusMap
+} from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 import { defaultIndexUrl, normalizeRequestUrl } from "../../utils/appConfig.js";
+import {
+  deriveFeedViewState,
+  resolveCachedManifest,
+  resolveIndexLoadState
+} from "../../utils/indexState.js";
 import { restoreStandardSystemUi } from "../../utils/immersivePlayer.js";
 
 function resolvePlusRuntime() {
   return typeof plus !== "undefined" ? plus : null;
 }
 
-/**
- * AI:创建 uniapp 存储读写适配器。
- * @returns {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} AI:存储读写适配器。
- */
 function createUniStorage() {
   return {
     get: (key) => uni.getStorageSync(key),
@@ -104,10 +104,6 @@ function createUniStorage() {
   };
 }
 
-/**
- * AI:创建下载适配器，封装下载与保存流程。
- * @returns {{download: function(string, function(number): void): Promise<{tempFilePath: string}>, save: function(string): Promise<{savedFilePath: string}>}} AI:下载适配器。
- */
 function createUniDownloader() {
   return {
     download(url, onProgress) {
@@ -117,18 +113,14 @@ function createUniDownloader() {
           success: (res) => {
             if (res.statusCode === 200) {
               resolve({ tempFilePath: res.tempFilePath });
-            } else {
-              reject(new Error(`下载失败: ${res.statusCode}`));
+              return;
             }
+            reject(new Error(`下载失败: ${res.statusCode}`));
           },
-          fail: (error) => reject(error)
+          fail: reject
         });
         if (task && typeof task.onProgressUpdate === "function") {
-          task.onProgressUpdate((res) => {
-            if (typeof onProgress === "function") {
-              onProgress(res.progress);
-            }
-          });
+          task.onProgressUpdate((res) => onProgress && onProgress(res.progress));
         }
       });
     },
@@ -137,23 +129,17 @@ function createUniDownloader() {
         uni.saveFile({
           tempFilePath,
           success: (res) => resolve({ savedFilePath: res.savedFilePath }),
-          fail: (error) => reject(error)
+          fail: reject
         });
       });
     },
-    /**
-     * AI:保存文件到指定路径。
-     * @param {string} tempFilePath AI:临时路径。
-     * @param {string} filePath AI:目标路径。
-     * @returns {Promise<{savedFilePath: string}>} AI:保存结果。
-     */
     saveWithPath(tempFilePath, filePath) {
       return new Promise((resolve, reject) => {
         uni.saveFile({
           tempFilePath,
           filePath,
           success: (res) => resolve({ savedFilePath: res.savedFilePath || filePath }),
-          fail: (error) => reject(error)
+          fail: reject
         });
       });
     }
@@ -163,11 +149,6 @@ function createUniDownloader() {
 const indexUrlKey = "index_url";
 const indexCacheKey = "index_cache";
 
-/**
- * AI:根据资源地址推断内容格式。
- * @param {string} url AI:资源地址。
- * @returns {string} AI:format 值（html/markdown/空）。
- */
 function resolveContentFormat(url) {
   const lower = String(url || "").toLowerCase();
   if (lower.endsWith(".html") || lower.endsWith(".htm")) {
@@ -179,11 +160,6 @@ function resolveContentFormat(url) {
   return "";
 }
 
-/**
- * AI:追加时间戳避免缓存，确保进入页面时拉取最新清单。
- * @param {string} url AI:原始地址。
- * @returns {string} AI:追加时间戳后的地址。
- */
 function appendCacheBuster(url) {
   if (!url) {
     return "";
@@ -194,13 +170,15 @@ function appendCacheBuster(url) {
 
 export default {
   components: {
-    AppTabBar
+    AppTabBar,
+    EmptyState,
+    MediaListCard
   },
   data() {
     return {
       loading: false,
       error: "",
-      emptyHint: "暂无数据",
+      cacheNotice: "",
       activeType: "video",
       videoItems: [],
       articleItems: [],
@@ -210,23 +188,28 @@ export default {
       indexRequest: null,
       indexRequestUrl: "",
       indexRequestSequence: 0,
+      renderedSourceUrl: "",
       coverRefreshNeeded: false
     };
   },
   computed: {
-    /**
-     * AI:根据当前类型返回展示列表。
-     * @returns {Array} AI:当前展示数据。
-     */
     activeItems() {
       return this.activeType === "video" ? this.videoItems : this.articleItems;
     },
-    /**
-     * AI:返回当前类型标签文本。
-     * @returns {string} AI:标签文本。
-     */
-    activeLabel() {
-      return this.activeType === "video" ? "视频" : "图文";
+    feedViewState() {
+      return deriveFeedViewState({
+        loading: this.loading,
+        error: this.error,
+        itemCount: this.activeItems.length
+      });
+    },
+    emptyTitle() {
+      return this.activeType === "video" ? "暂无视频" : "暂无图文";
+    },
+    emptyDescription() {
+      return this.activeType === "video"
+        ? "仅显示已完成处理的视频。"
+        : "管理员发布图文后会显示在这里。";
     }
   },
   onShow() {
@@ -235,8 +218,7 @@ export default {
     if (typeof uni.hideTabBar === "function") {
       uni.hideTabBar({ animation: false });
     }
-    const hasDownloading = this.refreshDownloadStatus();
-    if (hasDownloading) {
+    if (this.refreshDownloadStatus()) {
       this.startDownloadWatcher();
     }
     this.fetchIndex();
@@ -249,10 +231,6 @@ export default {
     this.pageVisible = false;
     this.stopDownloadWatcher();
   },
-  /**
-   * AI:处理下拉刷新触发，拉取最新清单并结束刷新动画。
-   * @returns {void} AI:无返回值。
-   */
   onPullDownRefresh() {
     if (this.loading) {
       uni.stopPullDownRefresh();
@@ -260,54 +238,33 @@ export default {
     }
     Promise.resolve(this.fetchIndex(true))
       .catch(() => {})
-      .finally(() => {
-        uni.stopPullDownRefresh();
-      });
+      .finally(() => uni.stopPullDownRefresh());
   },
   methods: {
-    /**
-     * AI:切换当前媒体类型。
-     * @param {string} type AI:媒体类型。
-     * @returns {void} AI:无返回值。
-     */
     setActiveType(type) {
       this.activeType = type;
     },
     markCoverRefreshNeeded() {
       this.coverRefreshNeeded = true;
     },
-    /**
-     * AI:刷新已下载的视频标记。
-     * @returns {void} AI:无返回值。
-     */
     refreshDownloadStatus() {
-      const storage = createUniStorage();
-      const service = createOfflineService(storage, createUniDownloader());
+      const service = createOfflineService(createUniStorage(), createUniDownloader());
       const list = service.listDownloads();
       this.downloadStatusMap = buildDownloadStatusMap(list);
       this.videoItems = applyLocalDownload(this.videoItems, this.downloadStatusMap);
       return list.some((entry) => entry.status === "downloading");
     },
-    /**
-     * AI:启动下载状态刷新定时器。
-     * @returns {void} AI:无返回值。
-     */
     startDownloadWatcher() {
       if (!this.pageVisible) {
         return;
       }
       this.stopDownloadWatcher();
       this.downloadRefreshTimer = setInterval(() => {
-        const hasDownloading = this.refreshDownloadStatus();
-        if (!hasDownloading) {
+        if (!this.refreshDownloadStatus()) {
           this.stopDownloadWatcher();
         }
       }, 500);
     },
-    /**
-     * AI:停止下载状态刷新定时器。
-     * @returns {void} AI:无返回值。
-     */
     stopDownloadWatcher() {
       if (!this.downloadRefreshTimer) {
         return;
@@ -315,12 +272,6 @@ export default {
       clearInterval(this.downloadRefreshTimer);
       this.downloadRefreshTimer = null;
     },
-    /**
-     * AI:处理条目点击事件，按类型跳转。
-     * @param {Object} item AI:条目信息。
-     * @param {number} index AI:条目索引。
-     * @returns {void} AI:无返回值。
-     */
     handleItemClick(item, index) {
       if (item.type === "article") {
         this.openArticle(item);
@@ -328,35 +279,20 @@ export default {
       }
       this.openVideo(item, index);
     },
-    /**
-     * AI:跳转到视频播放页。
-     * @param {Object} item AI:视频条目。
-     * @param {number} index AI:条目索引。
-     * @returns {void} AI:无返回值。
-     */
     openVideo(item, index) {
       const src = this.resolveItemSource(item);
       if (!src) {
         uni.showToast({ title: "缺少播放地址", icon: "none" });
         return;
       }
-      const storage = createUniStorage();
       const queue = Array.isArray(this.videoItems) ? this.videoItems.slice() : [];
-      const resolvedIndex = Number.isFinite(index)
-        ? index
-        : queue.findIndex((entry) => entry.id === item.id);
-      const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
-      savePlayerQueue(storage, queue, safeIndex);
+      const safeIndex = Number.isFinite(index) ? index : queue.findIndex((entry) => entry.id === item.id);
+      savePlayerQueue(createUniStorage(), queue, safeIndex >= 0 ? safeIndex : 0);
       const title = item.title ? encodeURIComponent(item.title) : "";
       uni.navigateTo({
         url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}&autoplay=1`
       });
     },
-    /**
-     * AI:跳转到图文阅读页。
-     * @param {Object} item AI:图文条目。
-     * @returns {void} AI:无返回值。
-     */
     openArticle(item) {
       const src = this.resolveItemSource(item);
       if (!src) {
@@ -368,92 +304,57 @@ export default {
       const format =
         (item && item.format ? String(item.format) : "") ||
         resolveContentFormat(item && item.url ? item.url : "") ||
-        (item && item.type === "article" ? "html" : "");
-      const formatParam = format ? `&format=${encodeURIComponent(format)}` : "";
-      const originParam = origin ? `&origin=${origin}` : "";
+        "html";
       uni.navigateTo({
-        url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}${formatParam}${originParam}`
+        url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}&format=${encodeURIComponent(format)}&origin=${origin}`
       });
     },
-    /**
-     * AI:解析条目可用地址。
-     * @param {Object} item AI:条目信息。
-     * @returns {string} AI:可用地址。
-     */
     resolveItemSource(item) {
       return item && (item.local_path || item.url) ? item.local_path || item.url : "";
     },
-    /**
-     * AI:判断视频是否已下载。
-     * @param {Object} item AI:视频条目。
-     * @returns {boolean} AI:是否已下载。
-     */
+    getDownloadStatus(item) {
+      const key = buildDownloadIdentity(item);
+      return key ? this.downloadStatusMap[key] || null : null;
+    },
     isDownloaded(item) {
       const status = this.getDownloadStatus(item);
-      return status ? status.status === "done" : false;
+      return Boolean(status && status.status === "done");
     },
-    /**
-     * AI:判断视频是否下载中。
-     * @param {Object} item AI:视频条目。
-     * @returns {boolean} AI:是否下载中。
-     */
     isDownloading(item) {
       const status = this.getDownloadStatus(item);
-      return status ? status.status === "downloading" : false;
+      return Boolean(status && status.status === "downloading");
     },
-    /**
-     * AI:获取下载状态信息。
-     * @param {Object} item AI:视频条目。
-     * @returns {{status: string, progress: number}|null} AI:状态信息。
-     */
-    getDownloadStatus(item) {
-      const key = String(item && item.id ? item.id : "");
-      if (!key) {
-        return null;
-      }
-      return this.downloadStatusMap[key] || null;
-    },
-    /**
-     * AI:格式化下载进度显示。
-     * @param {Object} item AI:视频条目。
-     * @returns {string} AI:下载进度文案。
-     */
     formatProgress(item) {
-      const status = this.getDownloadStatus(item);
-      if (!status) {
-        return "";
-      }
-      const value = Number(status.progress);
-      if (!Number.isFinite(value) || value <= 0) {
-        return "";
-      }
-      return ` ${Math.floor(value)}%`;
+      const value = Number((this.getDownloadStatus(item) || {}).progress);
+      return Number.isFinite(value) && value > 0 ? ` ${Math.floor(value)}%` : "";
     },
-    /**
-     * AI:拉取清单并更新页面数据。
-     * @returns {Promise<boolean>} AI:返回 Promise，用于结束加载状态。
-     */
     fetchIndex(forceRefresh = false) {
       const storage = createUniStorage();
       const adapter = createStorageAdapter(storage);
       const indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
       if (!indexUrl) {
+        this.loading = false;
+        this.cacheNotice = "";
         this.error = "请在设置中填写清单地址";
         this.videoItems = [];
         this.articleItems = [];
-        this.emptyHint = "暂无数据";
         return Promise.resolve(false);
       }
       const normalizedUrl = normalizeRequestUrl(indexUrl);
       if (this.indexRequest && this.indexRequestUrl === normalizedUrl) {
         return this.indexRequest;
       }
+      if (this.renderedSourceUrl && this.renderedSourceUrl !== normalizedUrl) {
+        this.videoItems = [];
+        this.articleItems = [];
+        this.renderedSourceUrl = "";
+      }
       const requestSequence = this.indexRequestSequence + 1;
       this.indexRequestSequence = requestSequence;
       this.indexRequestUrl = normalizedUrl;
       this.loading = true;
       this.error = "";
-      this.emptyHint = "暂无数据";
+      this.cacheNotice = "";
       const requestUrl = forceRefresh ? appendCacheBuster(normalizedUrl) : normalizedUrl;
       this.indexRequest = new Promise((resolve) => {
         uni.request({
@@ -462,26 +363,35 @@ export default {
             if (requestSequence !== this.indexRequestSequence) {
               return;
             }
-            if (res.statusCode === 200 && res.data) {
-              adapter.setJson(indexCacheKey, res.data);
-              this.applyItems(res.data, forceRefresh || this.coverRefreshNeeded);
-              return;
-            }
-            if (res.statusCode === 401 || res.statusCode === 403) {
-              adapter.remove(indexCacheKey);
-              this.videoItems = [];
-              this.articleItems = [];
-              this.error = "";
-              this.emptyHint = "无更新";
-              return;
-            }
-            this.applyCache(adapter);
+            const state = resolveIndexLoadState({
+              statusCode: res.statusCode,
+              data: res.data,
+              cachedData: adapter.getJson(indexCacheKey),
+              sourceUrl: normalizedUrl
+            });
+            this.applyLoadState(
+              state,
+              adapter,
+              res.statusCode,
+              normalizedUrl,
+              forceRefresh
+            );
           },
           fail: () => {
             if (requestSequence !== this.indexRequestSequence) {
               return;
             }
-            this.applyCache(adapter);
+            this.applyLoadState(
+              resolveIndexLoadState({
+                statusCode: 0,
+                cachedData: adapter.getJson(indexCacheKey),
+                sourceUrl: normalizedUrl
+              }),
+              adapter,
+              0,
+              normalizedUrl,
+              false
+            );
           },
           complete: () => {
             if (requestSequence === this.indexRequestSequence) {
@@ -495,43 +405,44 @@ export default {
       });
       return this.indexRequest;
     },
-    /**
-     * AI:将清单数据应用到页面状态。
-     * @param {Object} data AI:清单数据。
-     * @returns {void} AI:无返回值。
-     */
+    applyLoadState(state, adapter, statusCode, normalizedUrl, forceRefresh = false) {
+      if (state.kind === "fresh") {
+        adapter.setJson(indexCacheKey, { sourceUrl: normalizedUrl, data: state.data });
+        this.cacheNotice = "";
+        this.error = "";
+        this.renderedSourceUrl = normalizedUrl;
+        this.applyItems(state.data, forceRefresh || this.coverRefreshNeeded);
+        return;
+      }
+      if (state.kind === "cache") {
+        this.error = "";
+        this.cacheNotice = state.notice;
+        this.renderedSourceUrl = normalizedUrl;
+        this.applyItems(state.data);
+        return;
+      }
+      if (
+        (statusCode === 401 || statusCode === 403) &&
+        resolveCachedManifest(adapter.getJson(indexCacheKey), normalizedUrl).valid
+      ) {
+        adapter.remove(indexCacheKey);
+      }
+      this.cacheNotice = "";
+      this.error = state.message;
+      this.videoItems = [];
+      this.articleItems = [];
+      this.renderedSourceUrl = "";
+    },
     applyItems(data, refreshCovers = false) {
       const normalized = normalizeIndexItems(data);
-      const withLocalCover = applyLocalDownload(normalized.items, this.downloadStatusMap);
-      const refreshed = refreshCovers ? refreshCoverUrls(withLocalCover, Date.now()) : withLocalCover;
+      const withLocalDownload = applyLocalDownload(normalized.items, this.downloadStatusMap);
+      const items = refreshCovers ? refreshCoverUrls(withLocalDownload, Date.now()) : withLocalDownload;
       if (refreshCovers) {
         this.coverRefreshNeeded = false;
       }
-      this.videoItems = refreshed.filter((item) => item.type === "video");
-      this.articleItems = refreshed.filter((item) => item.type === "article");
-      this.emptyHint = "暂无数据";
+      this.videoItems = items.filter((item) => item.type === "video");
+      this.articleItems = items.filter((item) => item.type === "article");
     },
-    /**
-     * AI:从缓存恢复清单并更新页面状态。
-     * @param {{getJson: function(string): Object|null}} adapter AI:缓存读取适配器。
-     * @returns {void} AI:无返回值。
-     */
-    applyCache(adapter) {
-      const cached = adapter.getJson(indexCacheKey);
-      if (cached) {
-        this.applyItems(cached);
-        return;
-      }
-      this.error = "清单加载失败，请检查网络或地址";
-      this.videoItems = [];
-      this.articleItems = [];
-      this.emptyHint = "暂无数据";
-    },
-    /**
-     * AI:触发离线下载并写入本地记录。
-     * @param {Object} item AI:待下载条目。
-     * @returns {void} AI:无返回值。
-     */
     addDownload(item) {
       if (!item || item.type !== "video") {
         return;
@@ -544,9 +455,8 @@ export default {
         uni.showToast({ title: "下载中", icon: "none" });
         return;
       }
-      const storage = createUniStorage();
-      const service = createOfflineService(storage, createUniDownloader());
-      const refreshDownloadProgress = () => {
+      const service = createOfflineService(createUniStorage(), createUniDownloader());
+      const refreshProgress = () => {
         if (!this.pageVisible) {
           return;
         }
@@ -557,17 +467,13 @@ export default {
           this.stopDownloadWatcher();
         }
       };
-      const downloadTask = service.addDownload(item, refreshDownloadProgress);
-      refreshDownloadProgress();
+      const task = service.addDownload(item, refreshProgress);
+      refreshProgress();
       uni.showToast({ title: "已开始下载", icon: "success" });
-      downloadTask
-        .then(() => {
-          refreshDownloadProgress();
-        })
-        .catch(() => {
-          refreshDownloadProgress();
-          uni.showToast({ title: "下载失败，请到离线页查看原因", icon: "none" });
-        });
+      task.then(refreshProgress).catch(() => {
+        refreshProgress();
+        uni.showToast({ title: "下载失败，请到离线页查看原因", icon: "none" });
+      });
     },
     formatDuration,
     formatSize
@@ -577,268 +483,84 @@ export default {
 
 <style scoped>
 .media-tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
   width: 100%;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 22px;
-  overflow: hidden;
-  background: rgba(255, 250, 244, 0.92);
-  border: 1px solid rgba(138, 54, 14, 0.14);
-  box-shadow: 0 14px 30px rgba(31, 27, 22, 0.1);
-  margin-bottom: 20px;
+  padding: 4px;
+  margin-bottom: 14px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
 }
 
 .media-tab {
-  flex: 1;
-  min-height: 54px;
-  padding: 0;
-  border-radius: 16px;
-  border: none;
-  font-size: 20px;
+  min-height: 44px;
+  border-radius: var(--radius-soft);
+  color: var(--color-muted);
+  font-size: 17px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-align: center;
-  color: #5b4a3b;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--duration-fast) ease;
 }
 
 .media-tab.active {
-  background: linear-gradient(135deg, #8a360e 0%, #c05621 100%);
-  color: #fffaf4;
-  box-shadow: 0 10px 20px rgba(138, 54, 14, 0.24);
+  color: var(--color-accent);
+  background: rgba(168, 70, 22, 0.1);
 }
 
-.columns {
-  display: block;
-  width: 100%;
+.feed-notice {
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border-left: 3px solid #b7791f;
+  background: #fff8e8;
+  color: #76531e;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-.column {
+.feed-content,
+.media-list {
   width: 100%;
   min-width: 0;
 }
 
-.cinematic-card {
-  background: transparent;
+.media-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.item {
+.status-state {
+  min-height: 180px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.video-card {
-  align-items: stretch;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.item-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.item-title {
-  font-size: 19px;
-  line-height: 1.4;
-  font-weight: 700;
-  color: var(--color-text);
-  word-break: break-all;
-  overflow-wrap: anywhere;
-}
-
-.video-title {
-  display: block;
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: normal;
-  overflow-wrap: normal;
-}
-
-.item-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  width: 100%;
-  min-width: 0;
-}
-
-.item-meta text {
-  flex: 0 1 auto;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  background: rgba(31, 27, 22, 0.05);
-  white-space: nowrap;
-}
-
-.video-card-row {
-  display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  align-items: stretch;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-}
-
-.video-info-panel {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.video-status-row {
-  display: flex;
   justify-content: center;
-  width: 100%;
-}
-
-.item-cover {
-  width: 116px;
-  height: 73px;
-  border-radius: 12px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(180, 83, 9, 0.18), rgba(31, 27, 22, 0.08));
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-}
-
-.item-cover-image {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.item-card {
-  width: 100%;
-  min-width: 0;
-  margin-top: 12px;
-  padding: 16px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.86));
-  box-shadow: var(--shadow-soft);
-  animation: rise-fade 360ms ease-out both;
-  animation-delay: var(--delay);
+  font-size: 16px;
 }
 
 .download {
-  min-width: 96px;
-  min-height: 42px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 18px;
-  line-height: 42px;
-  text-align: center;
-}
-
-.downloaded {
-  min-width: 96px;
-  flex-shrink: 0;
-  padding: 8px 12px;
-  border-radius: 999px;
-  text-align: center;
+  min-width: 88px;
+  min-height: var(--control-height);
   font-size: 15px;
+}
+
+.download-status {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
   font-weight: 700;
-  color: #166534;
-  border: 1px solid rgba(22, 101, 52, 0.22);
-  background: rgba(22, 101, 52, 0.1);
 }
 
-.downloading {
-  min-width: 96px;
-  flex-shrink: 0;
-  padding: 8px 12px;
-  border-radius: 999px;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 700;
-  color: #92400e;
-  border: 1px solid rgba(217, 119, 6, 0.28);
-  background: rgba(245, 158, 11, 0.16);
+.download-status.pending {
+  color: #8a5b12;
+  background: #fff4d6;
 }
 
-.placeholder {
-  margin-top: 12px;
-  font-size: 16px;
-  letter-spacing: 0.04em;
-}
-
-.loading {
-  margin-top: 16px;
-  text-align: center;
-  font-size: 16px;
-}
-
-.error-card {
-  margin-bottom: 16px;
-  background: rgba(255, 242, 233, 0.9);
-  border: 1px solid rgba(217, 108, 47, 0.25);
-}
-
-.error-text {
-  color: #8a360e;
-  font-size: 16px;
-}
-
-@media (max-width: 359px) {
-  .video-card-row {
-    grid-template-columns: 104px minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  .item-cover {
-    width: 104px;
-    height: 66px;
-  }
-
-  .item-meta {
-    font-size: 14px;
-  }
-
-  .item-meta text {
-    padding: 3px 8px;
-  }
-
-  .download,
-  .downloaded,
-  .downloading {
-    min-width: 88px;
-  }
-}
-
-@media (min-width: 600px) {
-  .video-card-row {
-    grid-template-columns: 152px minmax(0, 1fr);
-    gap: 16px;
-  }
-
-  .item-cover {
-    width: 152px;
-    height: 96px;
-  }
+.download-status.done {
+  color: #216747;
+  background: #eaf7ef;
 }
 </style>

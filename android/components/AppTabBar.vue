@@ -45,42 +45,39 @@ export default {
 
 <style scoped>
 .app-tabbar-spacer {
-  height: calc(100px + env(safe-area-inset-bottom));
+  height: calc(76px + env(safe-area-inset-bottom));
 }
 
 .app-tabbar {
   position: fixed;
-  left: 50%;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  width: calc(100% - 24px);
-  max-width: 680px;
-  transform: translateX(-50%);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 50;
   display: flex;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 24px;
-  background: rgba(255, 250, 244, 0.96);
-  border: 1px solid rgba(146, 64, 14, 0.12);
-  box-shadow: 0 18px 34px rgba(92, 49, 19, 0.14);
+  gap: 0;
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border-subtle);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 -4px 12px rgba(40, 35, 30, 0.06);
 }
 
 .app-tabbar-item {
   flex: 1;
-  min-height: 58px;
-  border-radius: 18px;
+  min-height: 48px;
+  border-radius: var(--radius-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6b4a2f;
-  font-size: 18px;
-  font-weight: 800;
+  color: var(--color-muted);
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .app-tabbar-item.active {
-  color: #fffaf4;
-  background: linear-gradient(135deg, #9a4b18 0%, #c77932 100%);
-  box-shadow: 0 10px 22px rgba(146, 64, 14, 0.22);
+  color: var(--color-accent);
+  background: rgba(168, 70, 22, 0.1);
+  box-shadow: none;
 }
 
 .app-tabbar-text {
@@ -89,14 +86,13 @@ export default {
 
 @media (max-width: 359px) {
   .app-tabbar {
-    gap: 4px;
-    padding: 6px;
+    padding-right: 8px;
+    padding-left: 8px;
   }
 
   .app-tabbar-item {
-    min-height: 54px;
-    border-radius: 16px;
-    font-size: 17px;
+    min-height: 46px;
+    font-size: 15px;
   }
 }
 </style>

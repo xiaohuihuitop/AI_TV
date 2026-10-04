@@ -26,6 +26,7 @@ const statusMap = buildDownloadStatusMap([
   {
     id: "video-1",
     type: "video",
+    url: remoteUrl,
     status: "done",
     progress: 100,
     local_path: localPath,

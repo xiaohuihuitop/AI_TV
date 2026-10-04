@@ -403,3 +403,57 @@
 - 关联文件: android/manifest.json, android/pages/player/index.vue, AI_TOOL/android_packaging_test.mjs
 - 标签: android, uni-app, cloud-pack, VideoPlayer, manifest, emulator
 - 关键词: videoplayer 模块, app-plus.modules, 标准基座, HBuilderX cli, MuMu, 黑屏
+
+## [2026-10-03] 事实: 标准基座验收不等于云打包 APK 发布验收
+- 触发条件: 使用 HBuilderX 标准基座在 MuMu 验证视频播放、下载、离线播放、设置和断网恢复。
+- 已验证: 标准基座连接 WSL 本地服务后，在线图文、横竖屏播放、重播、下载/离线本地播放/删除、设置弹窗和断网后重试均通过；清理 logcat 后未发现 `FATAL EXCEPTION`、`AndroidRuntime` 或 HBuilder 应用错误。
+- 边界: 标准基座预置 VideoPlayer 等原生模块，能验证页面 JavaScript 和运行时行为，但无法证明最终云打包 APK 已包含正确模块，也无法覆盖实体设备、生产域名 DNS 或 WGT 发布链路。
+- 预防/规则: 对原生模块、权限或 manifest 有变更时，验收至少分为“标准基座功能回归”与“重新云打包 APK + 实体设备验收”两层；报告结果时必须明确测试包类型和服务地址。
+- 关联文件: android/manifest.json, android/pages/player/index.vue, AI_TOOL/android_packaging_test.mjs, docs/project/进度.md
+- 标签: android, emulator, HBuilderX, cloud-pack, acceptance, VideoPlayer
+- 关键词: 标准基座, 云打包, APK, MuMu, VideoPlayer, 验收边界
+
+## [2026-10-03] 根因: 最新页无视频由本地地址与服务生命周期造成
+- 触发条件: Android 设置中已持久化 `http://127.0.0.1:8000/public/index.json?...`，上一轮验收完成后 WSL 本地 uvicorn 被停止。
+- 根因: 模拟器中的 `127.0.0.1` 依赖 ADB `reverse tcp:8000 tcp:8000` 映射到开发机端口；服务停止或映射不可用时，客户端无法读取清单。旧页面将认证/网络/格式/空列表混淆，用户容易误判为服务端没有视频。
+- 解决步骤: 恢复 WSL API 并确认本地清单返回 2 个 ready 视频与 1 篇图文；清单状态层严格验证 `{ items: [] }`，401/403 明确报认证错误，网络失败使用合法缓存并标注缓存来源；设置页展示地址时掩码 `user`/`pass`。
+- 预防/规则: 本地开发地址与公网默认地址必须在界面上可区分；结束本地验收前应明确服务是否继续运行；模拟器访问 WSL 要同时验证 uvicorn、ADB reverse 和清单响应。不要把网络、认证和格式错误显示为“暂无数据”。
+- 关联文件: android/pages/latest/index.vue, android/utils/indexState.js, android/utils/indexService.js, android/pages/settings/index.vue, android/utils/appConfig.js, AI_TOOL/android_latest_state_test.mjs
+- 标签: android, muMu, wsl, index, cache, diagnostics
+- 关键词: 127.0.0.1, adb reverse, uvicorn, index_cache, 401, empty state
+
+## [2026-10-03] 事实: App-Plus 标准基座不保证 URL API 与原生输入自动化兼容
+- 触发条件: 设置页用 `new URL()` 处理清单地址，标准基座运行时产生回退并直接展示 query 凭据；测试环境尝试通过 WebView DOM 自动化输入原生封装的 `<input>`。
+- 根因: App-Plus 标准基座的页面 WebView 与 Node/现代浏览器能力并不完全等价；`URL` 可用性和输入元素 DOM 暴露方式不能作为通用前提。
+- 解决步骤: 地址校验和凭据掩码改为不依赖 `URL` 全局对象的正则/字符串处理；设备实测确认掩码生效。对无法可靠注入的原生输入控件，不把自动化注入结果作为产品验收结论。
+- 预防/规则: uni-app App-Plus 的配置解析使用轻量、兼容的字符串逻辑，并通过真实基座或 APK 复验；浏览器 DOM 自动化仅能覆盖其实际暴露的页面层，原生控件保留人工/设备专项测试。
+- 关联文件: android/utils/appConfig.js, android/pages/settings/index.vue, AI_TOOL/android_ui_cleanup_test.mjs
+- 标签: android, uni-app, app-plus, compatibility, URL, input
+- 关键词: URL, regex, standard playground, native input, credential mask
+
+## [2026-10-03] 事实: App 范围决策——不做无障碍支持、默认 admin/admin 凭据维持现状
+- 触发条件: 第二轮复查将"默认 query 凭据同时可访问管理后台"与"封面 URL 经无障碍（TalkBack）通道朗读出凭据"列为遗留待办，用户逐项决策。
+- 已确认: 用户实测知悉 admin/admin 可访问管理后台（本地服务实测 200）；App 仅家庭内部使用、由用户本人维护、内容不对外分发，该风险被明确接受。App 不需要无障碍操作。
+- 处理: 默认凭据维持现状不改认证协议；删除自有代码中的无障碍语义（最新页 `role="tablist"`、全局 `prefers-reduced-motion` 减弱动画查询），第三方 `uni_modules/mp-html` 不动；`android_ui_cleanup_test.mjs` 以"不再包含 role/aria/prefers-reduced-motion"断言固化该决策。
+- 边界/规则: 后续 AI 或人工审查不得再默认将无障碍语义、默认凭据列为待办或擅自加回相关属性；仅当使用场景变化（对外分发、出现视障用户）时需重新评估。适老化（大字体、高对比、大按钮）属于普通 UI 需求，继续保留，不在本决策范围内。
+- 关联文件: android/pages/latest/index.vue, android/App.vue, AI_TOOL/android_ui_cleanup_test.mjs, docs/project/需求.md
+- 标签: android, scope, decision, accessibility, credentials
+- 关键词: 无障碍, TalkBack, role, aria, prefers-reduced-motion, admin/admin, scope decision
+
+## [2026-10-03] 根因: 清单缓存全局单键导致切换服务器后串用旧内容
+- 触发条件: 服务器 A 成功加载清单后写入缓存，切换到不可达的服务器 B 再打开最新页。
+- 根因: `index_cache` 是与地址无关的全局键，`resolveIndexLoadState` 对任何网络失败都接受"结构合法"的缓存，不校验缓存来自哪个服务器；缓存条目资源 URL 还携带旧服务器的 query 凭据，跨服务器展示并继续访问旧地址。
+- 解决步骤: 缓存改为 `{ sourceUrl, data }` 信封并新增 `resolveCachedManifest`，仅当缓存来源与当前标准化请求地址完全一致时回退；页面用 `renderedSourceUrl` 追踪当前渲染来源，切换地址后先清空旧列表；401/403 只清除当前来源的缓存。旧裸清单缓存属一次性破坏，直接丢弃（内容可重新拉取）。
+- 预防/规则: 任何"按当前配置渲染的持久化数据"必须绑定配置来源；缓存回退类功能要区分"同源断网"与"异源不可达"，并先用双服务器场景复现再修复。
+- 关联文件: android/utils/indexState.js, android/pages/latest/index.vue, AI_TOOL/android_latest_state_test.mjs
+- 标签: android, cache, multi-server, isolation, index
+- 关键词: index_cache, sourceUrl, cache envelope, stale content, resolveCachedManifest
+
+## [2026-10-03] 根因: 离线下载仅用服务端自增 ID 识别导致跨服务器串内容
+- 触发条件: 在服务器 A 下载视频 ID 1 后，切换到服务器 B（其视频 ID 1 是另一个文件），最新页把 B 的视频标记为"已下载"并可播放 A 的本地文件；重复下载同 ID 还会覆盖记录并留下孤儿文件。
+- 根因: `download_items` 状态映射、本地路径合并、删除和播放队列全部以 `String(entry.id)` 为键，而每台服务器的数字 ID 都从 1 重新编号；下载中条目可删除但不取消任务，文件删除失败被吞掉后元数据先被删除。
+- 解决步骤: 新增 `buildDownloadIdentity`（type + id + 资源 URL，剔除 `user`/`pass`/`_t` 等易变查询参数，兼容同服务器密码轮换）；状态映射、合并、删除、队列全部改用身份键；下载中禁止删除、中断下载重启后标记失败允许重试、删除按先封面后视频顺序执行且失败时保留记录并回写已删字段；损坏 `download_items` 自动清除。
+- 预防/规则: 客户端本地记录不能假设服务端 ID 全局唯一，身份至少包含来源资源地址；文件删除与元数据删除必须同成败，禁止吞错后继续删元数据；涉及下载状态机时必须覆盖"并发、中断重启、跨服务器同 ID"三类场景。
+- 关联文件: android/utils/offlineService.js, android/utils/indexService.js, android/pages/offline/index.vue, android/pages/latest/index.vue, AI_TOOL/android_offline_integrity_test.mjs
+- 标签: android, offline, download, identity, multi-server
+- 关键词: download_items, buildDownloadIdentity, cross-server, orphan file, stale downloading

@@ -1,6 +1,6 @@
 ﻿<template>
-  <view class="app-page">
-    <view class="header hero">
+  <view class="app-page reader-page">
+    <view class="reader-heading">
       <text class="title">{{ title || "图文" }}</text>
       <text class="subtitle muted">阅读内容</text>
     </view>
@@ -165,25 +165,24 @@ function resolveContentFormat(input) {
 </script>
 
 <style scoped>
-.header {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  animation: rise-fade 320ms ease-out both;
+.reader-heading {
+  margin: 6px 0 14px;
 }
 
 .title {
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0;
   font-family: var(--font-display);
 }
 
 .subtitle {
   display: block;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  margin-top: 4px;
+  font-size: 14px;
+  letter-spacing: 0;
 }
 
 .loading {
@@ -192,15 +191,15 @@ function resolveContentFormat(input) {
 }
 
 .content {
-  margin-top: 12px;
-  background: rgba(255, 255, 255, 0.95);
+  margin-top: 8px;
+  background: var(--color-surface);
 }
 
 .content-reading {
-  background: rgba(255, 255, 255, 0.98);
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  box-shadow: var(--shadow-float);
-  padding: 22px 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-card);
+  padding: 20px 18px;
 }
 
 .content-html {
@@ -362,8 +361,8 @@ function resolveContentFormat(input) {
 }
 
 @media (max-width: 359px) {
-  .header {
-    margin-bottom: 14px;
+  .reader-heading {
+    margin-bottom: 12px;
   }
 
   .content-reading {

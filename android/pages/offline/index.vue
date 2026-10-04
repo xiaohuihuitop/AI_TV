@@ -1,44 +1,46 @@
-﻿<template>
-  <view class="app-page">
-    <view class="columns">
-      <view class="column cinematic-card">
-        <view v-if="videoItems.length === 0" class="placeholder muted">暂无下载</view>
-        <view
-          v-for="(item, index) in videoItems"
-          :key="item.id"
-          class="item item-card video-card"
-          :style="{ '--delay': `${index * 60}ms` }"
-          @click="openVideo(item, index)"
-        >
-          <text class="item-title video-title">{{ item.title }}</text>
-          <view class="video-card-row">
-            <view class="item-cover">
-              <image v-if="item.cover" class="item-cover-image" :src="item.cover" mode="aspectFill" lazy-load />
+<template>
+  <view class="app-page offline-page">
+    <empty-state
+      v-if="videoItems.length === 0"
+      title="暂无下载"
+      description="下载的视频会保存在这里，断网时也可以观看。"
+    />
+    <view v-else class="media-list">
+      <media-list-card
+        v-for="(item, index) in videoItems"
+        :key="buildDownloadIdentity(item)"
+        :item="item"
+        :duration-text="`时长 ${formatDuration(item.duration_seconds)}`"
+        :size-text="`大小 ${formatSize(item.size_bytes)}`"
+        @click="openVideo(item, index)"
+      >
+        <template v-if="item.status === 'downloading'" v-slot:status>
+          <view class="download-state">
+            <view class="progress">
+              <view class="progress-bar" :style="{ width: `${item.progress}%` }"></view>
             </view>
-            <view class="video-info-panel">
-              <view class="item-meta muted">
-                <text>时长：{{ formatDuration(item.duration_seconds) }}</text>
-                <text>大小：{{ formatSize(item.size_bytes) }}</text>
-              </view>
-              <view v-if="item.status !== 'done'" class="download-state">
-                <view class="progress">
-                  <view class="progress-bar" :style="{ width: `${item.progress}%` }"></view>
-                </view>
-                <text class="progress-text muted">{{ item.progress }}%</text>
-                <text v-if="item.status === 'failed'" class="error-text">失败：{{ item.last_error || "未知错误" }}</text>
-                <text v-else-if="item.last_step" class="progress-text muted">
-                  步骤：{{ item.last_step }}
-                </text>
-              </view>
-              <view class="video-status-row">
-                <button class="btn btn-ghost remove" size="mini" @click.stop="removeDownload(item)">
-                  删除
-                </button>
-              </view>
-            </view>
+            <text class="progress-text muted">
+              {{ item.last_step || "下载中" }} {{ item.progress }}%
+            </text>
           </view>
-        </view>
-      </view>
+        </template>
+        <template v-else-if="item.status === 'failed'" v-slot:status>
+          <view class="download-state">
+            <text class="error-text">下载失败：{{ item.last_error || "未知错误" }}</text>
+            <text v-if="item.last_step" class="progress-text muted">{{ item.last_step }}</text>
+          </view>
+        </template>
+        <template v-slot:action>
+          <button
+            v-if="item.status !== 'downloading'"
+            class="btn btn-ghost remove"
+            size="mini"
+            @click="removeDownload(item)"
+          >
+            删除
+          </button>
+        </template>
+      </media-list-card>
     </view>
     <app-tab-bar active="offline" />
   </view>
@@ -46,7 +48,13 @@
 
 <script>
 import AppTabBar from "../../components/AppTabBar.vue";
-import { createOfflineService } from "../../utils/offlineService.js";
+import EmptyState from "../../components/EmptyState.vue";
+import MediaListCard from "../../components/MediaListCard.vue";
+import {
+  buildDownloadIdentity,
+  createOfflineService,
+  removeDownloadFiles
+} from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { resolveCoverUrl } from "../../utils/indexService.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
@@ -56,10 +64,6 @@ function resolvePlusRuntime() {
   return typeof plus !== "undefined" ? plus : null;
 }
 
-/**
- * AI:创建 uniapp 存储读写适配器。
- * @returns {{get: function(string): (string|undefined), set: function(string, string): void, remove: function(string): void}} AI:存储读写适配器。
- */
 function createUniStorage() {
   return {
     get: (key) => uni.getStorageSync(key),
@@ -68,10 +72,6 @@ function createUniStorage() {
   };
 }
 
-/**
- * AI:创建最小下载适配器，避免未使用方法报错。
- * @returns {{download: function(string): Promise<Object>, save: function(string): Promise<Object>}} AI:下载适配器。
- */
 function createEmptyDownloader() {
   return {
     download: async () => ({}),
@@ -79,11 +79,6 @@ function createEmptyDownloader() {
   };
 }
 
-/**
- * AI:删除本地缓存文件。
- * @param {string} filePath AI:本地文件路径。
- * @returns {Promise<void>} AI:删除结果。
- */
 function removeLocalFile(filePath) {
   return new Promise((resolve, reject) => {
     if (!filePath) {
@@ -101,12 +96,7 @@ function removeLocalFile(filePath) {
         }
         plus.io.resolveLocalFileSystemURL(
           filePath,
-          (entry) => {
-            entry.remove(
-              () => resolve(),
-              () => reject(new Error("删除失败"))
-            );
-          },
+          (entry) => entry.remove(resolve, () => reject(new Error("删除失败"))),
           () => reject(new Error("删除失败"))
         );
       }
@@ -116,7 +106,9 @@ function removeLocalFile(filePath) {
 
 export default {
   components: {
-    AppTabBar
+    AppTabBar,
+    EmptyState,
+    MediaListCard
   },
   data() {
     return {
@@ -129,8 +121,7 @@ export default {
     if (typeof uni.hideTabBar === "function") {
       uni.hideTabBar({ animation: false });
     }
-    const hasDownloading = this.refreshDownloads();
-    if (hasDownloading) {
+    if (this.refreshDownloads()) {
       this.startProgressWatcher();
     }
   },
@@ -141,12 +132,6 @@ export default {
     this.stopProgressWatcher();
   },
   methods: {
-    /**
-     * AI:跳转到视频播放页。
-     * @param {Object} item AI:视频条目。
-     * @param {number} index AI:条目索引。
-     * @returns {void} AI:无返回值。
-     */
     openVideo(item, index) {
       const src = this.resolveItemSource(item);
       if (item && item.status === "failed") {
@@ -157,57 +142,35 @@ export default {
         uni.showToast({ title: "尚未下载完成", icon: "none" });
         return;
       }
-      const storage = createUniStorage();
       const queue = Array.isArray(this.videoItems)
         ? this.videoItems.filter((entry) => entry.status === "done" && entry.local_path)
         : [];
-      const resolvedIndex = queue.findIndex((entry) => entry.id === item.id);
-      const safeIndex = resolvedIndex >= 0 ? resolvedIndex : 0;
-      savePlayerQueue(storage, queue, safeIndex);
+      const resolvedIndex = queue.findIndex(
+        (entry) => buildDownloadIdentity(entry) === buildDownloadIdentity(item)
+      );
+      savePlayerQueue(createUniStorage(), queue, resolvedIndex >= 0 ? resolvedIndex : 0);
       const title = item.title ? encodeURIComponent(item.title) : "";
       uni.navigateTo({
         url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}&autoplay=1`
       });
     },
-    /**
-     * AI:解析条目可用地址。
-     * @param {Object} item AI:条目信息。
-     * @returns {string} AI:可用地址。
-     */
     resolveItemSource(item) {
       return item && item.local_path ? item.local_path : "";
     },
-    /**
-     * AI:加载离线下载列表并渲染。
-     * @returns {boolean} AI:是否存在下载中条目。
-     */
     refreshDownloads() {
-      const storage = createUniStorage();
-      const service = createOfflineService(storage, createEmptyDownloader());
-      const list = service.listDownloads().map((item) => ({
-        ...item,
-        cover: resolveCoverUrl(item)
-      }));
+      const service = createOfflineService(createUniStorage(), createEmptyDownloader());
+      const list = service.listDownloads().map((item) => ({ ...item, cover: resolveCoverUrl(item) }));
       this.videoItems = list.filter((item) => item.type === "video");
       return list.some((item) => item.status === "downloading");
     },
-    /**
-     * AI:启动下载进度刷新定时器。
-     * @returns {void} AI:无返回值。
-     */
     startProgressWatcher() {
       this.stopProgressWatcher();
       this.refreshTimer = setInterval(() => {
-        const hasDownloading = this.refreshDownloads();
-        if (!hasDownloading) {
+        if (!this.refreshDownloads()) {
           this.stopProgressWatcher();
         }
       }, 500);
     },
-    /**
-     * AI:停止下载进度刷新定时器。
-     * @returns {void} AI:无返回值。
-     */
     stopProgressWatcher() {
       if (!this.refreshTimer) {
         return;
@@ -215,43 +178,41 @@ export default {
       clearInterval(this.refreshTimer);
       this.refreshTimer = null;
     },
-    /**
-     * AI:删除离线记录并清理本地文件。
-     * @param {Object} item AI:离线条目。
-     * @returns {void} AI:无返回值。
-     */
     removeDownload(item) {
+      if (item && item.status === "downloading") {
+        uni.showToast({ title: "下载进行中，暂时不能删除", icon: "none" });
+        return;
+      }
       uni.showModal({
         title: "确认删除",
         content: "删除后需要重新下载才能离线观看。",
         confirmText: "删除",
         cancelText: "取消",
-        confirmColor: "#8a360e",
+        confirmColor: "#a84616",
         success: (res) => {
           if (!res.confirm) {
             return;
           }
-          const storage = createUniStorage();
-          const service = createOfflineService(storage, createEmptyDownloader());
-          Promise.all([
-            removeLocalFile(item.local_path),
-            removeLocalFile(item.cover_local_path)
-          ])
-            .catch(() => null)
-            .then(() => service.removeDownload(item.id))
+          const service = createOfflineService(createUniStorage(), createEmptyDownloader());
+          removeDownloadFiles(item, removeLocalFile)
+            .then(() => service.removeDownload(item))
             .then(() => {
-              const hasDownloading = this.refreshDownloads();
-              if (!hasDownloading) {
+              if (!this.refreshDownloads()) {
                 this.stopProgressWatcher();
               }
               uni.showToast({ title: "已删除", icon: "success" });
             })
-            .catch(() => {
-              uni.showToast({ title: "删除失败", icon: "none" });
+            .catch((error) => {
+              if (error && Array.isArray(error.removedFields)) {
+                service.clearDownloadPaths(item, error.removedFields);
+                this.refreshDownloads();
+              }
+              uni.showToast({ title: "删除失败，请重试", icon: "none" });
             });
         }
       });
     },
+    buildDownloadIdentity,
     formatDuration,
     formatSize
   }
@@ -259,210 +220,45 @@ export default {
 </script>
 
 <style scoped>
-.columns {
-  display: block;
-  width: 100%;
-}
-
-.column {
-  width: 100%;
-  min-width: 0;
-}
-
-.cinematic-card {
-  background: transparent;
-}
-
-.item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.video-card {
-  align-items: stretch;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.item-main {
-  flex: 1;
-  min-width: 0;
+.media-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.item-title {
-  font-size: 19px;
-  line-height: 1.4;
-  font-weight: 700;
-  color: var(--color-text);
-  word-break: break-all;
-  overflow-wrap: anywhere;
-}
-
-.video-title {
-  display: block;
-  width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  word-break: normal;
-  overflow-wrap: normal;
-}
-
-.item-meta {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 6px;
-  font-size: 15px;
-  width: 100%;
-  min-width: 0;
-}
-
-.item-meta text {
-  flex: 0 1 auto;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  background: rgba(31, 27, 22, 0.05);
-  white-space: nowrap;
-}
-
-.video-card-row {
-  display: grid;
-  grid-template-columns: 116px minmax(0, 1fr);
-  align-items: stretch;
   gap: 10px;
-  width: 100%;
-  min-width: 0;
-}
-
-.video-info-panel {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.video-status-row {
-  display: flex;
-  justify-content: center;
-  width: 100%;
-}
-
-.item-cover {
-  width: 116px;
-  height: 73px;
-  border-radius: 12px;
-  overflow: hidden;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(180, 83, 9, 0.18), rgba(31, 27, 22, 0.08));
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
-}
-
-.item-cover-image {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.item-card {
-  width: 100%;
-  min-width: 0;
-  margin-top: 12px;
-  padding: 16px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(31, 27, 22, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.86));
-  box-shadow: var(--shadow-soft);
-  animation: rise-fade 360ms ease-out both;
-  animation-delay: var(--delay);
-}
-
-.progress {
-  width: 100%;
-  height: 7px;
-  border-radius: 999px;
-  background: rgba(31, 27, 22, 0.08);
-  overflow: hidden;
-}
-
-.progress-bar {
-  height: 100%;
-  background: linear-gradient(120deg, #b45309, #f59e0b);
 }
 
 .download-state {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
-.progress-text {
-  font-size: 15px;
+.progress {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  background: var(--color-surface-muted);
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--color-accent-soft);
+}
+
+.progress-text,
+.error-text {
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .error-text {
-  margin-top: 4px;
-  font-size: 15px;
-  color: #8a360e;
+  color: #a84616;
 }
 
 .remove {
-  min-width: 96px;
-}
-
-.placeholder {
-  margin-top: 12px;
-  font-size: 16px;
-  letter-spacing: 0.04em;
-}
-
-@media (max-width: 359px) {
-  .video-card-row {
-    grid-template-columns: 104px minmax(0, 1fr);
-    gap: 8px;
-  }
-
-  .item-cover {
-    width: 104px;
-    height: 66px;
-  }
-
-  .item-meta {
-    font-size: 14px;
-  }
-
-  .item-meta text {
-    padding: 3px 8px;
-  }
-
-  .remove {
-    min-width: 88px;
-  }
-}
-
-@media (min-width: 600px) {
-  .video-card-row {
-    grid-template-columns: 152px minmax(0, 1fr);
-    gap: 16px;
-  }
-
-  .item-cover {
-    width: 152px;
-    height: 96px;
-  }
+  min-width: 76px;
+  min-height: var(--control-height);
+  font-size: 15px;
 }
 </style>

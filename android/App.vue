@@ -40,23 +40,26 @@ export default {
 <style>
 :root,
 page {
-  --color-bg: #eee3d6;
-  --color-bg-soft: #f8f1e8;
+  --color-bg: #f6f2ec;
+  --color-bg-soft: #fbf9f6;
   --color-surface: #ffffff;
-  --color-surface-strong: #f3ede5;
-  --color-text: #1f1b16;
-  --color-muted: #544a40;
-  --color-accent: #8a360e;
-  --color-accent-soft: #c05621;
-  --color-border: rgba(31, 27, 22, 0.18);
-  --color-glow: rgba(138, 54, 14, 0.28);
-  --radius-card: 18px;
-  --radius-pill: 999px;
-  --radius-soft: 14px;
-  --shadow-card: 0 18px 40px rgba(31, 27, 22, 0.12);
-  --shadow-soft: 0 10px 24px rgba(31, 27, 22, 0.08);
-  --shadow-float: 0 24px 48px rgba(31, 27, 22, 0.16);
-  --duration-fast: 200ms;
+  --color-surface-muted: #f3eee7;
+  --color-surface-strong: #ebe4da;
+  --color-text: #28231e;
+  --color-muted: #6c6258;
+  --color-accent: #a84616;
+  --color-accent-soft: #d06a2b;
+  --color-border: rgba(40, 35, 30, 0.16);
+  --color-border-subtle: rgba(40, 35, 30, 0.1);
+  --color-glow: rgba(168, 70, 22, 0.18);
+  --radius-card: 14px;
+  --radius-pill: 12px;
+  --radius-soft: 10px;
+  --shadow-card: 0 8px 20px rgba(40, 35, 30, 0.08);
+  --shadow-soft: 0 4px 12px rgba(40, 35, 30, 0.06);
+  --shadow-float: 0 12px 28px rgba(40, 35, 30, 0.12);
+  --control-height: 48px;
+  --duration-fast: 160ms;
   --font-display: "Noto Serif SC", "Source Serif 4", "Source Han Serif SC", serif;
   --font-body: "Noto Sans SC", "Source Sans 3", "PingFang SC", "Microsoft YaHei",
     sans-serif;
@@ -64,7 +67,7 @@ page {
 
 page {
   background-color: var(--color-bg);
-  background-image: linear-gradient(180deg, #eee3d6 0%, #f8f1e8 52%, #fbf7f2 100%);
+  background-image: linear-gradient(180deg, #f6f2ec 0%, #fbf9f6 56%, #ffffff 100%);
   color: var(--color-text);
   font-family: var(--font-body);
 }
@@ -109,45 +112,43 @@ page::-webkit-scrollbar,
   max-width: 720px;
   min-height: 100vh;
   margin: 0 auto;
-  padding: 20px 16px calc(32px + env(safe-area-inset-bottom));
+  padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
 }
 
 .card {
   width: 100%;
   min-width: 0;
-  padding: 18px;
-  border: 1px solid var(--color-border);
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-card);
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
 .panel {
   width: 100%;
   min-width: 0;
-  padding: 18px;
-  border: 1px solid rgba(31, 27, 22, 0.1);
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-card);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--color-surface);
   box-shadow: var(--shadow-soft);
 }
 
 .hero {
-  padding: 16px 18px;
-  border: 1px solid rgba(31, 27, 22, 0.1);
-  border-radius: var(--radius-card);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: var(--shadow-soft);
+  padding: 14px 16px;
+  border-left: 3px solid var(--color-accent);
+  background: transparent;
 }
 
 .btn {
   min-width: 0;
-  min-height: 54px;
+  min-height: var(--control-height);
   margin: 0;
-  padding: 0 20px;
+  padding: 0 16px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-  background: rgba(31, 27, 22, 0.04);
+  border-radius: var(--radius-soft);
+  background: var(--color-surface-muted);
   color: var(--color-text);
   font-size: 16px;
   font-weight: 700;
@@ -166,15 +167,15 @@ page::-webkit-scrollbar,
 }
 
 .btn-primary {
-  border-color: rgba(138, 54, 14, 0.5);
-  background: linear-gradient(135deg, #8a360e 0%, #c05621 100%);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
   color: #ffffff;
-  box-shadow: 0 10px 22px rgba(138, 54, 14, 0.28);
+  box-shadow: 0 4px 10px var(--color-glow);
 }
 
 .btn-ghost {
-  border-color: rgba(31, 27, 22, 0.18);
-  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--color-border);
+  background: var(--color-surface);
   color: var(--color-text);
 }
 
@@ -198,9 +199,9 @@ page::-webkit-scrollbar,
   }
 
   .btn {
-    min-height: 50px;
-    padding-right: 14px;
-    padding-left: 14px;
+    min-height: 44px;
+    padding-right: 12px;
+    padding-left: 12px;
   }
 }
 
@@ -208,16 +209,6 @@ page::-webkit-scrollbar,
   .app-page {
     padding-right: 24px;
     padding-left: 24px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 1ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
   }
 }
 

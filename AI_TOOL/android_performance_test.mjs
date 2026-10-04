@@ -4,9 +4,10 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
-const [latest, offline] = await Promise.all([
+const [latest, offline, mediaCard] = await Promise.all([
   read("android/pages/latest/index.vue"),
-  read("android/pages/offline/index.vue")
+  read("android/pages/offline/index.vue"),
+  read("android/components/MediaListCard.vue")
 ]);
 
 assert.match(latest, /pageVisible:\s*false/);
@@ -20,12 +21,17 @@ assert.match(latest, /this\.indexRequest\s*&&\s*this\.indexRequestUrl\s*===\s*no
 assert.match(latest, /requestSequence\s*!==\s*this\.indexRequestSequence/);
 assert.match(latest, /applyItems\(data, refreshCovers\s*=\s*false\)/);
 assert.match(latest, /refreshCovers\s*\?\s*refreshCoverUrls/);
-assert.match(latest, /<image[^>]+lazy-load[^>]+@error="markCoverRefreshNeeded"/s);
+assert.match(latest, /<media-list-card[\s\S]+@cover-error="markCoverRefreshNeeded"/);
+assert.match(mediaCard, /<image[^>]+lazy-load[^>]+@error="\$emit\('cover-error'\)"/s);
 assert.match(latest, /coverRefreshNeeded:\s*false/);
 assert.match(latest, /this\.coverRefreshNeeded\s*=\s*true/);
 assert.match(latest, /forceRefresh\s*\|\|\s*this\.coverRefreshNeeded/);
-assert.match(offline, /item\.status\s*===\s*"downloading"/);
-assert.match(offline, /Promise\.all\(\[\s*removeLocalFile\(item\.local_path\),\s*removeLocalFile\(item\.cover_local_path\)/s);
-assert.match(offline, /<image[^>]+lazy-load/s);
+assert.match(offline, /item\.status\s*===\s*['"]downloading['"]/);
+assert.match(offline, /v-if="item\.status !== 'downloading'"/);
+assert.match(offline, /removeDownloadFiles\(item,\s*removeLocalFile\)/);
+assert.match(offline, /service\.removeDownload\(item\)/);
+assert.match(offline, /buildDownloadIdentity\(entry\)\s*===\s*buildDownloadIdentity\(item\)/);
+assert.match(offline, /<media-list-card/);
+assert.match(mediaCard, /lazy-load/);
 
 console.log("android performance tests ok");

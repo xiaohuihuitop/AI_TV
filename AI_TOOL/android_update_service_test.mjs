@@ -18,7 +18,7 @@ assert.match(appSource, /onLaunch\(\)/);
 assert.match(appSource, /onShow\(\)/);
 assert.match(source, /route === "pages\/player\/index"/);
 const settingsSource = await readFile(new URL("android/pages/settings/index.vue", root), "utf8");
-assert.match(settingsSource, /https:\/\/tv\.xiaohuihuitop\.top\/public\/index\.json/);
+assert.match(settingsSource, /defaultIndexUrl/);
 
 const update = await import("../android/utils/updateService.js");
 const { compareVersions, validateUpdateManifest, isUpdateAvailable, createUpdateService } = update;

@@ -459,8 +459,8 @@ export default {
 }
 
 .player-page {
-  padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
-  background: #f7f2ea;
+  padding: 10px 12px calc(20px + env(safe-area-inset-bottom));
+  background: var(--color-bg);
 }
 
 .player-page.is-immersive {
@@ -480,10 +480,10 @@ export default {
   min-width: 0;
   margin-bottom: 16px;
   background: #000000;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   overflow: hidden;
-  border: 1px solid rgba(31, 27, 22, 0.32);
-  box-shadow: 0 22px 42px rgba(31, 27, 22, 0.26);
+  border: 1px solid rgba(31, 27, 22, 0.24);
+  box-shadow: var(--shadow-card);
 }
 
 .is-immersive .video-shell {
@@ -524,31 +524,31 @@ export default {
 }
 
 .replay-btn {
-  padding: 16px 28px;
-  border-radius: 999px;
-  background: rgba(138, 54, 14, 0.98);
+  padding: 14px 24px;
+  border-radius: var(--radius-soft);
+  background: var(--color-accent);
   color: #ffffff;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0;
   text-align: center;
-  min-width: 132px;
+  min-width: 116px;
 }
 
 .immersive-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  margin-top: 16px;
+  margin-top: 10px;
   padding: 0;
 }
 
 .immersive-actions .btn {
   width: 100%;
   min-width: 0;
-  min-height: 56px;
+  min-height: 48px;
   padding-right: 8px;
   padding-left: 8px;
   display: flex;
@@ -585,15 +585,15 @@ export default {
 }
 
 .error-card {
-  width: calc(100% - 32px);
-  margin: 16px;
+  width: calc(100% - 24px);
+  margin: 12px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  background: rgba(255, 242, 233, 0.9);
-  border: 1px solid rgba(217, 108, 47, 0.25);
+  gap: 12px;
+  background: #fff8f4;
+  border: 1px solid rgba(168, 70, 22, 0.22);
 }
 
 .error-text {
@@ -604,12 +604,12 @@ export default {
 }
 
 .error-retry {
-  min-width: 180px;
-  min-height: 52px;
+  min-width: 160px;
+  min-height: var(--control-height);
   color: #ffffff;
-  background: #8a360e;
-  border-color: rgba(138, 54, 14, 0.5);
-  font-size: 18px;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  font-size: 16px;
 }
 
 @media (min-width: 600px) {

@@ -1,4 +1,6 @@
-﻿/**
+﻿import { buildDownloadIdentity } from "./offlineService.js";
+
+/**
  * AI:规范化清单数据并按发布时间倒序。
  * @param {Object} raw AI:原始清单对象。
  * @returns {{items: Array}} AI:排序后的清单对象。
@@ -107,7 +109,7 @@ export function applyLocalCover(items, downloadStatusMap) {
     if (!isVideoItem(item)) {
       return item;
     }
-    const status = map[String(item.id)];
+    const status = map[buildDownloadIdentity(item)];
     const localCover =
       status && typeof status.cover_local_path === "string"
         ? status.cover_local_path.trim()
@@ -136,8 +138,7 @@ export function applyLocalDownload(items, downloadStatusMap) {
     if (!isVideoItem(item)) {
       return item;
     }
-    const id = String(item.id);
-    const status = map[id];
+    const status = map[buildDownloadIdentity(item)];
     const localCover =
       status && typeof status.cover_local_path === "string"
         ? status.cover_local_path.trim()
@@ -194,7 +195,15 @@ export function createStorageAdapter(storage) {
   return {
     getJson(key) {
       const value = storage.get(key);
-      return value ? JSON.parse(value) : null;
+      if (!value) {
+        return null;
+      }
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        storage.remove(key);
+        return null;
+      }
     },
     setJson(key, value) {
       storage.set(key, JSON.stringify(value));

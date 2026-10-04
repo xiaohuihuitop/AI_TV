@@ -1,4 +1,8 @@
-import { createOfflineService, buildDownloadStatusMap } from "../android/utils/offlineService.js";
+import {
+  buildDownloadIdentity,
+  createOfflineService,
+  buildDownloadStatusMap
+} from "../android/utils/offlineService.js";
 
 function createMemoryStorage() {
   const store = {};
@@ -39,8 +43,9 @@ service.addDownload(item).catch(() => {});
 const list = service.listDownloads();
 const statusMap = buildDownloadStatusMap(list);
 
+const statusKey = buildDownloadIdentity(item);
 assert(list.length === 1, "expected one download item immediately after addDownload");
-assert(statusMap["video-1"], "expected status map to contain the downloading item");
-assert(statusMap["video-1"].status === "downloading", "expected immediate status to be downloading");
+assert(statusMap[statusKey], "expected status map to contain the downloading item");
+assert(statusMap[statusKey].status === "downloading", "expected immediate status to be downloading");
 
 console.log("PASS");
