@@ -1,5 +1,6 @@
 from pathlib import Path
 import atexit
+import json
 import os
 import shutil
 import sys
@@ -426,7 +427,7 @@ def test_photo_album_upload_manifest_and_delete():
         )
         upload = client.post(
             "/api/albums",
-            data={"title": "春节聚会"},
+            data={"title": "春节聚会", "description": "家人一起过节"},
             files=[
                 ("files", ("one.jpg", tiny_jpeg, "image/jpeg")),
                 ("files", ("two.jpg", tiny_jpeg, "image/jpeg")),
@@ -434,8 +435,8 @@ def test_photo_album_upload_manifest_and_delete():
             headers=AUTH_HEADERS,
         )
         assert upload.status_code == 200, upload.text
+        assert upload.json()["description"] == "家人一起过节"
         album_id = upload.json()["id"]
-
         assert (Path(app.state.storage.photos)).exists()
         assert (Path(app.state.storage.photo_thumbs)).exists()
 
@@ -445,6 +446,7 @@ def test_photo_album_upload_manifest_and_delete():
         assert len(albums) == 1
         album = albums[0]
         assert album["title"] == "春节聚会"
+        assert album["description"] == "家人一起过节"
         assert album["count"] == 2
         assert album["cover"].startswith("http")
         assert len(album["photos"]) == 2
@@ -460,9 +462,90 @@ def test_photo_album_upload_manifest_and_delete():
         page = client.get("/web/albums", headers=AUTH_HEADERS)
         assert page.status_code == 200
         assert "春节聚会" in page.text
+        assert "家人一起过节" in page.text
         assert "2 张" in page.text
+        assert "查看相册" in page.text
         home_nav = client.get("/web/videos", headers=AUTH_HEADERS)
         assert "相册管理" in home_nav.text
+
+        detail = client.get(f"/web/albums/{album_id}", headers=AUTH_HEADERS)
+        assert detail.status_code == 200
+        assert "相册浏览" in detail.text
+        assert "one.jpg" in detail.text
+        assert "上一张" in detail.text
+        assert "返回" in detail.text
+        assert "下一张" in detail.text
+        assert 'href="/web/albums"' in detail.text
+        assert 'href="/web/albums/' + str(album_id) + '?photo_id=' in detail.text
+        assert 'disabled>上一张</button>' in detail.text
+        assert 'rel="next"' in detail.text
+
+        album_detail = client.get(f"/api/albums/{album_id}", headers=AUTH_HEADERS)
+        assert album_detail.status_code == 200
+        assert album_detail.json()["description"] == "家人一起过节"
+        photo_ids = [photo["id"] for photo in album_detail.json()["photos"]]
+        assert len(photo_ids) == 2
+        assert album_detail.json()["cover_photo_id"] == photo_ids[0]
+
+        headers = csrf_headers(client)
+        metadata = client.post(
+            f"/web/albums/{album_id}/metadata",
+            data={"title": "  春节团聚  ", "description": "  调整后的描述  "},
+            headers=headers,
+            follow_redirects=False,
+        )
+        assert metadata.status_code == 303
+        updated_detail = client.get(f"/api/albums/{album_id}", headers=AUTH_HEADERS).json()
+        assert updated_detail["title"] == "春节团聚"
+        assert updated_detail["description"] == "调整后的描述"
+
+        cover = client.post(
+            f"/web/albums/{album_id}/cover",
+            data={"photo_id": str(photo_ids[1])},
+            headers=headers,
+            follow_redirects=False,
+        )
+        assert cover.status_code == 303
+        assert client.get(f"/api/albums/{album_id}", headers=AUTH_HEADERS).json()["cover_photo_id"] == photo_ids[1]
+
+        reordered = client.post(
+            f"/web/albums/{album_id}/reorder",
+            data={"photo_order": json.dumps([photo_ids[1], photo_ids[0]])},
+            headers=headers,
+            follow_redirects=False,
+        )
+        assert reordered.status_code == 303
+        reordered_detail = client.get(f"/api/albums/{album_id}", headers=AUTH_HEADERS).json()
+        assert [photo["id"] for photo in reordered_detail["photos"]] == [photo_ids[1], photo_ids[0]]
+
+        invalid_order = client.post(
+            f"/web/albums/{album_id}/reorder",
+            data={"photo_order": json.dumps([photo_ids[1], photo_ids[1]])},
+            headers=headers,
+            follow_redirects=False,
+        )
+        assert invalid_order.status_code == 400
+        assert [photo["id"] for photo in client.get(f"/api/albums/{album_id}", headers=AUTH_HEADERS).json()["photos"]] == [photo_ids[1], photo_ids[0]]
+
+        updated_manifest = client.get("/public/index.json?user=admin&pass=admin").json()
+        updated_album = [item for item in updated_manifest["items"] if item["type"] == "photo"][0]
+        assert updated_album["title"] == "春节团聚"
+        assert updated_album["description"] == "调整后的描述"
+        assert f"/photos/{photo_ids[1]}" in updated_album["cover"]
+        assert f"/photos/{photo_ids[1]}" in updated_album["photos"][0]["url"]
+
+        second = client.get(
+            f"/web/albums/{album_id}?photo_id={photo_ids[1]}", headers=AUTH_HEADERS
+        )
+        assert second.status_code == 200
+        assert "two.jpg" in second.text
+        assert 'disabled>上一张</button>' in second.text
+        assert 'rel="next"' in second.text
+
+        missing_photo = client.get(
+            f"/web/albums/{album_id}?photo_id=999999", headers=AUTH_HEADERS
+        )
+        assert missing_photo.status_code == 404
 
         deleted = client.delete(f"/api/albums/{album_id}", headers=AUTH_HEADERS)
         assert deleted.status_code == 200

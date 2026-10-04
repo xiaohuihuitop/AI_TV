@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -6,6 +7,13 @@ import markdown
 from app.core.auth import verify_credentials
 from app.core.csrf import verify_csrf
 from app.db.models import Document, Photo, PhotoAlbum, Video
+from app.db.repo import (
+    list_album_photos,
+    resolve_album_cover,
+    reorder_photo_album,
+    set_photo_album_cover,
+    update_photo_album_metadata,
+)
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.system_status import collect_system_status
 from app.services.uploads import (
@@ -251,18 +259,79 @@ def albums(request: Request):
         by_album: dict[int, list[Photo]] = {}
         for photo in photos:
             by_album.setdefault(photo.album_id, []).append(photo)
-        items = [
-            {
-                "id": album.id,
-                "title": album.title,
-                "created_at": album.created_at,
-                "count": len(by_album.get(album.id, [])),
-                "cover_photo_id": by_album[album.id][0].id if by_album.get(album.id) else None,
-            }
-            for album in records
-        ]
+        items = []
+        for album in records:
+            album_photos = by_album.get(album.id, [])
+            cover = resolve_album_cover(session, album, album_photos)
+            items.append(
+                {
+                    "id": album.id,
+                    "title": album.title,
+                    "description": album.description,
+                    "created_at": album.created_at,
+                    "count": len(album_photos),
+                    "cover_photo_id": cover.id if cover else None,
+                }
+            )
     return templates.TemplateResponse(
         request, "albums.html", {"items": items, "active": "albums"}
+    )
+
+
+@router.get("/albums/{album_id}", response_class=HTMLResponse)
+def album_detail(request: Request, album_id: int, photo_id: int | None = None):
+    """AI: 相册照片浏览页。
+    @param request: 当前请求。
+    @param album_id: 相册 ID。
+    @param photo_id: 可选的当前照片 ID。
+    @return: HTML 响应。
+    """
+    with _get_session(request) as session:
+        album = session.get(PhotoAlbum, album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail="Not found")
+        records = list_album_photos(session, album.id)
+        if photo_id is not None and not any(photo.id == photo_id for photo in records):
+            raise HTTPException(status_code=404, detail="Photo not found")
+        selected_index = next(
+            (index for index, photo in enumerate(records) if photo.id == photo_id),
+            0,
+        )
+        photos = [
+            {
+                "id": photo.id,
+                "filename": photo.filename,
+                "created_at": photo.created_at,
+                "position": photo.position,
+                "is_cover": photo.id == (resolve_album_cover(session, album, records).id if records else None),
+                "width": photo.width,
+                "height": photo.height,
+                "image_url": f"/web/albums/{album.id}/photos/{photo.id}/thumb",
+            }
+            for photo in records
+        ]
+
+    current = photos[selected_index] if photos else None
+    previous = photos[selected_index - 1] if selected_index > 0 else None
+    following = photos[selected_index + 1] if selected_index + 1 < len(photos) else None
+    return templates.TemplateResponse(
+        request,
+        "album_detail.html",
+        {
+            "album": {
+                "id": album.id,
+                "title": album.title,
+                "description": album.description,
+                "cover_photo_id": album.cover_photo_id,
+                "created_at": album.created_at,
+            },
+            "photos": photos,
+            "current": current,
+            "current_index": selected_index,
+            "previous": previous,
+            "next": following,
+            "active": "albums",
+        },
     )
 
 
@@ -289,6 +358,7 @@ def upload_album(
     request: Request,
     files: list[UploadFile] = File(...),
     title: str | None = Form(None),
+    description: str | None = Form(None),
 ):
     """AI: Web 上传相册。
     @param request: 当前请求。
@@ -299,11 +369,67 @@ def upload_album(
     with _get_session(request) as session:
         try:
             persist_photo_album_uploads(
-                session, files, title, request.app.state.storage, request.app.state.settings
+                session, files, title, description, request.app.state.storage, request.app.state.settings
             )
         except UploadError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return RedirectResponse(url="/web/albums", status_code=303)
+
+
+@router.post("/albums/{album_id}/metadata")
+async def album_metadata_update(request: Request, album_id: int):
+    """AI: 更新相册名称和描述。"""
+    form = await request.form()
+    with _get_session(request) as session:
+        album = session.get(PhotoAlbum, album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail="Not found")
+        update_photo_album_metadata(
+            session,
+            album,
+            str(form.get("title") or ""),
+            str(form.get("description") or ""),
+        )
+    return RedirectResponse(url=f"/web/albums/{album_id}", status_code=303)
+
+
+@router.post("/albums/{album_id}/cover")
+async def album_cover_update(request: Request, album_id: int):
+    """AI: 设置相册封面。"""
+    form = await request.form()
+    try:
+        photo_id = int(str(form.get("photo_id") or ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="照片 ID 无效") from exc
+    with _get_session(request) as session:
+        album = session.get(PhotoAlbum, album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail="Not found")
+        try:
+            set_photo_album_cover(session, album, photo_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RedirectResponse(url=f"/web/albums/{album_id}", status_code=303)
+
+
+@router.post("/albums/{album_id}/reorder")
+async def album_reorder(request: Request, album_id: int):
+    """AI: 保存相册照片顺序。"""
+    form = await request.form()
+    try:
+        raw_order = json.loads(str(form.get("photo_order") or "[]"))
+        photo_ids = [int(item) for item in raw_order]
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="照片顺序格式无效") from exc
+    with _get_session(request) as session:
+        album = session.get(PhotoAlbum, album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail="Not found")
+        try:
+            reorder_photo_album(session, album, photo_ids)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RedirectResponse(url=f"/web/albums/{album_id}", status_code=303)
 
 
 @router.post("/albums/{album_id}/delete")

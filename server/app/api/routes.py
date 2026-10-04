@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import func
 from app.core.auth import verify_credentials
 from app.db.models import Document, Photo, PhotoAlbum, Video
+from app.db.repo import list_album_photos, resolve_album_cover
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.range import iter_file, parse_range
 from app.services.media_delete import (
@@ -226,6 +227,7 @@ def upload_album(
     request: Request,
     files: list[UploadFile] = File(...),
     title: str | None = Form(None),
+    description: str | None = Form(None),
 ):
     """AI: 上传相册（多张照片 + 标题）。
     @param request: 当前请求。
@@ -236,11 +238,11 @@ def upload_album(
     with _get_session(request) as session:
         try:
             album = persist_photo_album_uploads(
-                session, files, title, request.app.state.storage, request.app.state.settings
+                session, files, title, description, request.app.state.storage, request.app.state.settings
             )
         except UploadError as exc:
             raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-        return {"id": album.id, "title": album.title, "status": album.status}
+        return {"id": album.id, "title": album.title, "description": album.description, "status": album.status}
 
 
 @router.get("/albums")
@@ -261,9 +263,15 @@ def list_albums(request: Request):
             {
                 "id": album.id,
                 "title": album.title,
+                "description": album.description,
                 "status": album.status,
                 "created_at": album.created_at,
                 "count": counts.get(album.id, 0),
+                "cover_photo_id": (
+                    resolve_album_cover(session, album).id
+                    if counts.get(album.id, 0)
+                    else None
+                ),
             }
             for album in albums
         ]
@@ -280,17 +288,15 @@ def get_album_detail(request: Request, album_id: int):
         album = session.get(PhotoAlbum, album_id)
         if not album:
             raise HTTPException(status_code=404, detail="Not found")
-        photos = (
-            session.query(Photo)
-            .filter(Photo.album_id == album.id)
-            .order_by(Photo.position.asc(), Photo.id.asc())
-            .all()
-        )
+        photos = list_album_photos(session, album.id)
+        cover = resolve_album_cover(session, album, photos)
         return {
             "id": album.id,
             "title": album.title,
+            "description": album.description,
             "status": album.status,
             "created_at": album.created_at,
+            "cover_photo_id": cover.id if cover else None,
             "photos": [
                 {
                     "id": photo.id,

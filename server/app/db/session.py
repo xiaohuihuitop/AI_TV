@@ -41,6 +41,7 @@ def _apply_migrations(engine) -> None:
     migrations = (
         (1, _ensure_video_description),
         (2, _ensure_video_status_index),
+        (3, _ensure_photo_album_metadata),
     )
     with engine.begin() as conn:
         conn.execute(
@@ -78,6 +79,26 @@ def _ensure_video_description(conn) -> None:
 def _ensure_video_status_index(conn) -> None:
     """Ensure worker status lookups use an index on existing databases."""
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_videos_status_id ON videos(status, id)"))
+
+
+def _ensure_photo_album_metadata(conn) -> None:
+    """Ensure existing photo albums contain editable metadata fields."""
+    rows = conn.execute(text("PRAGMA table_info(photo_albums)")).fetchall()
+    columns = [row[1] for row in rows]
+    if "description" not in columns:
+        conn.execute(
+            text("ALTER TABLE photo_albums ADD COLUMN description VARCHAR(2000) NOT NULL DEFAULT ''")
+        )
+    if "cover_photo_id" not in columns:
+        conn.execute(text("ALTER TABLE photo_albums ADD COLUMN cover_photo_id INTEGER"))
+    conn.execute(
+        text(
+            "UPDATE photo_albums SET cover_photo_id = "
+            "(SELECT p.id FROM photos p WHERE p.album_id = photo_albums.id "
+            "ORDER BY p.position ASC, p.id ASC LIMIT 1) "
+            "WHERE cover_photo_id IS NULL"
+        )
+    )
 
 
 def get_sessionmaker(engine=None):

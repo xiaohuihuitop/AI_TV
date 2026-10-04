@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.paths import StoragePaths
 from app.core.validators import is_allowed_doc, is_allowed_photo, is_allowed_video
+from app.db.models import Photo
 from app.db.repo import create_document, create_photo, create_photo_album, create_video
 
 
@@ -238,6 +239,7 @@ def persist_photo_album_uploads(
     session: Session,
     files,
     title: str | None,
+    description: str | None,
     storage: StoragePaths,
     settings,
 ):
@@ -260,7 +262,7 @@ def persist_photo_album_uploads(
 
     saved_paths: list[Path] = []
     try:
-        album = create_photo_album(session, title)
+        album = create_photo_album(session, title, description)
         for position, upload in enumerate(uploads):
             suffix = Path(upload.filename or "").suffix.lower() or ".jpg"
             destination = storage.photo_path(str(uuid.uuid4()), suffix)
@@ -287,6 +289,16 @@ def persist_photo_album_uploads(
                 position=position,
             )
         session.commit()
+        if album.cover_photo_id is None:
+            first_photo = (
+                session.query(Photo)
+                .filter(Photo.album_id == album.id)
+                .order_by(Photo.position.asc(), Photo.id.asc())
+                .first()
+            )
+            if first_photo:
+                album.cover_photo_id = first_photo.id
+                session.commit()
         session.refresh(album)
         return album
     except Exception:

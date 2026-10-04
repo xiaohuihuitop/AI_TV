@@ -456,4 +456,39 @@
 - 预防/规则: 客户端本地记录不能假设服务端 ID 全局唯一，身份至少包含来源资源地址；文件删除与元数据删除必须同成败，禁止吞错后继续删元数据；涉及下载状态机时必须覆盖"并发、中断重启、跨服务器同 ID"三类场景。
 - 关联文件: android/utils/offlineService.js, android/utils/indexService.js, android/pages/offline/index.vue, android/pages/latest/index.vue, AI_TOOL/android_offline_integrity_test.mjs
 - 标签: android, offline, download, identity, multi-server
-- 关键词: download_items, buildDownloadIdentity, cross-server, orphan file, stale downloading
+
+## [2026-10-03] 现象: 后台相册只有目录，无法直接浏览图片
+- 触发条件: 相册上传和列表已经可用，但点击相册只能停留在目录页，管理员需要逐张查看并切换照片。
+- 根因: 后台仅实现 `/web/albums` 列表和缩略图接口，没有相册详情路由、当前照片位置和相邻照片导航。
+- 解决步骤: 新增 `/web/albums/{album_id}` 详情页，以 `photo_id` 查询参数定位当前照片；服务层按 `position/id` 排序生成当前、上一张和下一张数据；详情页下方固定渲染“上一张 / 返回 / 下一张”，首尾状态禁用；图片只使用 `photo_thumbs` 展示图。
+- 预防/规则: 相册目录和照片浏览应分离；浏览控制必须在首张/末张验证禁用状态，非法相册照片 ID 返回 404；后台页面不要直接输出原图文件路径。
+- 关联文件: server/app/web/routes.py, server/app/templates/albums.html, server/app/templates/album_detail.html, server/app/static/app.css, AI_TOOL/server_admin_features_test.py
+- 标签: server, web, photo, album, navigation
+- 关键词: album detail, previous, next, photo_id, thumbnail, gallery
+
+## [2026-10-03] 现象: 模拟器看不到相册图片导航按钮
+- 触发条件: 用户在 Android 模拟器打开“最新 → 照片 → 相册”后看不到“上一张 / 返回 / 下一张”，但服务端后台相册详情页已经有同名按钮。
+- 根因: 两个验收入口属于不同实现层：服务端 `/web/albums/{album_id}` 与 Android `/pages/photos/index` 完全独立；先前只修改后台页面，未修改 App 查看页。
+- 解决步骤: 在 Android 照片页增加 `hasPrev`/`hasNext`、上一张/返回/下一张按钮和 `uni.navigateBack()`；按钮与 `swiper` 共用 `currentIndex`，新增 `updatePhotoIndex` 只持久化索引；通过 HBuilderX CLI 重新同步标准基座，并检查设备端 `app-service.js` 包含按钮源码。
+- 预防/规则: 用户说“模拟器没看到效果”时，先确认实际验收入口和设备端 bundle，再在对应实现层修复；后台 DOM 通过不能替代 App 页面验收。
+- 关联文件: android/pages/photos/index.vue, android/utils/photoQueue.js, AI_TOOL/android_ui_cleanup_test.mjs, AI_TOOL/android_photo_queue_test.mjs, docs/project/进度.md
+- 标签: android, photo, gallery, emulator, implementation-layer, bundle
+- 关键词: pages/photos, album-actions, updatePhotoIndex, HBuilderX, MuMu, implementation mismatch
+
+## [2026-10-04] 现象: 相册后台图片管理不方便
+- 触发条件: 后台相册只能进入单张预览和删除整本相册，无法编辑相册信息、选择封面或整理图片顺序。
+- 根因: `PhotoAlbum` 只有标题，封面隐式取排序第一张；详情页只渲染当前照片，`Photo.position` 虽已存在但没有管理接口和 UI。
+- 解决步骤: 增加相册描述与独立 `cover_photo_id` 字段及 SQLite v3 迁移；统一按 `position/id` 排序和有效封面回退；新增元数据、封面、顺序保存路由；详情页改为展示图网格，支持拖拽/上移/下移、封面选择、名称/描述编辑和大图预览；public/API 同步新字段和顺序。
+- 预防/规则: 封面必须与顺序解耦；重排请求必须验证当前相册完整 ID 集合、无重复和无跨相册 ID，再连续编号提交；旧数据库新增列必须有版本迁移和旧数据回填；后台优先使用受控展示图而不是原图。
+- 关联文件: server/app/db/models.py, server/app/db/session.py, server/app/db/repo.py, server/app/services/uploads.py, server/app/api/routes.py, server/app/api/public_routes.py, server/app/web/routes.py, server/app/templates/albums.html, server/app/templates/album_detail.html, server/app/static/app.css, AI_TOOL/server_admin_features_test.py, AI_TOOL/server_reliability_test.py
+- 标签: server, web, photo, album, metadata, cover, reorder, migration
+- 关键词: cover_photo_id, description, Photo.position, album-photo-grid, reorder, schema migration
+
+## [2026-10-04] 现象: 新代码已修改但后台详情页仍返回 500
+- 触发条件: 8000 端口仍由早先启动的非热重载 uvicorn 进程提供，源码和数据库迁移已更新，但运行进程未加载新路由/模板。
+- 根因: 本地服务生命周期与代码工作树脱节；旧进程使用旧 ORM 模型，列表页可用但详情页访问新字段时失败。
+- 解决步骤: 核对进程启动时间、工作目录、`DATA_DIR/DB_PATH`；停止旧进程并用当前代码、同一数据目录重启；确认 `schema_migrations` 已到 v3、详情接口 200 后再进行浏览器验收。
+- 预防/规则: 服务端页面验收前必须同时确认运行进程已加载当前代码和数据库迁移版本；非热重载 uvicorn 修改后必须显式重启，不能只看源码或静态测试。
+- 关联文件: server/app/db/session.py, server/app/web/routes.py, docs/project/进度.md
+- 标签: server, deployment, uvicorn, migration, verification
+- 关键词: stale process, non-reload, schema_migrations, detail 500, DATA_DIR, DB_PATH

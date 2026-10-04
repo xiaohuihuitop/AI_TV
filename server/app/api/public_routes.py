@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from app.core.auth import verify_public_credentials
 from app.db.models import Document, Photo, PhotoAlbum, Video
+from app.db.repo import list_album_photos, resolve_album_cover
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.range import iter_file, parse_range
 
@@ -130,14 +131,10 @@ def public_index(request: Request):
             )
         albums = session.query(PhotoAlbum).order_by(PhotoAlbum.id.desc()).all()
         for album in albums:
-            photos = (
-                session.query(Photo)
-                .filter(Photo.album_id == album.id)
-                .order_by(Photo.position.asc(), Photo.id.asc())
-                .all()
-            )
+            photos = list_album_photos(session, album.id)
             if not photos:
                 continue
+            cover = resolve_album_cover(session, album, photos)
             photos_payload = [
                 {
                     "url": _make_url(
@@ -148,13 +145,17 @@ def public_index(request: Request):
                 }
                 for photo in photos
             ]
+            cover_url = _make_url(
+                base_url, f"/public/albums/{album.id}/photos/{cover.id}", query_suffix
+            )
             items.append(
                 {
                     "id": album.id,
                     "type": "photo",
                     "title": album.title,
-                    "url": photos_payload[0]["url"],
-                    "cover": photos_payload[0]["url"],
+                    "description": album.description or "",
+                    "url": cover_url,
+                    "cover": cover_url,
                     "count": len(photos_payload),
                     "photos": photos_payload,
                     "published_at": album.created_at,

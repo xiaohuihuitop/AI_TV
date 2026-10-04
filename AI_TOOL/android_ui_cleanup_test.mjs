@@ -45,7 +45,7 @@ assert.deepEqual(validateIndexUrl("https://example.com/not-index"), {
   message: "地址必须指向 index.json"
 });
 
-const [app, latest, offline, settings, tabBar, mediaCard, emptyState, player, reader] =
+const [app, latest, offline, settings, tabBar, mediaCard, emptyState, player, reader, photos] =
   await Promise.all([
     read("android/App.vue"),
     read("android/pages/latest/index.vue"),
@@ -55,7 +55,8 @@ const [app, latest, offline, settings, tabBar, mediaCard, emptyState, player, re
     read("android/components/MediaListCard.vue"),
     read("android/components/EmptyState.vue"),
     read("android/pages/player/index.vue"),
-    read("android/pages/reader/index.vue")
+    read("android/pages/reader/index.vue"),
+    read("android/pages/photos/index.vue")
   ]);
 
 assert.match(app, /--control-height:?\s*48px/);
@@ -105,5 +106,18 @@ const pagesConfig = await read("android/pages.json");
 assert.match(pagesConfig, /pages\/photos\/index/);
 assert.match(app, /\.btn\s*\{[\s\S]*?text-align:\s*center/);
 assert.doesNotMatch(settings, /class="header hero"/);
+assert.match(photos, /上一张/);
+assert.match(photos, /返回/);
+assert.match(photos, /下一张/);
+assert.match(photos, /hasPrev/);
+assert.match(photos, /hasNext/);
+assert.match(photos, /goPrev/);
+assert.match(photos, /goNext/);
+assert.match(photos, /navigateBack/);
+assert.match(photos, /updatePhotoIndex/);
+assert.match(photos, /album-actions/);
+assert.match(photos, /:disabled="!hasPrev"/);
+assert.match(photos, /:disabled="!hasNext"/);
+assert.match(photos, /grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
 
 console.log("android ui cleanup tests passed");

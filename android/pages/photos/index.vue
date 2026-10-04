@@ -26,12 +26,17 @@
       <view class="album-indicator">
         <text class="album-indicator-text">{{ currentIndex + 1 }} / {{ album.photos.length }}</text>
       </view>
+      <view class="album-actions">
+        <button class="btn btn-ghost" :disabled="!hasPrev" @click="goPrev">上一张</button>
+        <button class="btn btn-ghost" @click="goBack">返回</button>
+        <button class="btn btn-ghost" :disabled="!hasNext" @click="goNext">下一张</button>
+      </view>
     </view>
   </view>
 </template>
 
 <script>
-import { loadPhotoAlbum } from "../../utils/photoQueue.js";
+import { loadPhotoAlbum, updatePhotoIndex } from "../../utils/photoQueue.js";
 
 function createUniStorage() {
   return {
@@ -48,6 +53,18 @@ export default {
       photoErrors: {}
     };
   },
+  computed: {
+    hasPrev() {
+      return this.currentIndex > 0;
+    },
+    hasNext() {
+      return Boolean(
+        this.album &&
+          Array.isArray(this.album.photos) &&
+          this.currentIndex < this.album.photos.length - 1
+      );
+    }
+  },
   onLoad() {
     const { album, index } = loadPhotoAlbum(createUniStorage());
     this.album = album;
@@ -61,6 +78,29 @@ export default {
       const index = Number(event && event.detail ? event.detail.current : 0);
       if (Number.isFinite(index)) {
         this.currentIndex = index;
+        this.persistCurrentIndex();
+      }
+    },
+    goPrev() {
+      if (!this.hasPrev) {
+        return;
+      }
+      this.currentIndex -= 1;
+      this.persistCurrentIndex();
+    },
+    goNext() {
+      if (!this.hasNext) {
+        return;
+      }
+      this.currentIndex += 1;
+      this.persistCurrentIndex();
+    },
+    goBack() {
+      uni.navigateBack();
+    },
+    persistCurrentIndex() {
+      if (this.album) {
+        updatePhotoIndex(createUniStorage(), this.currentIndex);
       }
     },
     markPhotoError(index) {
@@ -124,7 +164,6 @@ export default {
 .album-indicator {
   flex: none;
   height: 44px;
-  padding-bottom: env(safe-area-inset-bottom);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -135,5 +174,30 @@ export default {
   color: #d8cfc4;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
+}
+
+.album-actions {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  background: #221d18;
+}
+
+.album-actions .btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding-right: 8px;
+  padding-left: 8px;
+  border-color: rgba(216, 207, 196, 0.36);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4eee6;
+  white-space: nowrap;
+}
+
+.album-actions .btn[disabled] {
+  opacity: 0.42;
 }
 </style>

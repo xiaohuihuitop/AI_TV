@@ -26,7 +26,7 @@ atexit.register(lambda: shutil.rmtree(BOOT_ROOT, ignore_errors=True))
 
 from app.core.config import Settings
 from app.core.paths import StoragePaths
-from app.db.models import Video
+from app.db.models import Photo, PhotoAlbum, Video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.main import create_app
 from app.services.range import iter_file
@@ -480,9 +480,12 @@ def test_sqlite_uses_wal_busy_timeout_and_migration_versions():
             versions = conn.exec_driver_sql(
                 "SELECT version FROM schema_migrations ORDER BY version"
             ).scalars().all()
-            assert versions == [1, 2]
+            assert versions == [1, 2, 3]
             indexes = conn.exec_driver_sql("PRAGMA index_list(videos)").fetchall()
             assert any(row[1] == "ix_videos_status_id" for row in indexes)
+            album_columns = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(photo_albums)").fetchall()]
+            assert "description" in album_columns
+            assert "cover_photo_id" in album_columns
     finally:
         engine.dispose()
         shutil.rmtree(root, ignore_errors=True)
@@ -517,6 +520,25 @@ def test_existing_database_migrates_status_index_without_losing_rows():
                     error_message VARCHAR(1024),
                     created_at VARCHAR(32) NOT NULL
                 );
+                CREATE TABLE photo_albums (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title VARCHAR(255) NOT NULL,
+                    status VARCHAR(32) NOT NULL,
+                    error_message VARCHAR(1024),
+                    created_at VARCHAR(32) NOT NULL
+                );
+                CREATE TABLE photos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    album_id INTEGER NOT NULL,
+                    filename VARCHAR(255) NOT NULL,
+                    path VARCHAR(1024) NOT NULL,
+                    thumb_path VARCHAR(1024) NOT NULL,
+                    width INTEGER,
+                    height INTEGER,
+                    size_bytes INTEGER NOT NULL,
+                    position INTEGER NOT NULL,
+                    created_at VARCHAR(32) NOT NULL
+                );
                 CREATE TABLE schema_migrations (
                     version INTEGER PRIMARY KEY,
                     applied_at VARCHAR(32) NOT NULL
@@ -524,6 +546,10 @@ def test_existing_database_migrates_status_index_without_losing_rows():
                 INSERT INTO schema_migrations(version, applied_at) VALUES (1, CURRENT_TIMESTAMP);
                 INSERT INTO videos(filename, path, description, status, created_at)
                 VALUES ('existing.mp4', '/existing.mp4', '无', 'ready', '2026-09-27T00:00:00');
+                INSERT INTO photo_albums(title, status, created_at)
+                VALUES ('旧相册', 'ready', '2026-09-27T00:00:00');
+                INSERT INTO photos(album_id, filename, path, thumb_path, size_bytes, position, created_at)
+                VALUES (1, 'old.jpg', '/old.jpg', '/old-thumb.jpg', 1, 0, '2026-09-27T00:00:00');
                 """
             )
         engine = get_engine(str(db_path))
@@ -533,9 +559,14 @@ def test_existing_database_migrates_status_index_without_losing_rows():
             versions = conn.exec_driver_sql(
                 "SELECT version FROM schema_migrations ORDER BY version"
             ).scalars().all()
-            assert versions == [1, 2]
+            assert versions == [1, 2, 3]
             indexes = conn.exec_driver_sql("PRAGMA index_list(videos)").fetchall()
             assert any(row[1] == "ix_videos_status_id" for row in indexes)
+            album_columns = [row[1] for row in conn.exec_driver_sql("PRAGMA table_info(photo_albums)").fetchall()]
+            assert "description" in album_columns
+            assert "cover_photo_id" in album_columns
+            assert conn.exec_driver_sql("SELECT description FROM photo_albums WHERE id=1").scalar() == ""
+            assert conn.exec_driver_sql("SELECT cover_photo_id FROM photo_albums WHERE id=1").scalar() == 1
         engine.dispose()
     finally:
         shutil.rmtree(root, ignore_errors=True)

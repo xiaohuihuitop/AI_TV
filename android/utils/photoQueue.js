@@ -26,6 +26,22 @@ export function savePhotoAlbum(storage, album, index) {
   return true;
 }
 
+/**
+ * AI:仅更新相册查看页当前索引，避免滑动时重复写入整个相册对象。
+ * @param {{get: function(string): (string|undefined), set: function(string, string): void}} storage AI:存储读写适配器。
+ * @param {number} index AI:当前照片索引。
+ * @returns {boolean} AI:是否更新成功。
+ */
+export function updatePhotoIndex(storage, index) {
+  const album = parseAlbum(storage.get("photo_album"));
+  const photos = album && Array.isArray(album.photos) ? album.photos : [];
+  if (photos.length === 0) {
+    return false;
+  }
+  storage.set("photo_album_index", String(normalizeIndex(index, photos.length)));
+  return true;
+}
+
 function parseAlbum(value) {
   if (!value) {
     return null;

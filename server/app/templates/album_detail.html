@@ -1,0 +1,150 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="section album-detail-page">
+  <div class="section-title">
+    <div>
+      <div class="eyebrow">相册浏览与管理</div>
+      <h1>{{ album.title }}</h1>
+      <div class="muted-meta">{{ photos|length }} 张照片 · 创建于 {{ album.created_at[:10] }}</div>
+    </div>
+    <div class="section-actions">
+      <a class="btn ghost" href="/web/albums">返回相册目录</a>
+      <form class="inline-form" method="post" action="/web/albums/{{ album.id }}/delete" onsubmit="return confirm('确定删除该相册及全部照片吗？')">
+        <button class="btn danger" type="submit">删除相册</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="album-admin-layout">
+    <form class="card album-metadata-card" method="post" action="/web/albums/{{ album.id }}/metadata">
+      <div class="card-title">相册信息</div>
+      <label class="filter-field">
+        <span>相册名称</span>
+        <input class="text-input" type="text" name="title" maxlength="255" value="{{ album.title }}" />
+      </label>
+      <label class="filter-field">
+        <span>相册描述</span>
+        <textarea class="text-input" name="description" maxlength="2000" rows="5" placeholder="记录时间、地点或人物">{{ album.description }}</textarea>
+      </label>
+      <button class="btn" type="submit">保存相册信息</button>
+    </form>
+
+    <section class="card album-photos-card">
+      <div class="album-management-head">
+        <div>
+          <div class="card-title">相册图片</div>
+          <div class="muted-meta">默认按上传顺序显示；拖动或使用上下按钮调整顺序。</div>
+        </div>
+        <form id="album-reorder-form" method="post" action="/web/albums/{{ album.id }}/reorder">
+          <input id="album-photo-order" type="hidden" name="photo_order" value="[]" />
+          <button class="btn" type="submit">保存图片顺序</button>
+        </form>
+      </div>
+
+      {% if photos %}
+        <div id="album-photo-grid" class="album-photo-grid">
+          {% for photo in photos %}
+            <article class="album-photo-item{% if photo.is_cover %} is-cover{% endif %}" draggable="true" data-photo-id="{{ photo.id }}">
+              <div class="album-photo-preview">
+                <a href="/web/albums/{{ album.id }}?photo_id={{ photo.id }}" title="打开大图预览">
+                  <img src="{{ photo.image_url }}" alt="{{ photo.filename }}" loading="lazy" />
+                </a>
+                <span class="album-photo-position">{{ loop.index }}</span>
+                {% if photo.is_cover %}<span class="album-photo-cover-badge">封面</span>{% endif %}
+              </div>
+              <div class="album-photo-name" title="{{ photo.filename }}">{{ photo.filename }}</div>
+              <div class="muted-meta">上传于 {{ photo.created_at[:10] }}{% if photo.width and photo.height %} · {{ photo.width }}×{{ photo.height }}{% endif %}</div>
+              <div class="album-photo-actions">
+                <form class="inline-form" method="post" action="/web/albums/{{ album.id }}/cover">
+                  <input type="hidden" name="photo_id" value="{{ photo.id }}" />
+                  <button class="btn ghost" type="submit"{% if photo.is_cover %} disabled{% endif %}>设为封面</button>
+                </form>
+                <button class="btn ghost album-move" type="button" data-direction="up" title="上移">上移</button>
+                <button class="btn ghost album-move" type="button" data-direction="down" title="下移">下移</button>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty">这个相册还没有可显示的照片</div>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if current %}
+    <section class="album-viewer card">
+      <div class="album-viewer-head">
+        <div>
+          <div class="eyebrow">大图预览</div>
+          <div class="card-title">{{ current.filename }}</div>
+          <div class="muted-meta">第 {{ current_index + 1 }} / {{ photos|length }} 张{% if current.width and current.height %} · {{ current.width }} × {{ current.height }}{% endif %}</div>
+        </div>
+      </div>
+      <figure class="album-image-frame">
+        <img src="{{ current.image_url }}" alt="{{ current.filename }}" />
+      </figure>
+      <nav class="album-navigation" aria-label="相册图片导航">
+        {% if previous %}
+          <a class="btn album-nav-btn" rel="prev" href="/web/albums/{{ album.id }}?photo_id={{ previous.id }}">上一张</a>
+        {% else %}
+          <button class="btn album-nav-btn" type="button" disabled>上一张</button>
+        {% endif %}
+        <a class="btn ghost album-nav-btn" href="/web/albums/{{ album.id }}">返回</a>
+        {% if next %}
+          <a class="btn album-nav-btn" rel="next" href="/web/albums/{{ album.id }}?photo_id={{ next.id }}">下一张</a>
+        {% else %}
+          <button class="btn album-nav-btn" type="button" disabled>下一张</button>
+        {% endif %}
+      </nav>
+    </section>
+  {% endif %}
+</section>
+<script>
+  (function () {
+    var grid = document.getElementById("album-photo-grid");
+    var orderField = document.getElementById("album-photo-order");
+    if (!grid || !orderField) return;
+
+    var syncOrder = function () {
+      var ids = Array.prototype.map.call(grid.querySelectorAll("[data-photo-id]"), function (item) {
+        return Number(item.dataset.photoId);
+      });
+      orderField.value = JSON.stringify(ids);
+      Array.prototype.forEach.call(grid.querySelectorAll(".album-photo-position"), function (label, index) {
+        label.textContent = String(index + 1);
+      });
+    };
+    var move = function (item, direction) {
+      var sibling = direction === "up" ? item.previousElementSibling : item.nextElementSibling;
+      if (!sibling) return;
+      if (direction === "up") grid.insertBefore(item, sibling);
+      else grid.insertBefore(sibling, item);
+      syncOrder();
+    };
+    var dragged = null;
+    grid.addEventListener("dragstart", function (event) {
+      dragged = event.target.closest("[data-photo-id]");
+      if (dragged) dragged.classList.add("is-dragging");
+    });
+    grid.addEventListener("dragend", function () {
+      if (dragged) dragged.classList.remove("is-dragging");
+      dragged = null;
+      syncOrder();
+    });
+    grid.addEventListener("dragover", function (event) {
+      event.preventDefault();
+      var target = event.target.closest("[data-photo-id]");
+      if (!dragged || !target || dragged === target) return;
+      var rect = target.getBoundingClientRect();
+      var after = event.clientY > rect.top + rect.height / 2;
+      grid.insertBefore(dragged, after ? target.nextElementSibling : target);
+    });
+    grid.addEventListener("click", function (event) {
+      var button = event.target.closest(".album-move");
+      if (!button) return;
+      move(button.closest("[data-photo-id]"), button.dataset.direction);
+    });
+    syncOrder();
+  })();
+</script>
+{% endblock %}

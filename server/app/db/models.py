@@ -49,6 +49,8 @@ class PhotoAlbum(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(String(255), default="未命名相册")
+    description: Mapped[str] = mapped_column(String(2000), default="")
+    cover_photo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="ready")
     error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[str] = mapped_column(String(32))
