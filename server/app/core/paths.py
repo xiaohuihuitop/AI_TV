@@ -15,6 +15,8 @@ class StoragePaths:
         self.videos = root / "videos"
         self.covers = root / "covers"
         self.docs = root / "docs"
+        self.photos = root / "photos"
+        self.photo_thumbs = root / "photo_thumbs"
         self.db = root / "db"
 
     def ensure_dirs(self) -> None:
@@ -24,6 +26,8 @@ class StoragePaths:
         self.videos.mkdir(parents=True, exist_ok=True)
         self.covers.mkdir(parents=True, exist_ok=True)
         self.docs.mkdir(parents=True, exist_ok=True)
+        self.photos.mkdir(parents=True, exist_ok=True)
+        self.photo_thumbs.mkdir(parents=True, exist_ok=True)
         self.db.mkdir(parents=True, exist_ok=True)
 
     def video_path(self, uid: str) -> Path:
@@ -48,3 +52,19 @@ class StoragePaths:
         @return: 封面路径。
         """
         return self.covers / f"{uid}.jpg"
+
+    def photo_path(self, uid: str, ext: str = ".jpg") -> Path:
+        """AI: 生成照片原图路径。
+        @param uid: 唯一 ID。
+        @param ext: 文件扩展名（含点）。
+        @return: 照片原图路径。
+        """
+        suffix = ext if ext.startswith(".") else f".{ext}"
+        return self.photos / f"{uid}{suffix}"
+
+    def photo_thumb_path(self, uid: str) -> Path:
+        """AI: 生成照片展示图路径。
+        @param uid: 唯一 ID。
+        @return: 照片展示图路径。
+        """
+        return self.photo_thumbs / f"{uid}.jpg"

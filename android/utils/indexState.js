@@ -40,7 +40,23 @@ function isValidIndexItem(item) {
   if (!id || !title || !/^https?:\/\//i.test(url)) {
     return false;
   }
-  return type === "video" || type === "article";
+  if (type === "video" || type === "article") {
+    return true;
+  }
+  if (type === "photo") {
+    return (
+      Array.isArray(item.photos) && item.photos.length > 0 && item.photos.every(isValidPhotoEntry)
+    );
+  }
+  return false;
+}
+
+function isValidPhotoEntry(entry) {
+  if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+    return false;
+  }
+  const url = typeof entry.url === "string" ? entry.url.trim() : "";
+  return /^https?:\/\//i.test(url);
 }
 
 /**

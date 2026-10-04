@@ -1,13 +1,23 @@
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
+from sqlalchemy import func
 from app.core.auth import verify_credentials
-from app.db.models import Document, Video
+from app.db.models import Document, Photo, PhotoAlbum, Video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.range import iter_file, parse_range
-from app.services.media_delete import delete_document_records, delete_video_records
+from app.services.media_delete import (
+    delete_document_records,
+    delete_photo_album_records,
+    delete_video_records,
+)
 from app.services.system_status import collect_system_status
-from app.services.uploads import UploadError, persist_document_uploads, persist_video_uploads
+from app.services.uploads import (
+    UploadError,
+    persist_document_uploads,
+    persist_photo_album_uploads,
+    persist_video_uploads,
+)
 from app.services.video_tasks import collect_video_tasks
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_credentials)])
@@ -208,6 +218,107 @@ def delete_video(request: Request, video_id: int):
         if not video:
             raise HTTPException(status_code=404, detail="Not found")
         delete_video_records(session, [video])
+        return {"ok": True}
+
+
+@router.post("/albums")
+def upload_album(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    title: str | None = Form(None),
+):
+    """AI: 上传相册（多张照片 + 标题）。
+    @param request: 当前请求。
+    @param files: 照片文件列表。
+    @param title: 相册标题。
+    @return: 相册信息。
+    """
+    with _get_session(request) as session:
+        try:
+            album = persist_photo_album_uploads(
+                session, files, title, request.app.state.storage, request.app.state.settings
+            )
+        except UploadError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        return {"id": album.id, "title": album.title, "status": album.status}
+
+
+@router.get("/albums")
+def list_albums(request: Request):
+    """AI: 获取相册列表。
+    @param request: 当前请求。
+    @return: 相册列表。
+    """
+    with _get_session(request) as session:
+        albums = session.query(PhotoAlbum).order_by(PhotoAlbum.id.desc()).all()
+        counts = {
+            album_id: count
+            for album_id, count in session.query(
+                Photo.album_id, func.count(Photo.id)
+            ).group_by(Photo.album_id).all()
+        }
+        return [
+            {
+                "id": album.id,
+                "title": album.title,
+                "status": album.status,
+                "created_at": album.created_at,
+                "count": counts.get(album.id, 0),
+            }
+            for album in albums
+        ]
+
+
+@router.get("/albums/{album_id}")
+def get_album_detail(request: Request, album_id: int):
+    """AI: 获取相册详情（含照片明细）。
+    @param request: 当前请求。
+    @param album_id: 相册 ID。
+    @return: 相册详情。
+    """
+    with _get_session(request) as session:
+        album = session.get(PhotoAlbum, album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail="Not found")
+        photos = (
+            session.query(Photo)
+            .filter(Photo.album_id == album.id)
+            .order_by(Photo.position.asc(), Photo.id.asc())
+            .all()
+        )
+        return {
+            "id": album.id,
+            "title": album.title,
+            "status": album.status,
+            "created_at": album.created_at,
+            "photos": [
+                {
+                    "id": photo.id,
+                    "filename": photo.filename,
+                    "path": photo.path,
+                    "thumb_path": photo.thumb_path,
+                    "width": photo.width,
+                    "height": photo.height,
+                    "size_bytes": photo.size_bytes,
+                    "position": photo.position,
+                }
+                for photo in photos
+            ],
+        }
+
+
+@router.delete("/albums/{album_id}")
+def delete_album(request: Request, album_id: int):
+    """AI: 删除相册及全部照片。
+    @param request: 当前请求。
+    @param album_id: 相册 ID。
+    @return: 操作结果。
+    """
+    with _get_session(request) as session:
+        album = session.get(PhotoAlbum, album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail="Not found")
+        delete_photo_album_records(session, [album])
         return {"ok": True}
 
 

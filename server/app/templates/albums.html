@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+{% block content %}
+<section class="section">
+  <div class="section-title">
+    <h1>相册管理</h1>
+  </div>
+  <form class="card upload-card" id="album-upload-form">
+    <div class="card-title">上传相册（JPG/PNG/WebP）</div>
+    <label class="filter-field album-title-field">
+      <span>相册标题</span>
+      <input id="album-title" class="text-input" type="text" name="title" maxlength="255" placeholder="如：春节聚会（可留空）" />
+    </label>
+    <div id="album-drop" class="drop-zone">拖拽照片到这里，或点击选择（可多选）</div>
+    <input id="album-files" class="file" type="file" name="files" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple />
+    <div id="album-list" class="upload-list">
+      <div class="upload-empty">尚未选择照片</div>
+    </div>
+    <div id="album-progress" class="upload-progress" hidden>
+      <div class="upload-progress-track">
+        <div class="upload-progress-bar"></div>
+      </div>
+      <div class="upload-progress-text" aria-live="polite">0%</div>
+    </div>
+    <div class="actions">
+      <button id="album-upload-btn" class="btn" type="button">上传相册</button>
+    </div>
+  </form>
+  <div class="grid">
+    {% for album in items %}
+      <article class="card album-card">
+        <div class="album-cover">
+          <img src="/web/albums/{{ album.id }}/photos/{{ album.cover_photo_id }}/thumb" alt="{{ album.title }}" loading="lazy" />
+        </div>
+        <div class="card-title">{{ album.title }}</div>
+        <div class="meta">
+          <span class="pill pill-ok">{{ album.count }} 张</span>
+          <span class="muted-meta">{{ album.created_at[:10] }}</span>
+        </div>
+        <div class="actions">
+          <form class="inline-form" method="post" action="/web/albums/{{ album.id }}/delete" onsubmit="return confirm('确定删除该相册及全部照片吗？')">
+            <button class="btn danger" type="submit">删除</button>
+          </form>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty">暂无相册</div>
+    {% endfor %}
+  </div>
+</section>
+<script src="/static/upload.js"></script>
+<script>
+  bindUpload({
+    zoneId: "album-drop",
+    inputId: "album-files",
+    listId: "album-list",
+    buttonId: "album-upload-btn",
+    progressId: "album-progress",
+    uploadUrl: "/web/upload/album",
+    redirectUrl: "/web/albums",
+    ext: [".jpg", ".jpeg", ".png", ".webp"],
+    extraFields: { title: "album-title" }
+  });
+</script>
+{% endblock %}

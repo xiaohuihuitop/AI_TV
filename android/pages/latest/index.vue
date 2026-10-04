@@ -15,6 +15,13 @@
       >
         图文
       </view>
+      <view
+        class="media-tab"
+        :class="{ active: activeType === 'photo' }"
+        @click="setActiveType('photo')"
+      >
+        照片
+      </view>
     </view>
 
     <view v-if="cacheNotice" class="feed-notice">
@@ -40,6 +47,7 @@
           :item="item"
           :duration-text="item.type === 'video' ? `时长 ${formatDuration(item.duration_seconds)}` : ''"
           :size-text="item.type === 'video' ? `大小 ${formatSize(item.size_bytes)}` : ''"
+          :meta-text="item.type === 'photo' ? `${item.count} 张照片` : ''"
           @click="handleItemClick(item, index)"
           @cover-error="markCoverRefreshNeeded"
         >
@@ -82,6 +90,7 @@ import {
   buildDownloadStatusMap
 } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
+import { savePhotoAlbum } from "../../utils/photoQueue.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 import { defaultIndexUrl, normalizeRequestUrl } from "../../utils/appConfig.js";
 import {
@@ -181,6 +190,7 @@ export default {
       activeType: "video",
       videoItems: [],
       articleItems: [],
+      photoItems: [],
       downloadStatusMap: {},
       downloadRefreshTimer: null,
       pageVisible: false,
@@ -193,7 +203,13 @@ export default {
   },
   computed: {
     activeItems() {
-      return this.activeType === "video" ? this.videoItems : this.articleItems;
+      if (this.activeType === "video") {
+        return this.videoItems;
+      }
+      if (this.activeType === "photo") {
+        return this.photoItems;
+      }
+      return this.articleItems;
     },
     feedViewState() {
       return deriveFeedViewState({
@@ -203,12 +219,22 @@ export default {
       });
     },
     emptyTitle() {
-      return this.activeType === "video" ? "暂无视频" : "暂无图文";
+      if (this.activeType === "video") {
+        return "暂无视频";
+      }
+      if (this.activeType === "photo") {
+        return "暂无相册";
+      }
+      return "暂无图文";
     },
     emptyDescription() {
-      return this.activeType === "video"
-        ? "仅显示已完成处理的视频。"
-        : "管理员发布图文后会显示在这里。";
+      if (this.activeType === "video") {
+        return "仅显示已完成处理的视频。";
+      }
+      if (this.activeType === "photo") {
+        return "管理员发布相册后会显示在这里。";
+      }
+      return "管理员发布图文后会显示在这里。";
     }
   },
   onShow() {
@@ -276,7 +302,19 @@ export default {
         this.openArticle(item);
         return;
       }
+      if (item.type === "photo") {
+        this.openAlbum(item);
+        return;
+      }
       this.openVideo(item, index);
+    },
+    openAlbum(item) {
+      const saved = savePhotoAlbum(createUniStorage(), item, 0);
+      if (!saved) {
+        uni.showToast({ title: "相册内容无效", icon: "none" });
+        return;
+      }
+      uni.navigateTo({ url: "/pages/photos/index" });
     },
     openVideo(item, index) {
       const src = this.resolveItemSource(item);
@@ -346,6 +384,7 @@ export default {
       if (this.renderedSourceUrl && this.renderedSourceUrl !== normalizedUrl) {
         this.videoItems = [];
         this.articleItems = [];
+        this.photoItems = [];
         this.renderedSourceUrl = "";
       }
       const requestSequence = this.indexRequestSequence + 1;
@@ -430,6 +469,7 @@ export default {
       this.error = state.message;
       this.videoItems = [];
       this.articleItems = [];
+      this.photoItems = [];
       this.renderedSourceUrl = "";
     },
     applyItems(data, refreshCovers = false) {
@@ -441,6 +481,7 @@ export default {
       }
       this.videoItems = items.filter((item) => item.type === "video");
       this.articleItems = items.filter((item) => item.type === "article");
+      this.photoItems = items.filter((item) => item.type === "photo");
     },
     addDownload(item) {
       if (!item || item.type !== "video") {
@@ -483,7 +524,7 @@ export default {
 <style scoped>
 .media-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   width: 100%;
   padding: 4px;
@@ -497,7 +538,7 @@ export default {
   min-height: 44px;
   border-radius: var(--radius-soft);
   color: var(--color-muted);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   display: flex;
   align-items: center;

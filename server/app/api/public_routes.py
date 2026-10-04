@@ -3,7 +3,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from app.core.auth import verify_public_credentials
-from app.db.models import Document, Video
+from app.db.models import Document, Photo, PhotoAlbum, Video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.range import iter_file, parse_range
 
@@ -128,6 +128,38 @@ def public_index(request: Request):
                     "published_at": doc.created_at,
                 }
             )
+        albums = session.query(PhotoAlbum).order_by(PhotoAlbum.id.desc()).all()
+        for album in albums:
+            photos = (
+                session.query(Photo)
+                .filter(Photo.album_id == album.id)
+                .order_by(Photo.position.asc(), Photo.id.asc())
+                .all()
+            )
+            if not photos:
+                continue
+            photos_payload = [
+                {
+                    "url": _make_url(
+                        base_url, f"/public/albums/{album.id}/photos/{photo.id}", query_suffix
+                    ),
+                    "width": photo.width,
+                    "height": photo.height,
+                }
+                for photo in photos
+            ]
+            items.append(
+                {
+                    "id": album.id,
+                    "type": "photo",
+                    "title": album.title,
+                    "url": photos_payload[0]["url"],
+                    "cover": photos_payload[0]["url"],
+                    "count": len(photos_payload),
+                    "photos": photos_payload,
+                    "published_at": album.created_at,
+                }
+            )
     return {"items": items}
 
 
@@ -194,3 +226,21 @@ def public_download_doc(request: Request, doc_id: int):
         if not path.exists():
             raise HTTPException(status_code=404, detail="File missing")
         return FileResponse(path, media_type=_resolve_doc_media_type(path))
+
+
+@router.get("/albums/{album_id}/photos/{photo_id}")
+def public_album_photo(request: Request, album_id: int, photo_id: int):
+    """AI: 输出相册照片展示图。
+    @param request: 当前请求。
+    @param album_id: 相册 ID。
+    @param photo_id: 照片 ID。
+    @return: 文件响应。
+    """
+    with _get_session(request) as session:
+        photo = session.get(Photo, photo_id)
+        if not photo or photo.album_id != album_id:
+            raise HTTPException(status_code=404, detail="Not found")
+        path = Path(photo.thumb_path)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="File missing")
+        return FileResponse(path, media_type="image/jpeg")

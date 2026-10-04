@@ -3,7 +3,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, Video
+from app.db.models import Document, Photo, PhotoAlbum, Video
 
 
 def delete_video_records(session: Session, videos: list[Video]) -> None:
@@ -13,6 +13,23 @@ def delete_video_records(session: Session, videos: list[Video]) -> None:
         if video.cover_path:
             paths.append(Path(video.cover_path))
     _delete_records(session, videos, paths)
+
+
+def delete_photo_album_records(session: Session, albums: list[PhotoAlbum]) -> None:
+    """AI: 删除相册及其全部照片记录与文件。
+    @param session: 数据库会话。
+    @param albums: 相册列表。
+    @return: None
+    """
+    album_ids = [album.id for album in albums]
+    photos = (
+        session.query(Photo).filter(Photo.album_id.in_(album_ids)).all() if album_ids else []
+    )
+    paths = []
+    for photo in photos:
+        paths.append(Path(photo.path))
+        paths.append(Path(photo.thumb_path))
+    _delete_records(session, list(photos) + list(albums), paths)
 
 
 def delete_document_records(session: Session, documents: list[Document]) -> None:

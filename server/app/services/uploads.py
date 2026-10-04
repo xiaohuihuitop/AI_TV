@@ -7,8 +7,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.core.paths import StoragePaths
-from app.core.validators import is_allowed_doc, is_allowed_video
-from app.db.repo import create_document, create_video
+from app.core.validators import is_allowed_doc, is_allowed_photo, is_allowed_video
+from app.db.repo import create_document, create_photo, create_photo_album, create_video
 
 
 _reservation_lock = threading.Lock()
@@ -200,6 +200,100 @@ def _validate_batch_size(files: list, max_files: int) -> None:
         raise InvalidUpload("至少选择一个文件")
     if len(files) > max_files:
         raise InvalidUpload(f"一次最多上传 {max_files} 个文件")
+
+
+def _build_photo_thumb(source: Path, destination: Path, max_edge: int = 1920) -> tuple[int, int]:
+    """AI: 生成照片展示图（EXIF 转正、长边限制、JPEG 输出）。
+    @param source: 原图路径。
+    @param destination: 展示图路径。
+    @param max_edge: 长边像素上限。
+    @return: (宽, 高)。
+    """
+    from io import BytesIO
+
+    from PIL import Image, ImageOps
+
+    with Image.open(source) as image:
+        image = ImageOps.exif_transpose(image)
+        width, height = image.size
+        image.thumbnail((max_edge, max_edge))
+        if image.mode not in ("RGB", "L"):
+            image = image.convert("RGB")
+        buffer = BytesIO()
+        image.save(buffer, format="JPEG", quality=85)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    partial = destination.with_suffix(".jpg.part")
+    _unlink_if_exists(partial)
+    try:
+        partial.write_bytes(buffer.getvalue())
+        partial.replace(destination)
+    except Exception:
+        _unlink_if_exists(partial)
+        _unlink_if_exists(destination)
+        raise
+    return width, height
+
+
+def persist_photo_album_uploads(
+    session: Session,
+    files,
+    title: str | None,
+    storage: StoragePaths,
+    settings,
+):
+    """AI: 保存一次相册上传（多张照片 + 标题），失败整体回滚并清理文件。
+    @param session: 数据库会话。
+    @param files: 上传文件列表。
+    @param title: 相册标题。
+    @param storage: 存储路径管理器。
+    @param settings: 应用配置。
+    @return: PhotoAlbum 实体。
+    """
+    uploads = list(files)
+    if not uploads:
+        raise InvalidUpload("至少选择一张照片")
+    if len(uploads) > settings.max_photos_per_album:
+        raise InvalidUpload(f"一个相册最多上传 {settings.max_photos_per_album} 张照片")
+    for upload in uploads:
+        if not is_allowed_photo(upload.filename or "", upload.content_type):
+            raise InvalidUpload("仅允许上传 JPG/PNG/WebP 照片")
+
+    saved_paths: list[Path] = []
+    try:
+        album = create_photo_album(session, title)
+        for position, upload in enumerate(uploads):
+            suffix = Path(upload.filename or "").suffix.lower() or ".jpg"
+            destination = storage.photo_path(str(uuid.uuid4()), suffix)
+            save_upload_file(
+                upload,
+                destination,
+                max_bytes=settings.max_photo_upload_bytes,
+                chunk_bytes=settings.upload_chunk_bytes,
+                reserve_bytes=settings.storage_reserve_bytes,
+            )
+            saved_paths.append(destination)
+            thumb_destination = storage.photo_thumb_path(destination.stem)
+            width, height = _build_photo_thumb(destination, thumb_destination)
+            saved_paths.append(thumb_destination)
+            create_photo(
+                session,
+                album_id=album.id,
+                filename=upload.filename,
+                path=str(destination),
+                thumb_path=str(thumb_destination),
+                width=width,
+                height=height,
+                size_bytes=destination.stat().st_size,
+                position=position,
+            )
+        session.commit()
+        session.refresh(album)
+        return album
+    except Exception:
+        session.rollback()
+        for path in saved_paths:
+            _unlink_if_exists(path)
+        raise
 
 
 def _unlink_if_exists(path: Path) -> None:

@@ -1,16 +1,22 @@
 from pathlib import Path
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import markdown
 from app.core.auth import verify_credentials
 from app.core.csrf import verify_csrf
-from app.db.models import Document, Video
+from app.db.models import Document, Photo, PhotoAlbum, Video
 from app.db.session import get_engine, get_sessionmaker, init_db
 from app.services.system_status import collect_system_status
-from app.services.uploads import UploadError, persist_document_uploads, persist_video_uploads
+from app.services.uploads import (
+    UploadError,
+    persist_document_uploads,
+    persist_photo_album_uploads,
+    persist_video_uploads,
+)
 from app.services.media_delete import (
     delete_document_records,
+    delete_photo_album_records,
     delete_video_records,
     retry_video_record,
 )
@@ -231,6 +237,88 @@ def system_page(request: Request):
     with _get_session(request) as session:
         status = collect_system_status(request.app, session)
     return templates.TemplateResponse(request, "system.html", {"active": "system", "status": status})
+
+
+@router.get("/albums", response_class=HTMLResponse)
+def albums(request: Request):
+    """AI: 相册列表页。
+    @param request: 当前请求。
+    @return: HTML 响应。
+    """
+    with _get_session(request) as session:
+        records = session.query(PhotoAlbum).order_by(PhotoAlbum.id.desc()).all()
+        photos = session.query(Photo).order_by(Photo.position.asc(), Photo.id.asc()).all()
+        by_album: dict[int, list[Photo]] = {}
+        for photo in photos:
+            by_album.setdefault(photo.album_id, []).append(photo)
+        items = [
+            {
+                "id": album.id,
+                "title": album.title,
+                "created_at": album.created_at,
+                "count": len(by_album.get(album.id, [])),
+                "cover_photo_id": by_album[album.id][0].id if by_album.get(album.id) else None,
+            }
+            for album in records
+        ]
+    return templates.TemplateResponse(
+        request, "albums.html", {"items": items, "active": "albums"}
+    )
+
+
+@router.get("/albums/{album_id}/photos/{photo_id}/thumb")
+def album_photo_thumb(request: Request, album_id: int, photo_id: int):
+    """AI: 输出相册照片展示图（后台列表用）。
+    @param request: 当前请求。
+    @param album_id: 相册 ID。
+    @param photo_id: 照片 ID。
+    @return: 文件响应。
+    """
+    with _get_session(request) as session:
+        photo = session.get(Photo, photo_id)
+        if not photo or photo.album_id != album_id:
+            raise HTTPException(status_code=404, detail="Not found")
+        path = Path(photo.thumb_path)
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="File missing")
+        return FileResponse(path, media_type="image/jpeg")
+
+
+@router.post("/upload/album")
+def upload_album(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    title: str | None = Form(None),
+):
+    """AI: Web 上传相册。
+    @param request: 当前请求。
+    @param files: 照片文件列表。
+    @param title: 相册标题。
+    @return: 跳转响应。
+    """
+    with _get_session(request) as session:
+        try:
+            persist_photo_album_uploads(
+                session, files, title, request.app.state.storage, request.app.state.settings
+            )
+        except UploadError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return RedirectResponse(url="/web/albums", status_code=303)
+
+
+@router.post("/albums/{album_id}/delete")
+def album_delete(request: Request, album_id: int):
+    """AI: Web 删除相册及全部照片。
+    @param request: 当前请求。
+    @param album_id: 相册 ID。
+    @return: 跳转响应。
+    """
+    with _get_session(request) as session:
+        album = session.get(PhotoAlbum, album_id)
+        if not album:
+            raise HTTPException(status_code=404, detail="Not found")
+        delete_photo_album_records(session, [album])
+    return RedirectResponse(url="/web/albums", status_code=303)
 
 
 @router.get("/docs/{doc_id}", response_class=HTMLResponse)

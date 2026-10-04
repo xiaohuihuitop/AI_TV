@@ -1,6 +1,6 @@
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.db.models import Document, Video
+from app.db.models import Document, Photo, PhotoAlbum, Video
 
 
 def _now_str() -> str:
@@ -61,3 +61,60 @@ def get_document(session: Session, doc_id: int) -> Document | None:
     @return: Document 或 None。
     """
     return session.get(Document, doc_id)
+
+
+def create_photo_album(session: Session, title: str | None) -> PhotoAlbum:
+    """AI: 创建相册记录。
+    @param session: 数据库会话。
+    @param title: 相册标题。
+    @return: PhotoAlbum 实体。
+    """
+    album = PhotoAlbum(
+        title=(title or "").strip()[:255] or "未命名相册",
+        status="ready",
+        created_at=_now_str(),
+    )
+    session.add(album)
+    session.flush()
+    session.refresh(album)
+    return album
+
+
+def create_photo(
+    session: Session,
+    album_id: int,
+    filename: str,
+    path: str,
+    thumb_path: str,
+    width: int | None,
+    height: int | None,
+    size_bytes: int,
+    position: int,
+) -> Photo:
+    """AI: 创建照片记录。
+    @param session: 数据库会话。
+    @param album_id: 所属相册 ID。
+    @param filename: 原始文件名。
+    @param path: 原图存储路径。
+    @param thumb_path: 展示图存储路径。
+    @param width: 宽度。
+    @param height: 高度。
+    @param size_bytes: 原图字节数。
+    @param position: 相册内排序。
+    @return: Photo 实体。
+    """
+    photo = Photo(
+        album_id=album_id,
+        filename=filename,
+        path=path,
+        thumb_path=thumb_path,
+        width=width,
+        height=height,
+        size_bytes=size_bytes,
+        position=position,
+        created_at=_now_str(),
+    )
+    session.add(photo)
+    session.flush()
+    session.refresh(photo)
+    return photo

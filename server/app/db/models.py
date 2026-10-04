@@ -38,3 +38,36 @@ class Document(Base):
     status: Mapped[str] = mapped_column(String(32), default="ready")
     error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[str] = mapped_column(String(32))
+
+
+class PhotoAlbum(Base):
+    """AI: 相册元数据表。
+    @return: PhotoAlbum
+    """
+
+    __tablename__ = "photo_albums"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(255), default="未命名相册")
+    status: Mapped[str] = mapped_column(String(32), default="ready")
+    error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    created_at: Mapped[str] = mapped_column(String(32))
+
+
+class Photo(Base):
+    """AI: 照片元数据表。
+    @return: Photo
+    """
+
+    __tablename__ = "photos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    album_id: Mapped[int] = mapped_column(Integer, index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    path: Mapped[str] = mapped_column(String(1024))
+    thumb_path: Mapped[str] = mapped_column(String(1024))
+    width: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    height: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[str] = mapped_column(String(32))

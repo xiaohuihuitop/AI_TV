@@ -93,6 +93,16 @@ assert.doesNotMatch(app, /prefers-reduced-motion/);
 for (const page of [latest, offline, settings, player, reader]) {
   assert.doesNotMatch(page, /size="mini"/);
 }
+assert.match(latest, /setActiveType\('photo'\)/);
+assert.match(
+  latest,
+  /activeItems\(\)[\s\S]{0,200}activeType === "video"[\s\S]{0,200}activeType === "photo"[\s\S]{0,200}return this\.photoItems;/
+);
+assert.match(latest, /openAlbum\(item\)/);
+assert.match(latest, /savePhotoAlbum/);
+assert.match(mediaCard, /metaText/);
+const pagesConfig = await read("android/pages.json");
+assert.match(pagesConfig, /pages\/photos\/index/);
 assert.match(app, /\.btn\s*\{[\s\S]*?text-align:\s*center/);
 assert.doesNotMatch(settings, /class="header hero"/);
 

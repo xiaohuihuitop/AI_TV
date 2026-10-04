@@ -9,6 +9,7 @@
       uploadUrl,
       redirectUrl,
       ext,
+      extraFields,
     } = options;
     const zone = document.getElementById(zoneId);
     const input = document.getElementById(inputId);
@@ -121,6 +122,12 @@
       setProgress(0);
       const form = new FormData();
       selected.forEach((file) => form.append("files", file));
+      Object.entries(extraFields || {}).forEach(([name, fieldId]) => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+          form.append(name, field.value);
+        }
+      });
       const xhr = new XMLHttpRequest();
       xhr.open("POST", uploadUrl);
       xhr.withCredentials = true;

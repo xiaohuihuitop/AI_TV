@@ -24,3 +24,21 @@ def is_allowed_doc(filename: str, content_type: str | None) -> bool:
         "application/octet-stream",
     )
     return lower.endswith(allowed_ext) and (content_type in allowed_types)
+
+
+def is_allowed_photo(filename: str, content_type: str | None) -> bool:
+    """AI: 校验照片文件格式。
+    @param filename: 文件名。
+    @param content_type: MIME。
+    @return: 是否允许。
+    """
+    lower = filename.lower()
+    allowed_ext = (".jpg", ".jpeg", ".png", ".webp")
+    allowed_types = (
+        None,
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/octet-stream",
+    )
+    return lower.endswith(allowed_ext) and (content_type in allowed_types)

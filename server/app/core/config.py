@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     enable_worker: bool = True
     max_video_upload_bytes: int = Field(default=2 * 1024 * 1024 * 1024, ge=1)
     max_doc_upload_bytes: int = Field(default=20 * 1024 * 1024, ge=1)
+    max_photo_upload_bytes: int = Field(default=30 * 1024 * 1024, ge=1)
+    max_photos_per_album: int = Field(default=30, ge=1, le=200)
     max_upload_files: int = Field(default=10, ge=1, le=100)
     upload_chunk_bytes: int = Field(default=1024 * 1024, ge=64 * 1024)
     storage_reserve_bytes: int = Field(default=128 * 1024 * 1024, ge=0)

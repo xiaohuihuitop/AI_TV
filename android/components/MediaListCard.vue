@@ -16,9 +16,10 @@
       <text v-if="isVideo && item.description" class="media-card-description muted">
         {{ item.description }}
       </text>
-      <view v-if="isVideo" class="media-card-meta">
-        <text>{{ durationText }}</text>
-        <text>{{ sizeText }}</text>
+      <view v-if="isVideo || metaText" class="media-card-meta">
+        <text v-if="isVideo">{{ durationText }}</text>
+        <text v-if="isVideo">{{ sizeText }}</text>
+        <text v-if="metaText">{{ metaText }}</text>
       </view>
       <view v-if="$slots.status" class="media-card-status">
         <slot name="status"></slot>
@@ -43,6 +44,10 @@ export default {
       default: ""
     },
     sizeText: {
+      type: String,
+      default: ""
+    },
+    metaText: {
       type: String,
       default: ""
     }

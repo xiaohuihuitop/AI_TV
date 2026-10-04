@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 import tempfile
-from base64 import b64encode
+from base64 import b64decode, b64encode
 
 from fastapi.testclient import TestClient
 
@@ -18,7 +18,7 @@ os.chdir(ROOT / "server")
 atexit.register(lambda: shutil.rmtree(BOOT_DATA_DIR.parent, ignore_errors=True))
 
 from app.core.config import Settings
-from app.db.models import Document, Video
+from app.db.models import Document, PhotoAlbum, Video
 from app.db.session import get_engine, get_sessionmaker
 from app.main import create_app
 
@@ -288,7 +288,7 @@ def test_upload_pages_show_progress_controls():
 
         for endpoint in ("/web/upload/video", "/web/upload/doc"):
             probe = client.post(endpoint, headers=AUTH_HEADERS)
-            assert probe.status_code != 404
+            assert probe.status_code == 403
 
         upload_js = client.get("/static/upload.js", headers=AUTH_HEADERS)
         assert upload_js.status_code == 200
@@ -416,6 +416,81 @@ def test_public_index_uses_forwarded_https_origin():
         cleanup_client(app, tmp)
 
 
+def test_photo_album_upload_manifest_and_delete():
+    tmp, app, client = make_client()
+    try:
+        tiny_jpeg = b64decode(
+            "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a"
+            "HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAA"
+            "AAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q=="
+        )
+        upload = client.post(
+            "/api/albums",
+            data={"title": "春节聚会"},
+            files=[
+                ("files", ("one.jpg", tiny_jpeg, "image/jpeg")),
+                ("files", ("two.jpg", tiny_jpeg, "image/jpeg")),
+            ],
+            headers=AUTH_HEADERS,
+        )
+        assert upload.status_code == 200, upload.text
+        album_id = upload.json()["id"]
+
+        assert (Path(app.state.storage.photos)).exists()
+        assert (Path(app.state.storage.photo_thumbs)).exists()
+
+        manifest = client.get("/public/index.json?user=admin&pass=admin")
+        assert manifest.status_code == 200
+        albums = [item for item in manifest.json()["items"] if item["type"] == "photo"]
+        assert len(albums) == 1
+        album = albums[0]
+        assert album["title"] == "春节聚会"
+        assert album["count"] == 2
+        assert album["cover"].startswith("http")
+        assert len(album["photos"]) == 2
+        photo_url = album["photos"][0]["url"]
+        assert f"/public/albums/{album_id}/photos/" in photo_url
+
+        without_auth = client.get(photo_url.split("?")[0])
+        assert without_auth.status_code == 401
+        photo_resp = client.get(photo_url)
+        assert photo_resp.status_code == 200
+        assert photo_resp.headers["content-type"] == "image/jpeg"
+
+        page = client.get("/web/albums", headers=AUTH_HEADERS)
+        assert page.status_code == 200
+        assert "春节聚会" in page.text
+        assert "2 张" in page.text
+        home_nav = client.get("/web/videos", headers=AUTH_HEADERS)
+        assert "相册管理" in home_nav.text
+
+        deleted = client.delete(f"/api/albums/{album_id}", headers=AUTH_HEADERS)
+        assert deleted.status_code == 200
+        assert not list(Path(app.state.storage.photos).glob("*"))
+        assert not list(Path(app.state.storage.photo_thumbs).glob("*"))
+        after = client.get("/public/index.json?user=admin&pass=admin")
+        assert not [item for item in after.json()["items"] if item["type"] == "photo"]
+    finally:
+        cleanup_client(app, tmp)
+
+
+def test_photo_album_rejects_invalid_files():
+    tmp, app, client = make_client()
+    try:
+        invalid = client.post(
+            "/api/albums",
+            files=[("files", ("movie.gif", b"GIF89a", "image/gif"))],
+            headers=AUTH_HEADERS,
+        )
+        assert invalid.status_code == 400
+        assert "仅允许上传" in invalid.json()["detail"]
+
+        empty = client.post("/api/albums", files=[], headers=AUTH_HEADERS)
+        assert empty.status_code in (400, 422)
+    finally:
+        cleanup_client(app, tmp)
+
+
 if __name__ == "__main__":
     test_status_page_and_api()
     test_failed_video_can_be_retried()
@@ -427,4 +502,6 @@ if __name__ == "__main__":
     test_ready_videos_expose_mobile_preview_queue_only()
     test_video_range_responses_keep_mp4_content_type()
     test_public_index_uses_forwarded_https_origin()
+    test_photo_album_upload_manifest_and_delete()
+    test_photo_album_rejects_invalid_files()
     print("server admin features ok")

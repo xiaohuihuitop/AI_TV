@@ -32,6 +32,15 @@
       "style": {
         "navigationBarTitleText": "图文"
       }
+    },
+    {
+      "path": "pages/photos/index",
+      "style": {
+        "navigationBarTitleText": "相册",
+        "navigationBarBackgroundColor": "#221d18",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#221d18"
+      }
     }
   ],
   "globalStyle": {

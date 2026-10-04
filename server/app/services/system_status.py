@@ -31,6 +31,8 @@ def collect_system_status(app, session: Session) -> dict:
             "videos": _path_state(storage.videos),
             "covers": _path_state(storage.covers),
             "docs": _path_state(storage.docs),
+            "photos": _path_state(storage.photos),
+            "photo_thumbs": _path_state(storage.photo_thumbs),
             "db_dir": _path_state(storage.db),
         },
         "database": _database_state(db_path),

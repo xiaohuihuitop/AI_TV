@@ -18,6 +18,20 @@ const validManifest = {
     }
   ]
 };
+const validPhotoManifest = {
+  items: [
+    {
+      id: 2,
+      type: "photo",
+      title: "春节聚会",
+      url: "https://server-a.example/public/albums/2/photos/1",
+      photos: [
+        { url: "https://server-a.example/public/albums/2/photos/1", width: 4000, height: 3000 },
+        { url: "https://server-a.example/public/albums/2/photos/2", width: 4000, height: 3000 }
+      ]
+    }
+  ]
+};
 const sourceUrl = "https://server-a.example/public/index.json?user=admin&pass=admin";
 const otherSourceUrl = "https://server-b.example/public/index.json?user=admin&pass=admin";
 const cachedManifest = {
@@ -44,13 +58,21 @@ for (const invalidManifest of [
   { items: [{ id: 1, type: "unsupported", title: "未知类型", url: "https://example.com/1" }] },
   { items: [{ id: { value: 1 }, type: "video", title: "对象 ID", url: "https://example.com/1" }] },
   { items: [{ id: 1, type: "video", title: "对象标题", url: { href: "https://example.com/1" } }] },
-  { items: [{ id: 1, type: "video", title: "伪协议", url: "javascript:alert(1)" }] }
+  { items: [{ id: 1, type: "video", title: "伪协议", url: "javascript:alert(1)" }] },
+  { items: [{ id: 2, type: "photo", title: "缺少照片数组", url: "https://example.com/a" }] },
+  { items: [{ id: 2, type: "photo", title: "空相册", url: "https://example.com/a", photos: [] }] },
+  { items: [{ id: 2, type: "photo", title: "照片缺地址", url: "https://example.com/a", photos: [{ width: 1 }] }] }
 ]) {
   assert.deepEqual(validateIndexManifest(invalidManifest), {
     valid: false,
     message: "服务器返回的数据格式不正确"
   });
 }
+
+assert.deepEqual(validateIndexManifest(validPhotoManifest), {
+  valid: true,
+  data: validPhotoManifest
+});
 
 assert.deepEqual(resolveCachedManifest(cachedManifest, sourceUrl), {
   valid: true,
