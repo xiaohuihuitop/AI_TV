@@ -8,7 +8,7 @@
       <view class="video-stage" :style="{ height: `${videoHeight}px` }">
         <view v-if="error" class="error-card card">
           <text class="error-text">{{ error }}</text>
-          <button class="btn error-retry" size="mini" @click="retryCurrent">重试播放</button>
+          <button class="btn error-retry" @click="retryCurrent">重试播放</button>
         </view>
         <video
           v-else
@@ -31,11 +31,11 @@
         </cover-view>
       </view>
       <view class="immersive-actions">
-        <button class="btn btn-ghost nav prev" size="mini" :disabled="!hasPrev" @click="playPrev">
+        <button class="btn btn-ghost nav prev" :disabled="!hasPrev" @click="playPrev">
           上一个
         </button>
-        <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
-        <button class="btn btn-ghost nav next" size="mini" :disabled="!hasNext" @click="playNext">
+        <button class="btn btn-ghost back" @click="goBack">返回</button>
+        <button class="btn btn-ghost nav next" :disabled="!hasNext" @click="playNext">
           下一个
         </button>
       </view>

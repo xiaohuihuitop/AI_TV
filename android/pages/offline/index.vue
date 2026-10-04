@@ -34,7 +34,6 @@
           <button
             v-if="item.status !== 'downloading'"
             class="btn btn-ghost remove"
-            size="mini"
             @click="removeDownload(item)"
           >
             删除

@@ -53,7 +53,6 @@
             <button
               v-if="!isDownloaded(item) && !isDownloading(item)"
               class="btn btn-primary download"
-              size="mini"
               @click="addDownload(item)"
             >
               下载

@@ -45,15 +45,18 @@ assert.deepEqual(validateIndexUrl("https://example.com/not-index"), {
   message: "地址必须指向 index.json"
 });
 
-const [app, latest, offline, settings, tabBar, mediaCard, emptyState] = await Promise.all([
-  read("android/App.vue"),
-  read("android/pages/latest/index.vue"),
-  read("android/pages/offline/index.vue"),
-  read("android/pages/settings/index.vue"),
-  read("android/components/AppTabBar.vue"),
-  read("android/components/MediaListCard.vue"),
-  read("android/components/EmptyState.vue")
-]);
+const [app, latest, offline, settings, tabBar, mediaCard, emptyState, player, reader] =
+  await Promise.all([
+    read("android/App.vue"),
+    read("android/pages/latest/index.vue"),
+    read("android/pages/offline/index.vue"),
+    read("android/pages/settings/index.vue"),
+    read("android/components/AppTabBar.vue"),
+    read("android/components/MediaListCard.vue"),
+    read("android/components/EmptyState.vue"),
+    read("android/pages/player/index.vue"),
+    read("android/pages/reader/index.vue")
+  ]);
 
 assert.match(app, /--control-height:?\s*48px/);
 assert.match(app, /--shadow-card:\s*0 8px 20px/);
@@ -87,6 +90,10 @@ assert.match(latest, /\.download\s*\{[\s\S]*?min-height:\s*var\(--control-height
 assert.match(offline, /\.remove\s*\{[\s\S]*?min-height:\s*var\(--control-height\)/);
 assert.doesNotMatch(latest, /\brole=|aria-/);
 assert.doesNotMatch(app, /prefers-reduced-motion/);
+for (const page of [latest, offline, settings, player, reader]) {
+  assert.doesNotMatch(page, /size="mini"/);
+}
+assert.match(app, /\.btn\s*\{[\s\S]*?text-align:\s*center/);
 assert.doesNotMatch(settings, /class="header hero"/);
 
 console.log("android ui cleanup tests passed");

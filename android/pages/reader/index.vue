@@ -22,7 +22,7 @@
       <view v-else class="placeholder muted">暂无内容</view>
     </view>
     <view class="actions">
-      <button class="btn btn-ghost back" size="mini" @click="goBack">返回</button>
+      <button class="btn btn-ghost back" @click="goBack">返回</button>
     </view>
   </view>
 </template>

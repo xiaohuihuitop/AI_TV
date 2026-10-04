@@ -15,10 +15,10 @@
         <text class="current-url">{{ visibleIndexUrl }}</text>
       </view>
       <view class="actions">
-        <button class="btn btn-primary save" size="mini" @click="openAddressDialog">
+        <button class="btn btn-primary save" @click="openAddressDialog">
           修改地址
         </button>
-        <button class="btn btn-ghost restore" size="mini" @click="restoreDefaultUrl">
+        <button class="btn btn-ghost restore" @click="restoreDefaultUrl">
           恢复默认
         </button>
       </view>
@@ -37,10 +37,10 @@
           placeholder="https://服务器地址/public/index.json?user=...&pass=..."
         />
         <view class="modal-actions">
-          <button class="btn btn-ghost modal-btn" size="mini" @click="closeAddressDialog">
+          <button class="btn btn-ghost modal-btn" @click="closeAddressDialog">
             取消
           </button>
-          <button class="btn btn-primary modal-btn" size="mini" @click="confirmAddressDialog">
+          <button class="btn btn-primary modal-btn" @click="confirmAddressDialog">
             保存地址
           </button>
         </view>
