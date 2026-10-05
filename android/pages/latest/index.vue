@@ -52,19 +52,10 @@
           @cover-error="markCoverRefreshNeeded"
         >
           <template v-if="item.type === 'video'" v-slot:status>
-            <text v-if="isDownloading(item)" class="download-status pending">
-              下载中{{ formatProgress(item) }}
-            </text>
-            <text v-else-if="isDownloaded(item)" class="download-status done">已下载</text>
-          </template>
-          <template v-if="item.type === 'video'" v-slot:action>
-            <button
-              v-if="!isDownloaded(item) && !isDownloading(item)"
-              class="btn btn-primary download"
-              @click="addDownload(item)"
-            >
-              下载
-            </button>
+            <text v-if="isAutoCaching(item)" class="download-status pending">自动缓存中</text>
+            <text v-else-if="isAutoCached(item)" class="download-status done">已缓存</text>
+            <text v-else-if="isAutoCacheFailed(item)" class="download-status failed">缓存失败</text>
+            <text v-else class="download-status online">在线</text>
           </template>
         </media-list-card>
       </view>
@@ -91,6 +82,8 @@ import {
 } from "../../utils/offlineService.js";
 import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { savePhotoAlbum } from "../../utils/photoQueue.js";
+import { createAppResourceCache, canAutoCache, createUniResourceFileApi, createUniStorage as createResourceStorage, loadResourceCacheConfig, applyCachedResourcePaths } from "../../utils/resourceCacheRuntime.js";
+import { buildResourceIdentity } from "../../utils/resourceCacheService.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 import { defaultIndexUrl, normalizeRequestUrl } from "../../utils/appConfig.js";
 import {
@@ -329,6 +322,7 @@ export default {
       uni.navigateTo({
         url: `/pages/player/index?src=${encodeURIComponent(src)}&title=${title}&autoplay=1`
       });
+      this.startAutomaticCache(item);
     },
     openArticle(item) {
       const src = this.resolveItemSource(item);
@@ -343,28 +337,50 @@ export default {
         resolveContentFormat(item && item.url ? item.url : "") ||
         "html";
       uni.navigateTo({
-        url: `/pages/reader/index?src=${encodeURIComponent(src)}&title=${title}&format=${encodeURIComponent(format)}&origin=${origin}`
+        url: `/pages/reader/index?src=${encodeURIComponent(src)}&id=${encodeURIComponent(item.id || "")}&title=${title}&format=${encodeURIComponent(format)}&origin=${origin}`
       });
+      this.startAutomaticCache(item, format);
+    },
+    startAutomaticCache(item, format = "") {
+      if (!item || !item.url || !["video", "article"].includes(item.type || "video")) {
+        return;
+      }
+      const storage = createResourceStorage();
+      const config = loadResourceCacheConfig(storage);
+      canAutoCache(config).then((allowed) => {
+        if (!allowed) {
+          return;
+        }
+        const service = createAppResourceCache(storage, createUniResourceFileApi(), config);
+        service.cacheResource({ ...item, format, type: item.type || "video", id: item.id || item.url, cacheFileName: buildCacheFileName(item) }).catch(() => {});
+      });
+    },
+    buildCacheFileName(item) {
+      const identity = buildResourceIdentity(item).replace(/[^a-zA-Z0-9_-]/g, "").slice(-48);
+      const extension = item && item.format === "html" ? ".html" : item && item.format === "markdown" ? ".md" : ".cache";
+      return `_doc/ai_tv_cache_${identity || Date.now()}${extension}`;
     },
     resolveItemSource(item) {
       return item && (item.local_path || item.url) ? item.local_path || item.url : "";
     },
-    getDownloadStatus(item) {
-      const key = buildDownloadIdentity(item);
-      return key ? this.downloadStatusMap[key] || null : null;
+    getAutoCacheEntry(item) {
+      const storage = createResourceStorage();
+      const config = loadResourceCacheConfig(storage);
+      return createAppResourceCache(storage, undefined, config).get(item);
     },
-    isDownloaded(item) {
-      const status = this.getDownloadStatus(item);
-      return Boolean(status && status.status === "done");
+    isAutoCaching(item) {
+      const entry = this.getAutoCacheEntry(item);
+      return Boolean(entry && entry.status === "caching");
     },
-    isDownloading(item) {
-      const status = this.getDownloadStatus(item);
-      return Boolean(status && status.status === "downloading");
+    isAutoCached(item) {
+      const entry = this.getAutoCacheEntry(item);
+      return Boolean(entry && entry.status === "done" && entry.local_path);
     },
-    formatProgress(item) {
-      const value = Number((this.getDownloadStatus(item) || {}).progress);
-      return Number.isFinite(value) && value > 0 ? ` ${Math.floor(value)}%` : "";
+    isAutoCacheFailed(item) {
+      const entry = this.getAutoCacheEntry(item);
+      return Boolean(entry && entry.status === "failed");
     },
+
     fetchIndex(forceRefresh = false) {
       const storage = createUniStorage();
       const adapter = createStorageAdapter(storage);
@@ -475,45 +491,17 @@ export default {
     applyItems(data, refreshCovers = false) {
       const normalized = normalizeIndexItems(data);
       const withLocalDownload = applyLocalDownload(normalized.items, this.downloadStatusMap);
-      const items = refreshCovers ? refreshCoverUrls(withLocalDownload, Date.now()) : withLocalDownload;
+      const cacheStorage = createResourceStorage();
+      const cacheConfig = loadResourceCacheConfig(cacheStorage);
+      const cacheService = createAppResourceCache(cacheStorage, undefined, cacheConfig);
+      const withAutoCache = applyCachedResourcePaths(withLocalDownload, cacheService);
+      const items = refreshCovers ? refreshCoverUrls(withAutoCache, Date.now()) : withAutoCache;
       if (refreshCovers) {
         this.coverRefreshNeeded = false;
       }
       this.videoItems = items.filter((item) => item.type === "video");
       this.articleItems = items.filter((item) => item.type === "article");
       this.photoItems = items.filter((item) => item.type === "photo");
-    },
-    addDownload(item) {
-      if (!item || item.type !== "video") {
-        return;
-      }
-      if (this.isDownloaded(item)) {
-        uni.showToast({ title: "已下载", icon: "none" });
-        return;
-      }
-      if (this.isDownloading(item)) {
-        uni.showToast({ title: "下载中", icon: "none" });
-        return;
-      }
-      const service = createOfflineService(createUniStorage(), createUniDownloader());
-      const refreshProgress = () => {
-        if (!this.pageVisible) {
-          return;
-        }
-        const hasDownloading = this.refreshDownloadStatus();
-        if (hasDownloading && !this.downloadRefreshTimer) {
-          this.startDownloadWatcher();
-        } else if (!hasDownloading) {
-          this.stopDownloadWatcher();
-        }
-      };
-      const task = service.addDownload(item, refreshProgress);
-      refreshProgress();
-      uni.showToast({ title: "已开始下载", icon: "success" });
-      task.then(refreshProgress).catch(() => {
-        refreshProgress();
-        uni.showToast({ title: "下载失败，请到离线页查看原因", icon: "none" });
-      });
     },
     formatDuration,
     formatSize
@@ -580,12 +568,6 @@ export default {
   font-size: 16px;
 }
 
-.download {
-  min-width: 88px;
-  min-height: var(--control-height);
-  font-size: 15px;
-}
-
 .download-status {
   display: inline-flex;
   padding: 4px 8px;
@@ -602,5 +584,15 @@ export default {
 .download-status.done {
   color: #216747;
   background: #eaf7ef;
+}
+
+.download-status.failed {
+  color: #a84616;
+  background: #fff0e8;
+}
+
+.download-status.online {
+  color: var(--color-muted);
+  background: var(--color-surface-muted);
 }
 </style>

@@ -9,7 +9,7 @@
       <text class="error-text">{{ error }}</text>
     </view>
     <view v-else class="content card" :class="{ 'content-reading': !useWebview }">
-      <web-view v-if="useWebview && webviewSrc" class="content-webview" :src="webviewSrc"></web-view>
+      <web-view v-if="useWebview && webviewSrc" class="content-webview" :src="webviewSrc" @error="handleWebviewError"></web-view>
       <mp-html
         v-else-if="content"
         class="content-html"
@@ -29,6 +29,15 @@
 
 <script>
 import { readTextContent } from "../../utils/fileService.js";
+import {
+  canAutoCache,
+  createAppResourceCache,
+  createLocalTextAdapter,
+  createUniResourceFileApi,
+  createUniStorage as createResourceStorage,
+  loadResourceCacheConfig,
+  toWebViewPath
+} from "../../utils/resourceCacheRuntime.js";
 import MpHtml from "../../uni_modules/mp-html/components/mp-html/mp-html.vue";
 
 export default {
@@ -41,6 +50,8 @@ export default {
       title: "",
       content: "",
       origin: "",
+      cacheEntry: null,
+      cacheResourceId: "",
       useWebview: false,
       webviewSrc: "",
       isMarkdown: true,
@@ -59,14 +70,16 @@ export default {
     const title = query && query.title ? decodeURIComponent(query.title) : "";
     const origin = query && query.origin ? decodeURIComponent(query.origin) : "";
     const format = query && query.format ? decodeURIComponent(query.format) : "";
+    const id = query && query.id ? decodeURIComponent(query.id) : "";
     this.source = source;
     this.title = title;
     this.origin = origin;
+    this.cacheResourceId = id;
     if (!source) {
       this.error = "缺少阅读地址";
       return;
     }
-    if (!isRemoteSource(source)) {
+    if (!isRemoteSource(source) && !isLocalSource(source)) {
       this.error = "不支持本地文件阅读";
       return;
     }
@@ -75,12 +88,35 @@ export default {
     this.useWebview = resolvedFormat === "html";
     this.webviewSrc = "";
     this.loadContent();
+    this.prepareDocumentCache(resolvedFormat);
+
   },
   methods: {
-    /**
-     * AI:加载图文文本内容。
-     * @returns {void} AI:无返回值。
-     */
+    prepareDocumentCache(format) {
+        if (!this.source || !isRemoteSource(this.source)) return;
+      const storage = createResourceStorage();
+      const config = loadResourceCacheConfig(storage);
+      canAutoCache(config).then(async (allowed) => {
+        if (!allowed) return;
+        const service = createAppResourceCache(storage, createUniResourceFileApi(), config);
+        const item = { type: "article", id: this.cacheResourceId || this.origin || this.source, title: this.title, url: this.source, format };
+        try {
+          const entry = await service.cacheResource(item);
+          this.cacheEntry = entry;
+          if (format === "html" && entry.local_path) {
+            this.webviewSrc = toWebViewPath(entry.local_path);
+            this.useWebview = true;
+            return;
+          }
+          if (format !== "html" && entry.local_path) {
+            this.content = await readTextContent(entry.local_path, createLocalTextAdapter());
+            this.isMarkdown = true;
+          }
+        } catch (error) {
+          return;
+        }
+      });
+    },
     loadContent() {
       this.loading = true;
       this.error = "";
@@ -104,30 +140,25 @@ export default {
           this.loading = false;
         });
     },
-    /**
-     * AI:返回上一页。
-     * @returns {void} AI:无返回值。
-     */
+    handleWebviewError() {
+      if (this.webviewSrc !== this.source) {
+        this.webviewSrc = this.source;
+        this.error = "本地缓存打开失败，已切换在线内容";
+      } else {
+        this.error = "内容加载失败，请检查网络后重试";
+      }
+    },
     goBack() {
       uni.navigateBack();
     },
-    /**
-     * AI:计算 Markdown 相对资源的基础域名。
-     * @returns {string} AI:基础域名或空字符串。
-     */
     computeContentDomain() {
       const source = String(this.origin || this.source || "");
-      if (!/^https?:\/\//i.test(source)) {
-        return "";
-      }
+      if (!/^https?:\/\//i.test(source)) return "";
       const match = source.match(/^(https?:\/\/[^/]+)(\/.*)?$/i);
-      if (!match) {
-        return "";
-      }
+      if (!match) return "";
       const origin = match[1];
       const pathname = match[2] || "/";
-      const basePath = pathname.replace(/\/[^/]*$/, "/");
-      return `${origin}${basePath}`;
+      return `${origin}${pathname.replace(/\/[^/]*$/, "/")}`;
     }
   }
 };
@@ -139,6 +170,15 @@ export default {
  */
 function isRemoteSource(source) {
   return /^https?:\/\//i.test(String(source || ""));
+}
+
+/**
+ * AI:判断是否为本地缓存地址。
+ * @param {string} source AI:内容来源。
+ * @returns {boolean} AI:是否为本地地址。
+ */
+function isLocalSource(source) {
+  return /^(?:file:|_doc\/|\/)/i.test(String(source || ""));
 }
 
 /**

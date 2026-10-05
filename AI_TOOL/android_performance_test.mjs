@@ -26,11 +26,14 @@ assert.match(mediaCard, /<image[^>]+lazy-load[^>]+@error="\$emit\('cover-error'\
 assert.match(latest, /coverRefreshNeeded:\s*false/);
 assert.match(latest, /this\.coverRefreshNeeded\s*=\s*true/);
 assert.match(latest, /forceRefresh\s*\|\|\s*this\.coverRefreshNeeded/);
-assert.match(offline, /item\.status\s*===\s*['"]downloading['"]/);
-assert.match(offline, /v-if="item\.status !== 'downloading'"/);
-assert.match(offline, /removeDownloadFiles\(item,\s*removeLocalFile\)/);
-assert.match(offline, /service\.removeDownload\(item\)/);
-assert.match(offline, /buildDownloadIdentity\(entry\)\s*===\s*buildDownloadIdentity\(item\)/);
+assert.match(offline, /cacheItems/);
+assert.match(offline, /item\.status\s*===\s*['"]caching['"]/);
+assert.match(offline, /resourceCacheRuntime/);
+assert.match(offline, /clearAutoCache/);
+assert.match(offline, /(?:service\.remove\(item\)|createCacheService\(\)\.remove\(item\))/);
+assert.doesNotMatch(latest, /@click="addDownload\(item\)"/);
+assert.match(latest, /startAutomaticCache/);
+
 assert.match(offline, /<media-list-card/);
 assert.match(mediaCard, /lazy-load/);
 

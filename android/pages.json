@@ -3,7 +3,7 @@
     {
       "path": "pages/offline/index",
       "style": {
-        "navigationBarTitleText": "离线"
+        "navigationBarTitleText": "缓存"
       }
     },
     {
@@ -57,7 +57,7 @@
     "list": [
       {
         "pagePath": "pages/offline/index",
-        "text": "离线"
+        "text": "缓存"
       },
       {
         "pagePath": "pages/latest/index",

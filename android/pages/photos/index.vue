@@ -13,7 +13,7 @@
         <swiper-item v-for="(photo, index) in album.photos" :key="index" class="album-slide">
           <image
             class="album-image"
-            :src="photo.url"
+            :src="photo.local_path || photo.url"
             mode="aspectFit"
             :lazy-load="index > 0"
             @error="markPhotoError(index)"
@@ -37,6 +37,8 @@
 
 <script>
 import { loadPhotoAlbum, updatePhotoIndex } from "../../utils/photoQueue.js";
+import { applyCachedResourcePaths, canAutoCache, createAppResourceCache, createUniResourceFileApi, createUniStorage as createResourceStorage, loadResourceCacheConfig } from "../../utils/resourceCacheRuntime.js";
+import { buildResourceIdentity } from "../../utils/resourceCacheService.js";
 
 function createUniStorage() {
   return {
@@ -69,39 +71,66 @@ export default {
     const { album, index } = loadPhotoAlbum(createUniStorage());
     this.album = album;
     this.currentIndex = album ? Math.min(index, album.photos.length - 1) : 0;
+    this.preparePhotoCache();
     if (album && album.title) {
       uni.setNavigationBarTitle({ title: album.title });
     }
   },
   methods: {
+    preparePhotoCache() {
+      if (!this.album || !Array.isArray(this.album.photos)) return;
+      const storage = createResourceStorage();
+      const config = loadResourceCacheConfig(storage);
+      const service = createAppResourceCache(storage, createUniResourceFileApi(), config);
+      this.album = { ...this.album, photos: applyCachedResourcePaths(this.album.photos, service) };
+      this.cacheVisiblePhotos();
+    },
+    cacheVisiblePhotos() {
+      if (!this.album || !Array.isArray(this.album.photos)) return;
+      const storage = createResourceStorage();
+      const config = loadResourceCacheConfig(storage);
+      canAutoCache(config).then((allowed) => {
+        if (!allowed) return;
+        const service = createAppResourceCache(storage, createUniResourceFileApi(), config);
+        this.album.photos.slice(this.currentIndex, this.currentIndex + 2).forEach((photo) => {
+          service.cacheResource({ ...photo, type: "photo", id: photo.id || photo.url, cacheFileName: this.buildCacheFileName(photo) }).then((entry) => {
+            const photos = this.album.photos.map((current) =>
+              current.url === photo.url ? { ...current, local_path: entry.local_path } : current
+            );
+            this.album = { ...this.album, photos };
+          }).catch(() => {});
+        });
+      });
+    },
+    buildCacheFileName(photo) {
+      const identity = buildResourceIdentity({ ...photo, type: "photo", id: photo.id || photo.url }).replace(/[^a-zA-Z0-9_-]/g, "").slice(-48);
+      return `_doc/ai_tv_cache_${identity || Date.now()}.jpg`;
+    },
     handleSwipe(event) {
       const index = Number(event && event.detail ? event.detail.current : 0);
       if (Number.isFinite(index)) {
         this.currentIndex = index;
         this.persistCurrentIndex();
+        this.cacheVisiblePhotos();
       }
     },
     goPrev() {
-      if (!this.hasPrev) {
-        return;
-      }
+      if (!this.hasPrev) return;
       this.currentIndex -= 1;
       this.persistCurrentIndex();
+      this.cacheVisiblePhotos();
     },
     goNext() {
-      if (!this.hasNext) {
-        return;
-      }
+      if (!this.hasNext) return;
       this.currentIndex += 1;
       this.persistCurrentIndex();
+      this.cacheVisiblePhotos();
     },
     goBack() {
       uni.navigateBack();
     },
     persistCurrentIndex() {
-      if (this.album) {
-        updatePhotoIndex(createUniStorage(), this.currentIndex);
-      }
+      if (this.album) updatePhotoIndex(createUniStorage(), this.currentIndex);
     },
     markPhotoError(index) {
       this.photoErrors = { ...this.photoErrors, [index]: true };

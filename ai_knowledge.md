@@ -14,6 +14,24 @@
 - 关键词:
 ```
 
+## [2026-10-05] 现象: MuMu 仍显示旧下载按钮
+- 触发条件: 源码已将最新页手动下载入口改为自动缓存状态，但 MuMu 页面仍出现“下载”按钮。
+- 根因: 本地源码与设备运行 bundle 不一致；设备仍加载旧 bundle。复查中 MuMu 虚拟机 ADB 会话卡死，重启虚拟机后 `wlan0` 处于 DOWN 状态，导致 ADB 持续 `offline`、无法同步；`6fce6ce` 是 Redmi 真机，不能作为 MuMu 验收对象。
+- 解决步骤: 对照源码、回归断言和新旧 bundle 文案确认页面已移除按钮；通过 MuMu 管理通道发现 `wlan0` DOWN 后执行 `svc wifi enable` 和 `ip link set wlan0 up`，虚拟机网络恢复（10.0.2.15），ADB 恢复 `device` 状态；重建 `adb reverse tcp:8000` 后用 HBuilderX `--deviceId 127.0.0.1:16384` 重新同步，设备截图确认无下载按钮、底部为“缓存”。
+- 预防/规则: “源码已修复”不等于“设备已加载新包”；MuMu 验收前先确认 ADB 序列号为 `127.0.0.1:16384` 且状态为 `device`，再检查设备端页面截图。ADB offline 且虚拟机已启动时，先用 `mumu-cli sh` 检查虚拟机网络接口状态。设备列表中有真机时禁止默认选择第一个设备。
+- 关联文件: android/pages/latest/index.vue, android/components/AppTabBar.vue, android/unpackage/dist/dev/app-plus/app-service.js, AI_TOOL/android_ui_cleanup_test.mjs, docs/project/进度.md
+- 标签: android, mumu, emulator, bundle, download, cache, adb, wlan
+- 关键词: 127.0.0.1:16384, offline, stale bundle, app-service.js, wlan0 down, mumu-cli, HBuilderX
+
+## [2026-10-04] 现象: 长辈需要手动点击下载才能断网使用内容
+- 触发条件: 现有 Android 只有视频“下载”按钮；照片查看器、图文阅读没有持久化资源缓存，长辈需要理解下载/离线概念。
+- 根因: `download_items` 是视频专用的显式下载记录，图片只保存相册 JSON，HTML 直接远端 WebView，Markdown 直接网络读取；没有统一资源身份、容量上限、来源隔离和清理策略。
+- 解决步骤: 新增独立 `resourceCacheService` 和运行时适配层；默认自动缓存开启且仅 Wi-Fi，按打开的视频/相册/图文触发；缓存记录使用 type+id+规范化 URL 身份，支持同 identity 并发锁、文件校验、进程中断恢复、LRU/容量清理；设置页和离线页提供开关、用量与清理入口；视频/照片/Markdown/HTML 分别覆盖本地路径并保留远端回退。经用户确认，缓存上限上调为 10GB/100 项，且已存设置只保留开关、上限始终跟随代码默认值。
+- 预防/规则: 自动缓存不能复用或删除用户手动离线记录；不能把页面定时器描述为系统级后台下载，App 被杀后续任务需要原生 WorkManager/Service；HTML 本地 WebView 必须有远端回退；缓存本地路径不能写回公共清单或跨服务器复用；持久化配置不要固定容量上限，避免默认值上调后旧设备不生效。
+- 关联文件: android/utils/resourceCacheService.js, android/utils/resourceCacheRuntime.js, android/pages/latest/index.vue, android/pages/photos/index.vue, android/pages/reader/index.vue, android/pages/settings/index.vue, android/pages/offline/index.vue, AI_TOOL/resource_cache_service_test.mjs
+- 标签: android, cache, offline, video, photo, article, wifi, lru
+- 关键词: resource_cache_items, automatic cache, cache-on-open, Wi-Fi, 10GB, 100 items, local_path, WorkManager
+
 ## [2026-02-02] 现象: App 与服务端协议不匹配
 - 触发条件: App 仅支持 index.json 直链清单，服务端 API 返回内部字段且要求 Basic Auth
 - 根因: 协议目标不同（后台管理/上传 vs 内容分发/消费）

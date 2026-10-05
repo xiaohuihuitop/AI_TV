@@ -25,6 +25,28 @@
       <text v-if="savedHint" class="hint muted">{{ savedHint }}</text>
     </view>
 
+    <view class="settings-section card cache-settings">
+      <view class="setting-row">
+        <text class="setting-label">自动缓存</text>
+        <text class="setting-description muted">打开视频、图片或图文后，App 会自动保存，断网时优先使用本地内容。</text>
+      </view>
+      <view class="cache-option-row">
+        <text class="setting-label">自动缓存内容</text>
+        <switch :checked="cacheConfig.enabled" color="#a84616" @change="handleCacheEnabledChange" />
+      </view>
+      <view class="cache-option-row">
+        <text class="setting-label">仅使用 Wi-Fi</text>
+        <switch :checked="cacheConfig.wifiOnly" color="#a84616" @change="handleCacheWifiChange" />
+      </view>
+      <view class="cache-usage-row">
+        <view>
+          <text class="setting-label">自动缓存占用</text>
+          <text class="cache-usage muted">{{ cacheUsageText }}</text>
+        </view>
+        <button class="btn btn-ghost cache-clear" @click="clearAutoCache">清理缓存</button>
+      </view>
+    </view>
+
     <view v-if="showAddressModal" class="modal-mask" @click="closeAddressDialog">
       <view class="modal-card" @click.stop>
         <text class="modal-title">修改服务器地址</text>
@@ -58,6 +80,13 @@ import {
   validateIndexUrl
 } from "../../utils/appConfig.js";
 import { formatAppVersion, readAppVersion } from "../../utils/appVersion.js";
+import {
+  createAppResourceCache,
+  createUniStorage as createCacheStorage,
+  defaultResourceCacheConfig,
+  loadResourceCacheConfig,
+  saveResourceCacheConfig
+} from "../../utils/resourceCacheRuntime.js";
 
 function createUniStorage() {
   return {
@@ -78,12 +107,19 @@ export default {
       savedHint: "",
       showAddressModal: false,
       draftUrl: "",
-      appVersionText: "读取中…"
+      appVersionText: "读取中…",
+      cacheConfig: { ...defaultResourceCacheConfig },
+      cacheUsage: { bytes: 0, items: 0, maxBytes: defaultResourceCacheConfig.maxBytes, maxItems: defaultResourceCacheConfig.maxItems }
     };
   },
   computed: {
     visibleIndexUrl() {
       return formatIndexUrlForDisplay(this.indexUrl);
+    },
+    cacheUsageText() {
+      const megabytes = (this.cacheUsage.bytes / 1024 / 1024).toFixed(1);
+      const limit = (this.cacheUsage.maxBytes / 1024 / 1024 / 1024).toFixed(1);
+      return `${megabytes} MB / ${limit} GB（${this.cacheUsage.items}/${this.cacheUsage.maxItems} 项）`;
     }
   },
   onShow() {
@@ -92,6 +128,8 @@ export default {
     }
     const storage = createUniStorage();
     this.indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
+    this.cacheConfig = loadResourceCacheConfig(createCacheStorage());
+    this.refreshCacheUsage();
     readAppVersion().then((info) => {
       this.appVersionText = formatAppVersion(info);
     });
@@ -140,6 +178,42 @@ export default {
       storage.set(indexUrlKey, this.indexUrl);
       this.savedHint = hint || "已保存";
       uni.showToast({ title: "已保存", icon: "success" });
+    },
+    refreshCacheUsage() {
+      const storage = createCacheStorage();
+      this.cacheConfig = loadResourceCacheConfig(storage);
+      const service = createAppResourceCache(storage, undefined, this.cacheConfig);
+      this.cacheUsage = service.getUsage();
+    },
+    handleCacheEnabledChange(event) {
+      this.cacheConfig = saveResourceCacheConfig(
+        { ...this.cacheConfig, enabled: Boolean(event && event.detail && event.detail.value) },
+        createCacheStorage()
+      );
+    },
+    handleCacheWifiChange(event) {
+      this.cacheConfig = saveResourceCacheConfig(
+        { ...this.cacheConfig, wifiOnly: Boolean(event && event.detail && event.detail.value) },
+        createCacheStorage()
+      );
+    },
+    clearAutoCache() {
+      uni.showModal({
+        title: "清理自动缓存",
+        content: "只清理自动缓存，不会删除手动离线视频。",
+        confirmText: "清理",
+        cancelText: "取消",
+        confirmColor: "#a84616",
+        success: (res) => {
+          if (!res.confirm) return;
+          const storage = createCacheStorage();
+          const service = createAppResourceCache(storage, undefined, this.cacheConfig);
+          service.clearAll().then(() => {
+            this.refreshCacheUsage();
+            uni.showToast({ title: "已清理", icon: "success" });
+          }).catch(() => uni.showToast({ title: "清理失败，请重试", icon: "none" }));
+        }
+      });
     }
   }
 };
@@ -177,6 +251,38 @@ export default {
 .setting-label {
   display: block;
   font-size: 14px;
+}
+
+.cache-settings {
+  margin-top: 14px;
+}
+
+.setting-description {
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.cache-option-row,
+.cache-usage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.cache-usage {
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
+}
+
+.cache-clear {
+  min-width: 96px;
+  min-height: var(--control-height);
 }
 
 .version-line {
