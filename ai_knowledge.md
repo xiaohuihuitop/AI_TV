@@ -14,7 +14,15 @@
 - 关键词:
 ```
 
-## [2026-10-05] 现象: MuMu 仍显示旧下载按钮
+## [2026-10-05] 现象: 自动缓存和图文入口对长辈仍显得复杂
+- 触发条件: 自动缓存已经替代手动下载，但底部仍显示缓存入口，最新页仍显示图文切换；用户希望只保留主要内容入口。
+- 根因: UI 入口与底层兼容能力没有分层，缓存页和图文页的路由/协议能力不需要作为常驻入口暴露。
+- 解决步骤: 从 `AppTabBar` 和 native `tabBar.list` 隐藏缓存；将 `pages/latest/index.vue` 的图文 tab 隐藏；把最新页设为首屏；保留 `/pages/offline/index`、`/pages/reader/index`、article/photo 清单处理、自动缓存服务和历史数据。
+- 预防/规则: 简化 UI 时只移除入口，不删除路由、存储键或协议；用结构化 pages.json 断言同时保护首屏、隐藏 tab 和保留内部路由。
+- 关联文件: android/components/AppTabBar.vue, android/pages.json, android/pages/latest/index.vue, AI_TOOL/android_ui_cleanup_test.mjs, docs/project/进度.md
+- 标签: android, ui, simplification, cache, article, compatibility
+- 关键词: hide entry, cache route, reader route, latest first page, tabBar list
+
 - 触发条件: 源码已将最新页手动下载入口改为自动缓存状态，但 MuMu 页面仍出现“下载”按钮。
 - 根因: 本地源码与设备运行 bundle 不一致；设备仍加载旧 bundle。复查中 MuMu 虚拟机 ADB 会话卡死，重启虚拟机后 `wlan0` 处于 DOWN 状态，导致 ADB 持续 `offline`、无法同步；`6fce6ce` 是 Redmi 真机，不能作为 MuMu 验收对象。
 - 解决步骤: 对照源码、回归断言和新旧 bundle 文案确认页面已移除按钮；通过 MuMu 管理通道发现 `wlan0` DOWN 后执行 `svc wifi enable` 和 `ip link set wlan0 up`，虚拟机网络恢复（10.0.2.15），ADB 恢复 `device` 状态；重建 `adb reverse tcp:8000` 后用 HBuilderX `--deviceId 127.0.0.1:16384` 重新同步，设备截图确认无下载按钮、底部为“缓存”。

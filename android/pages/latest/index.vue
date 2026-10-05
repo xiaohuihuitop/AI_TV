@@ -10,13 +10,6 @@
       </view>
       <view
         class="media-tab"
-        :class="{ active: activeType === 'article' }"
-        @click="setActiveType('article')"
-      >
-        图文
-      </view>
-      <view
-        class="media-tab"
         :class="{ active: activeType === 'photo' }"
         @click="setActiveType('photo')"
       >

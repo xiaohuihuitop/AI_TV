@@ -26,7 +26,6 @@ export default {
   data() {
     return {
       tabs: [
-        { key: "offline", text: "缓存", url: "/pages/offline/index" },
         { key: "latest", text: "最新", url: "/pages/latest/index" },
         { key: "settings", text: "设置", url: "/pages/settings/index" }
       ]
