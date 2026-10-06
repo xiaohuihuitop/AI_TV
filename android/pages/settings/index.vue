@@ -10,6 +10,23 @@
         <text class="setting-label muted">当前版本</text>
         <text class="version-line">{{ appVersionText }}</text>
       </view>
+      <view class="update-section">
+        <view class="update-heading">
+          <text class="setting-label">应用更新</text>
+          <text class="update-state muted">{{ updateStatusText }}</text>
+        </view>
+        <text v-if="updateVersion" class="update-version muted">可更新到 {{ updateVersion }}</text>
+        <view v-if="showUpdateProgress" class="update-progress">
+          <view class="progress-track">
+            <view class="progress-value" :style="{ width: `${updateProgress}%` }"></view>
+          </view>
+          <text class="progress-text">{{ updateProgress }}%</text>
+        </view>
+        <button class="btn btn-primary update-button" :disabled="updateBusy" @click="handleUpdateAction">
+          {{ updateActionText }}
+        </button>
+        <text v-if="updateHint" class="hint muted">{{ updateHint }}</text>
+      </view>
       <view class="setting-row address-row">
         <text class="setting-label muted">服务器地址</text>
         <text class="current-url">{{ visibleIndexUrl }}</text>
@@ -81,6 +98,12 @@ import {
 } from "../../utils/appConfig.js";
 import { formatAppVersion, readAppVersion } from "../../utils/appVersion.js";
 import {
+  checkForUpdate,
+  getUpdateState,
+  installAvailableUpdate,
+  subscribeUpdateState
+} from "../../utils/appUpdateManager.js";
+import {
   createAppResourceCache,
   createUniStorage as createCacheStorage,
   defaultResourceCacheConfig,
@@ -108,6 +131,8 @@ export default {
       showAddressModal: false,
       draftUrl: "",
       appVersionText: "读取中…",
+      updateState: getUpdateState(),
+      unsubscribeUpdateState: null,
       cacheConfig: { ...defaultResourceCacheConfig },
       cacheUsage: { bytes: 0, items: 0, maxBytes: defaultResourceCacheConfig.maxBytes, maxItems: defaultResourceCacheConfig.maxItems }
     };
@@ -120,6 +145,48 @@ export default {
       const megabytes = (this.cacheUsage.bytes / 1024 / 1024).toFixed(1);
       const limit = (this.cacheUsage.maxBytes / 1024 / 1024 / 1024).toFixed(1);
       return `${megabytes} MB / ${limit} GB（${this.cacheUsage.items}/${this.cacheUsage.maxItems} 项）`;
+    },
+    updateBusy() {
+      return ["checking", "downloading", "installing"].includes(this.updateState.status);
+    },
+    updateVersion() {
+      return this.updateState.version || (this.updateState.manifest && this.updateState.manifest.version) || "";
+    },
+    showUpdateProgress() {
+      return ["downloading", "installing"].includes(this.updateState.status);
+    },
+    updateProgress() {
+      return Math.max(0, Math.min(100, Number(this.updateState.progress) || 0));
+    },
+    updateStatusText() {
+      const labels = {
+        idle: "",
+        checking: "正在检查…",
+        upToDate: "已是最新版本",
+        "up-to-date": "已是最新版本",
+        "update-available": "发现新版本",
+        downloading: "正在下载…",
+        installing: "正在安装…",
+        installed: "更新完成",
+        cooldown: "已检查过，可稍后重试",
+        "blocked-playing": "播放期间不会更新",
+        "request-failed": "检查失败",
+        "download-failed": "下载失败",
+        "install-failed": "安装失败",
+        failed: "更新失败"
+      };
+      return labels[this.updateState.status] || "";
+    },
+    updateActionText() {
+      if (this.updateState.status === "update-available") return "立即更新";
+      if (this.updateBusy) return this.updateState.status === "downloading" ? "下载中…" : "处理中…";
+      return "检查新版本";
+    },
+    updateHint() {
+      if (this.updateState.error) return this.updateState.error;
+      if (this.updateState.status === "installed") return "App 即将重启";
+      if (this.updateState.status === "blocked-playing") return "请退出播放页后重试";
+      return "";
     }
   },
   onShow() {
@@ -130,9 +197,24 @@ export default {
     this.indexUrl = storage.get(indexUrlKey) || defaultIndexUrl;
     this.cacheConfig = loadResourceCacheConfig(createCacheStorage());
     this.refreshCacheUsage();
+    this.unsubscribeUpdateState = subscribeUpdateState((state) => {
+      this.updateState = state;
+    });
     readAppVersion().then((info) => {
       this.appVersionText = formatAppVersion(info);
     });
+  },
+  onHide() {
+    if (this.unsubscribeUpdateState) {
+      this.unsubscribeUpdateState();
+      this.unsubscribeUpdateState = null;
+    }
+  },
+  onUnload() {
+    if (this.unsubscribeUpdateState) {
+      this.unsubscribeUpdateState();
+      this.unsubscribeUpdateState = null;
+    }
   },
   onBackPress() {
     if (!this.showAddressModal) {
@@ -142,6 +224,13 @@ export default {
     return true;
   },
   methods: {
+    handleUpdateAction() {
+      if (this.updateState.status === "update-available" && this.updateState.manifest) {
+        installAvailableUpdate(this.updateState.manifest).catch(() => {});
+        return;
+      }
+      checkForUpdate().catch(() => {});
+    },
     openAddressDialog() {
       this.draftUrl = this.indexUrl || defaultIndexUrl;
       this.showAddressModal = true;
@@ -292,6 +381,57 @@ export default {
   font-size: 17px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.update-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.update-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.update-state,
+.update-version,
+.progress-text {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.update-version {
+  margin-top: -4px;
+}
+
+.update-button {
+  width: 100%;
+}
+
+.update-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-track {
+  flex: 1;
+  height: 10px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+}
+
+.progress-value {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-accent);
+  transition: width 160ms ease;
 }
 
 .address-row {

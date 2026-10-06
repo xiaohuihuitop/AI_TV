@@ -45,9 +45,9 @@
           @cover-error="markCoverRefreshNeeded"
         >
           <template v-if="item.type === 'video'" v-slot:status>
-            <text v-if="isAutoCaching(item)" class="download-status pending">自动缓存中</text>
-            <text v-else-if="isAutoCached(item)" class="download-status done">已缓存</text>
-            <text v-else-if="isAutoCacheFailed(item)" class="download-status failed">缓存失败</text>
+            <text v-if="resolveAutoCacheStatus(item) === 'caching'" class="download-status pending">自动缓存中</text>
+            <text v-else-if="resolveAutoCacheStatus(item) === 'done'" class="download-status done">已缓存</text>
+            <text v-else-if="resolveAutoCacheStatus(item) === 'failed'" class="download-status failed">缓存失败</text>
             <text v-else class="download-status online">在线</text>
           </template>
         </media-list-card>
@@ -77,6 +77,7 @@ import { savePlayerQueue } from "../../utils/playerQueue.js";
 import { savePhotoAlbum } from "../../utils/photoQueue.js";
 import { createAppResourceCache, canAutoCache, createUniResourceFileApi, createUniStorage as createResourceStorage, loadResourceCacheConfig, applyCachedResourcePaths } from "../../utils/resourceCacheRuntime.js";
 import { buildResourceIdentity } from "../../utils/resourceCacheService.js";
+import { buildAutoCacheStatusMap, resolveAutoCacheStatus as resolveAutoCacheStatusValue } from "../../utils/autoCacheStatus.js";
 import { formatDuration, formatSize } from "../../utils/mediaFormat.js";
 import { defaultIndexUrl, normalizeRequestUrl } from "../../utils/appConfig.js";
 import {
@@ -178,6 +179,7 @@ export default {
       articleItems: [],
       photoItems: [],
       downloadStatusMap: {},
+      autoCacheStatusMap: {},
       downloadRefreshTimer: null,
       pageVisible: false,
       indexRequest: null,
@@ -232,6 +234,7 @@ export default {
     if (this.refreshDownloadStatus()) {
       this.startDownloadWatcher();
     }
+    this.refreshAutoCacheStatus();
     this.fetchIndex();
   },
   onHide() {
@@ -264,6 +267,12 @@ export default {
       this.downloadStatusMap = buildDownloadStatusMap(list);
       this.videoItems = applyLocalDownload(this.videoItems, this.downloadStatusMap);
       return list.some((entry) => entry.status === "downloading");
+    },
+    refreshAutoCacheStatus() {
+      const storage = createResourceStorage();
+      const config = loadResourceCacheConfig(storage);
+      const service = createAppResourceCache(storage, undefined, config);
+      this.autoCacheStatusMap = buildAutoCacheStatusMap(service.list());
     },
     startDownloadWatcher() {
       if (!this.pageVisible) {
@@ -345,7 +354,18 @@ export default {
           return;
         }
         const service = createAppResourceCache(storage, createUniResourceFileApi(), config);
-        service.cacheResource({ ...item, format, type: item.type || "video", id: item.id || item.url, cacheFileName: buildCacheFileName(item) }).catch(() => {});
+        const cacheTask = service.cacheResource({ ...item, format, type: item.type || "video", id: item.id || item.url, cacheFileName: this.buildCacheFileName(item) });
+        this.refreshAutoCacheStatus();
+        cacheTask
+          .then((entry) => {
+            this.autoCacheStatusMap = {
+              ...this.autoCacheStatusMap,
+              [entry.identity]: resolveAutoCacheStatusValue(entry, { [entry.identity]: entry })
+            };
+          })
+          .catch(() => {
+            this.refreshAutoCacheStatus();
+          });
       });
     },
     buildCacheFileName(item) {
@@ -355,6 +375,9 @@ export default {
     },
     resolveItemSource(item) {
       return item && (item.local_path || item.url) ? item.local_path || item.url : "";
+    },
+    resolveAutoCacheStatus(item) {
+      return resolveAutoCacheStatusValue(item, this.autoCacheStatusMap);
     },
     getAutoCacheEntry(item) {
       const storage = createResourceStorage();
@@ -487,6 +510,7 @@ export default {
       const cacheStorage = createResourceStorage();
       const cacheConfig = loadResourceCacheConfig(cacheStorage);
       const cacheService = createAppResourceCache(cacheStorage, undefined, cacheConfig);
+      this.autoCacheStatusMap = buildAutoCacheStatusMap(cacheService.list());
       const withAutoCache = applyCachedResourcePaths(withLocalDownload, cacheService);
       const items = refreshCovers ? refreshCoverUrls(withAutoCache, Date.now()) : withAutoCache;
       if (refreshCovers) {

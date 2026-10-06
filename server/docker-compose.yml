@@ -5,7 +5,7 @@ services:
     build: .
     container_name: ai_tv
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       DATA_DIR: /data
       DB_PATH: /data/db/app.db
@@ -27,3 +27,11 @@ services:
     stop_grace_period: 30s
     read_only: true
     restart: unless-stopped
+    networks:
+      - default
+      - ai_tv_proxy
+
+networks:
+  ai_tv_proxy:
+    external: true
+    name: ai_tv_proxy

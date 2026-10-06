@@ -2,7 +2,7 @@
 
 ## 打包目标
 - Android 包名：`com.xhhtop.aitv`
-- 默认清单和 WGT 更新域名：`https://tv.xiaohuihuitop.top`
+- 默认清单和 WGT 更新域名：`https://tv.xhhtop.top`
 - 服务端容器内部仍使用 HTTP `8000`，但手机客户端默认通过 HTTPS 域名访问。
 
 ## 打包前检查
@@ -44,7 +44,7 @@ Select-String -Path "$tmp\assets\apps\__UNI__F18B1A1\www\manifest.json" -Pattern
 App 启动后以及从后台回到前台时，会请求：
 
 ```text
-https://tv.xiaohuihuitop.top/update/update.json
+https://tv.xhhtop.top/update/update.json
 ```
 
 当清单版本高于当前资源版本时，App 会在后台下载 WGT、安装后自动重启。播放页处于前台时不会检查、下载或重启，避免打断视频播放；检查或下载失败会保留当前可用版本，下次启动自动再检查。
@@ -53,10 +53,10 @@ https://tv.xiaohuihuitop.top/update/update.json
 
 ```json
 {
-  "version": "1.0.1",
-  "version_code": 101,
-  "wgt_url": "https://tv.xiaohuihuitop.top/update/ai-tv-1.0.1.wgt",
-  "size_bytes": 306509
+  "version": "1.0.4",
+  "version_code": 104,
+  "wgt_url": "https://tv.xhhtop.top/update/ai-tv-1.0.4.wgt",
+  "size_bytes": 316131
 }
 ```
 

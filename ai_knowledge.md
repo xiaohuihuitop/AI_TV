@@ -23,6 +23,15 @@
 - 标签: android, ui, simplification, cache, article, compatibility
 - 关键词: hide entry, cache route, reader route, latest first page, tabBar list
 
+## [2026-10-05] 现象: 新域名部署需要复用现有 Caddy 而不能占用公网端口
+- 触发条件: AI TV 首次部署到 `38.76.210.111`，服务器已有 Caddy 容器占用 80/443，且其他站点正在运行。
+- 根因: AI TV 容器若直接暴露 8000 或重新创建反代，会增加公网暴露面并可能影响现有站点；Caddy 与 AI TV 若使用不同 Docker 网络，也不能直接以服务名互访。
+- 解决步骤: AI TV 独立放在 `/opt/ai-tv`，容器端口仅绑定宿主机 `127.0.0.1:8000`；复用现有 Caddy 并通过专用外部 Docker 网络 `ai_tv_proxy` 反代 `ai_tv:8000`；为 `/update/` 单独挂载宿主机静态目录；修改 Caddy 前保留原配置备份并验证 `caddy adapt`。
+- 预防/规则: 生产部署先只读检查端口、容器和 Caddy 挂载；新增站点必须追加配置而不是重写现有站点；公网只开放 HTTPS 反代，应用端口绑定回环地址；反代必须传递 `Host` 和 `X-Forwarded-Proto`。
+- 关联文件: server/docker-compose.yml, server/README.md, android/utils/appConfig.js, /opt/xhhtop/Caddyfile
+- 标签: server, deploy, caddy, https, domain, docker
+- 关键词: tv.xhhtop.top, host.docker.internal, 127.0.0.1:8000, update directory, reverse proxy
+
 - 触发条件: 源码已将最新页手动下载入口改为自动缓存状态，但 MuMu 页面仍出现“下载”按钮。
 - 根因: 本地源码与设备运行 bundle 不一致；设备仍加载旧 bundle。复查中 MuMu 虚拟机 ADB 会话卡死，重启虚拟机后 `wlan0` 处于 DOWN 状态，导致 ADB 持续 `offline`、无法同步；`6fce6ce` 是 Redmi 真机，不能作为 MuMu 验收对象。
 - 解决步骤: 对照源码、回归断言和新旧 bundle 文案确认页面已移除按钮；通过 MuMu 管理通道发现 `wlan0` DOWN 后执行 `svc wifi enable` 和 `ip link set wlan0 up`，虚拟机网络恢复（10.0.2.15），ADB 恢复 `device` 状态；重建 `adb reverse tcp:8000` 后用 HBuilderX `--deviceId 127.0.0.1:16384` 重新同步，设备截图确认无下载按钮、底部为“缓存”。
@@ -518,3 +527,49 @@
 - 关联文件: server/app/db/session.py, server/app/web/routes.py, docs/project/进度.md
 - 标签: server, deployment, uvicorn, migration, verification
 - 关键词: stale process, non-reload, schema_migrations, detail 500, DATA_DIR, DB_PATH
+
+## [2026-10-05] 结果: 生产服务与 WGT 必须分阶段原子发布
+- 触发条件: 首次把当前服务端和 Android 默认域名部署到 `38.76.210.111`，服务器已有 Caddy 和其他站点；客户端当前版本为 `1.0.2 / 102`，本地仅有旧的 `1.0.1` WGT。
+- 根因: Caddy 单文件 bind mount 替换后容器仍持有旧 inode，单纯 reload 不会读取新站点；Caddy 与 AI TV 默认网络隔离，不能用宿主机回环地址访问；如果先发布 `update.json` 或发布旧 WGT，会造成不可下载更新或客户端降级。
+- 解决步骤: AI TV 独立部署到 `/opt/ai-tv`，数据挂载 `/srv/ai_tv_data`，8000 只绑定 `127.0.0.1`；创建外部 Docker 网络 `ai_tv_proxy` 并让 Caddy 与 `ai_tv` 互通；修改 Caddy 前备份文件，重建 Caddy 使 bind mount 生效并等待 ACME 证书；HBuilderX 5.07 生成 1.0.2 WGT，先上传临时文件并核对大小/SHA-256，再原子发布 WGT，最后发布 `update.json`。
+- 预防/规则: 部署共享 Caddy 时先检查 bind mount 与 Docker 网络；更新清单必须遵守“先包、校验可下载、后清单”；永远不要把低于客户端当前版本的 WGT 放入更新目录；验证必须覆盖 HTTPS、认证、容器健康、WGT 大小和哈希。
+- 关联文件: server/docker-compose.yml, android/utils/appConfig.js, AI_TOOL/android_update_service_test.mjs, docs/project/进度.md, /opt/ai-tv/docker-compose.yml, /opt/xhhtop/Caddyfile
+- 标签: server, android, deploy, caddy, wgt, atomic-release, https
+- 关键词: tv.xhhtop.top, ai_tv_proxy, 127.0.0.1:8000, update.json, ai-tv-1.0.2.wgt, sha256
+
+## [2026-10-06] 根因: 自动缓存完成后最新页标签仍显示“在线”
+- 触发条件: 视频已自动缓存，关闭 Wi-Fi 后可以离线播放，但最新页视频卡片仍显示“在线”。
+- 根因: `resourceCacheService` 已持久化 `resource_cache_items` 的 `done/local_path`；播放器和 `applyCachedResourcePaths` 使用该路径，所以播放正常。最新页的 `isAutoCaching/isAutoCached/isAutoCacheFailed` 却在渲染时直接读取本地存储，异步缓存完成不会触发 Vue 响应式重新渲染。
+- 解决步骤: 新增 `autoCacheStatus.js` 将缓存条目按 resource identity 归一为 `caching/done/failed/online`；最新页维护 `autoCacheStatusMap`，在 onShow、applyItems、缓存任务创建后、任务 resolve/reject 时刷新或回写，标签改为读取响应式快照。
+- 发布步骤: 资源版本升至 `1.0.3/103`，生成并发布 `ai-tv-1.0.3.wgt`；先校验本地/远端大小和 SHA-256，再更新 `update.json`，避免已安装 1.0.2 APK 因同版本清单不更新。
+- 预防/规则: 本地存储变化不会自动触发 Vue 页面更新；凡是异步服务写入 storage 后仍需显示状态，必须维护响应式快照或显式触发刷新。播放路径和状态标签要分别覆盖测试，离线能播放不代表 UI 状态正确。
+- 关联文件: android/utils/autoCacheStatus.js, android/pages/latest/index.vue, android/utils/resourceCacheService.js, android/utils/resourceCacheRuntime.js, AI_TOOL/latest_auto_cache_status_test.mjs, docs/project/进度.md
+- 标签: android, cache, reactivity, status, wgt, regression
+- 关键词: resource_cache_items, autoCacheStatusMap, done, local_path, 已缓存, 在线, 1.0.3, WGT
+
+## [2026-10-06] 结果: APK 云打包必须以包内 manifest 和 bundle 验收
+- 触发条件: 旧 APK 文件虽然存在，但来自 2026-09-01，仍缺少 VideoPlayer、包含旧域名并带有云端注入的 `adid`。
+- 根因: 本地 APK 文件名和生成时间不能证明它包含当前源码；云打包还可能注入账号侧广告配置，原生模块缺失也无法由 WGT 修复。
+- 解决步骤: 使用 HBuilderX 5.07 CLI 按无广告配置重新云打包；从 APK 的 `assets/apps/__UNI__F18B1A1/www/manifest.json` 检查 AppID、版本、`VideoPlayer` 和 `adid`，再扫描 `app-service.js` 确认默认域名。新包为 `1.0.2 / 102`，含 VideoPlayer，无 adid，使用 `tv.xhhtop.top`。
+- 预防/规则: 交付 APK 时必须提供产物路径、大小和 SHA-256；不能以旧 APK 或 WGT 代替 APK；包内检查通过后仍需实体手机安装验收，尤其是原生模块、HTTPS、WGT 更新和广告表现。
+- 关联文件: android/manifest.json, android/utils/appConfig.js, AI_TOOL/android_packaging_test.mjs, AI_TOOL/android_update_service_test.mjs, docs/project/进度.md
+- 标签: android, apk, cloud-pack, VideoPlayer, adid, verification
+- 关键词: __UNI__F18B1A1__20261006154335.apk, 1.0.2, 102, VideoPlayer, tv.xhhtop.top, adid
+
+## [2026-10-06] 结果: 后台自动更新需要设置页手动入口和进度反馈
+- 触发条件: 用户测试 App 后看不到任何更新反应；当前 APK/WGT 版本已相同，自动检查返回 `up-to-date` 后静默结束。
+- 根因: `App.vue` 只在启动/回前台调用更新服务并丢弃返回状态；设置页没有手动检查入口；更新服务下载时把进度回调替换成空函数，无法显示下载进度；六小时 cooldown 也没有手动绕过方式。
+- 解决步骤: 新增共享 `appUpdateManager`，App 生命周期和设置页共用同一个更新实例；更新服务支持 `force`、`autoInstall:false`、`install(manifest)`、阶段状态和下载进度；设置页在版本号下显示检查新版本、目标版本、立即更新、百分比进度、安装/重启和错误提示；资源版本升至 1.0.4/104 并发布 WGT。
+- 预防/规则: 后台自动任务必须有用户可见的结果入口；下载进度必须从原生 `onProgressUpdate` 贯通到 UI；手动检查不能复用自动 cooldown；发现更新与安装确认应分离；更新失败应清除 cooldown 以允许重试。
+- 关联文件: android/utils/updateService.js, android/utils/appUpdateManager.js, android/App.vue, android/pages/settings/index.vue, AI_TOOL/android_update_service_test.mjs, AI_TOOL/android_version_display_test.mjs
+- 标签: android, update, manual-check, progress, wgt, lifecycle
+- 关键词: 检查新版本, 立即更新, update-available, autoInstall, onProgress, 1.0.4, 104
+
+## [2026-10-06] 根因: App-Plus 缺少 URL 全局导致有效 WGT 地址被判无效
+- 触发条件: App 设置页手动检查更新时提示“WGT 地址无效”，但公网 `update.json` 和 WGT URL 均返回 200。
+- 根因: `android/utils/updateService.js` 使用浏览器 `new URL(wgtUrl)` 解析更新地址；部分 App-Plus/标准基座运行环境没有 `URL` 全局对象，构造函数抛错后统一转换成“WGT 地址无效”。
+- 解决步骤: 用不依赖 `URL` 全局的正则解析协议、主机、路径和查询；严格保留 HTTPS、非空主机、`.wgt` 路径校验，并保留原始 URL 给 `uni.downloadFile`；新增将 `globalThis.URL` 置空的回归测试；发布 1.0.5/105 WGT。
+- 预防/规则: App-Plus 代码不能默认浏览器 Web API（尤其 `URL`）；涉及更新/网络地址解析必须在 App-Plus 能力边界内使用兼容实现并在无 URL 全局的测试环境验证。
+- 关联文件: android/utils/updateService.js, AI_TOOL/android_update_service_test.mjs, android/pages/settings/index.vue, android/utils/appUpdateManager.js, docs/project/进度.md
+- 标签: android, app-plus, url, wgt, update, compatibility
+- 关键词: WGT 地址无效, new URL, globalThis.URL, tv.xhhtop.top, 1.0.5

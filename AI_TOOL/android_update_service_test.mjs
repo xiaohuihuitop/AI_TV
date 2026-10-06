@@ -11,20 +11,23 @@ assert.match(source, /force: false/);
 assert.match(source, /runtime\.restart/);
 
 const configSource = await readFile(new URL("android/utils/appConfig.js", root), "utf8");
-assert.match(configSource, /https:\/\/tv\.xiaohuihuitop\.top\/update\/update\.json/);
+assert.match(configSource, /https:\/\/tv\.xhhtop\.top\/update\/update\.json/);
 const appSource = await readFile(new URL("android/App.vue", root), "utf8");
-assert.match(appSource, /createAppUpdateService/);
+assert.match(appSource, /runAutomaticUpdateCheck/);
 assert.match(appSource, /onLaunch\(\)/);
 assert.match(appSource, /onShow\(\)/);
 assert.match(source, /route === "pages\/player\/index"/);
+assert.match(source, /onProgress/);
+assert.match(source, /autoInstall/);
+assert.match(source, /update-available/);
 const settingsSource = await readFile(new URL("android/pages/settings/index.vue", root), "utf8");
 assert.match(settingsSource, /defaultIndexUrl/);
 
 const update = await import("../android/utils/updateService.js");
 const { compareVersions, validateUpdateManifest, isUpdateAvailable, createUpdateService } = update;
 const config = await import("../android/utils/appConfig.js");
-assert.equal(config.updateManifestUrl, "https://tv.xiaohuihuitop.top/update/update.json");
-assert.match(config.defaultIndexUrl, /^https:\/\/tv\.xiaohuihuitop\.top\/public\/index\.json\?/);
+assert.equal(config.updateManifestUrl, "https://tv.xhhtop.top/update/update.json");
+assert.match(config.defaultIndexUrl, /^https:\/\/tv\.xhhtop\.top\/public\/index\.json\?/);
 
 assert.equal(compareVersions("1.0.0", "1.0.0"), 0);
 assert.equal(compareVersions("1.0.0", "1.0.1"), -1);
@@ -35,10 +38,21 @@ assert.throws(() => compareVersions("1.x.0", "1.0.0"), /版本/);
 const valid = validateUpdateManifest({
   version: "1.0.1",
   version_code: 101,
-  wgt_url: "https://tv.xiaohuihuitop.top/update/ai-tv-1.0.1.wgt",
+  wgt_url: "https://tv.xhhtop.top/update/ai-tv-1.0.1.wgt",
   size_bytes: 123
 });
 assert.equal(valid.version, "1.0.1");
+const savedUrlConstructor = globalThis.URL;
+globalThis.URL = undefined;
+try {
+  assert.equal(validateUpdateManifest({
+    version: "1.0.4",
+    wgt_url: "https://tv.xhhtop.top/update/ai-tv-1.0.4.wgt?cache=1",
+    size_bytes: 316131
+  }).wgt_url, "https://tv.xhhtop.top/update/ai-tv-1.0.4.wgt?cache=1");
+} finally {
+  globalThis.URL = savedUrlConstructor;
+}
 assert.equal(isUpdateAvailable("1.0.0", valid), true);
 assert.equal(isUpdateAvailable("1.0.1", valid), false);
 assert.equal(isUpdateAvailable("1.1.0", valid), false);
@@ -166,5 +180,54 @@ await Promise.resolve();
 assert.equal(requestCount, 1);
 release();
 assert.equal((await one).status, "installed");
+
+let manualProgress = [];
+const manualEvents = [];
+const manualService = createUpdateService({
+  getCurrentVersion: async () => "1.0.0",
+  requestManifest: async () => valid,
+  download: async (url, onProgress) => {
+    onProgress(0);
+    onProgress(25);
+    onProgress(100);
+    return { tempFilePath: "/tmp/manual.wgt" };
+  },
+  getFileSize: async () => 123,
+  removeFile: async (path) => manualEvents.push(["remove", path]),
+  install: async (path) => manualEvents.push(["install", path]),
+  restart: () => manualEvents.push(["restart"]),
+  isPlaybackActive: () => false,
+  now: () => 5000,
+  getLastCheckAt: () => 4999,
+  setLastCheckAt: () => {}
+});
+const manualAvailable = await manualService.check({
+  force: true,
+  autoInstall: false,
+  onProgress: (value) => manualProgress.push(value)
+});
+assert.equal(manualAvailable.status, "update-available");
+assert.equal(manualAvailable.version, valid.version);
+assert.deepEqual(manualProgress, []);
+const manualInstalled = await manualService.install(manualAvailable.manifest, {
+  onProgress: (value) => manualProgress.push(value)
+});
+assert.equal(manualInstalled.status, "installed");
+assert.deepEqual(manualProgress, [0, 25, 100]);
+assert.deepEqual(manualEvents, [
+  ["install", "/tmp/manual.wgt"],
+  ["remove", "/tmp/manual.wgt"],
+  ["restart"]
+]);
+
+const cooldownService = createUpdateService({
+  getCurrentVersion: async () => "1.0.1",
+  requestManifest: async () => valid,
+  now: () => 6000,
+  getLastCheckAt: () => 5999,
+  setLastCheckAt: () => {}
+});
+assert.equal((await cooldownService.check()).status, "cooldown");
+assert.equal((await cooldownService.check({ force: true, autoInstall: false })).status, "up-to-date");
 
 console.log("android update service tests passed");

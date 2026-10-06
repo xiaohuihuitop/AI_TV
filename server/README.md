@@ -210,7 +210,7 @@ App 清单地址示例：
 如果手机端使用当前项目默认配置，服务器域名示例为：
 
 ```text
-https://tv.xiaohuihuitop.top/public/index.json?user=admin&pass=admin
+https://tv.xhhtop.top/public/index.json?user=admin&pass=admin
 ```
 
 本次可靠性加固没有改变 App 协议：清单和资源 URL 仍沿用现有 `user`、`pass` 查询参数认证，手机客户端不需要同步修改。
@@ -444,9 +444,9 @@ environment:
 服务端容器继续在内部使用 `8000`，对外统一由 HTTPS 域名提供服务：
 
 ```text
-https://tv.xiaohuihuitop.top/web/videos
-https://tv.xiaohuihuitop.top/public/index.json
-https://tv.xiaohuihuitop.top/update/update.json
+https://tv.xhhtop.top/web/videos
+https://tv.xhhtop.top/public/index.json
+https://tv.xhhtop.top/update/update.json
 ```
 
 其中 `/web`、`/api`、`/public` 和根路径转发给 AI TV 容器，`/update/` 是宿主机上的静态升级目录。WGT 文件不要放到 Docker 镜像中，更新时只需上传新 WGT 并替换更新清单，不需要重建或重启服务端容器。
@@ -473,7 +473,7 @@ mkdir -p /volume1/SSD/docker/TV/TV_updates
 以下 Caddy 配置会自动申请 HTTPS 证书。将升级目录替换为服务器上的实际路径：
 
 ```caddyfile
-tv.xiaohuihuitop.top {
+tv.xhhtop.top {
   handle_path /update/* {
     root * /volume1/SSD/docker/TV/TV_updates
     header Cache-Control "no-store"
@@ -495,10 +495,10 @@ Caddy 会传递反向代理需要的 `Host`、`X-Forwarded-For` 和 `X-Forwarded
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name tv.xiaohuihuitop.top;
+    server_name tv.xhhtop.top;
 
-    ssl_certificate     /etc/letsencrypt/live/tv.xiaohuihuitop.top/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/tv.xiaohuihuitop.top/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/tv.xhhtop.top/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tv.xhhtop.top/privkey.pem;
     client_max_body_size 2G;
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
@@ -524,22 +524,22 @@ server {
 手机客户端更新地址固定为：
 
 ```text
-https://tv.xiaohuihuitop.top/update/update.json
+https://tv.xhhtop.top/update/update.json
 ```
 
 每次发布 WGT：
 
 1. 在 `android/manifest.json` 中把 App 资源版本提高，例如从 `1.0.0` 提高到 `1.0.1`，并同步提高版本号。
 2. 使用 HBuilderX 的“发行 -> 原生 App -> 制作应用 WGT 资源包”生成 WGT；WGT 的 AppID 必须与当前 APK 相同。
-3. 先将 WGT 上传到升级目录，例如 `TV_updates/ai-tv-1.0.1.wgt`。
+3. 先将 WGT 上传到升级目录，例如 `TV_updates/ai-tv-1.0.2.wgt`。
 4. 确认下载地址返回 `200` 后，再创建或替换 `TV_updates/update.json`：
 
 ```json
 {
-  "version": "1.0.1",
-  "version_code": 101,
-  "wgt_url": "https://tv.xiaohuihuitop.top/update/ai-tv-1.0.1.wgt",
-  "size_bytes": 306509
+  "version": "1.0.4",
+  "version_code": 104,
+  "wgt_url": "https://tv.xhhtop.top/update/ai-tv-1.0.4.wgt",
+  "size_bytes": 316131
 }
 ```
 
@@ -552,9 +552,9 @@ WGT 只能更新页面、JavaScript、CSS 和业务逻辑。修改 Android 权�
 完成反代和上传后，检查：
 
 ```bash
-curl -I https://tv.xiaohuihuitop.top/
-curl -I https://tv.xiaohuihuitop.top/update/update.json
-curl -u "<username>:<password>" https://tv.xiaohuihuitop.top/public/index.json
+curl -I https://tv.xhhtop.top/
+curl -I https://tv.xhhtop.top/update/update.json
+curl -u "<username>:<password>" https://tv.xhhtop.top/public/index.json
 ```
 
-预期根路径和更新清单返回 HTTPS 成功响应。清单中的视频、封面和文档 URL 应以 `https://tv.xiaohuihuitop.top` 开头；如果仍是 `http://`，检查反代是否传递 `Host` 和 `X-Forwarded-Proto`。
+预期根路径和更新清单返回 HTTPS 成功响应。清单中的视频、封面和文档 URL 应以 `https://tv.xhhtop.top` 开头；如果仍是 `http://`，检查反代是否传递 `Host` 和 `X-Forwarded-Proto`.

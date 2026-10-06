@@ -1,12 +1,11 @@
 <script>
-import { createAppUpdateService } from "./utils/updateService.js";
+import { runAutomaticUpdateCheck } from "./utils/appUpdateManager.js";
 
-const appUpdateService = createAppUpdateService();
 let launchTimer = null;
 let launchCheckPending = false;
 
 function runUpdateCheck() {
-  appUpdateService.check().catch((error) => {
+  runAutomaticUpdateCheck().catch((error) => {
     if (typeof console !== "undefined" && typeof console.warn === "function") {
       console.warn("[app-update] 生命周期检查失败", error);
     }

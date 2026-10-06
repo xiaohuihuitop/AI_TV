@@ -66,16 +66,14 @@ export function validateUpdateManifest(raw) {
   parseVersion(version);
 
   const wgtUrl = String(value.wgt_url || "").trim();
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(wgtUrl);
-  } catch (error) {
+  const urlMatch = wgtUrl.match(/^([a-z][a-z\d+.-]*):\/\/([^/?#]+)(\/[^?#]*)?(?:\?[^#]*)?(?:#.*)?$/i);
+  if (!urlMatch || !urlMatch[2]) {
     throw new Error("WGT 地址无效");
   }
-  if (parsedUrl.protocol !== "https:") {
+  if (urlMatch[1].toLowerCase() !== "https") {
     throw new Error("WGT 地址必须使用 HTTPS");
   }
-  if (!/\.wgt$/i.test(parsedUrl.pathname)) {
+  if (!urlMatch[3] || !/\.wgt$/i.test(urlMatch[3])) {
     throw new Error("WGT 地址必须指向 .wgt 文件");
   }
 
@@ -142,62 +140,47 @@ export function createUpdateService(deps = {}, options = {}) {
     return Number.isFinite(value) && value > 0 ? value : 0;
   }
 
-  async function runCheck() {
-    if (typeof deps.getCurrentVersion !== "function" || typeof deps.requestManifest !== "function") {
-      return { status: "skipped" };
-    }
-
-    if (typeof deps.isPlaybackActive === "function" && deps.isPlaybackActive()) {
-      return { status: "blocked-playing" };
-    }
-
-    const now = getNow();
-    const lastCheckAt = getLastCheckAt();
-    if (lastCheckAt > 0 && now >= lastCheckAt && now - lastCheckAt < checkIntervalMs) {
-      return { status: "cooldown" };
-    }
+  function setLastCheckAt(value) {
     if (typeof deps.setLastCheckAt === "function") {
-      deps.setLastCheckAt(now);
+      deps.setLastCheckAt(value);
     }
+  }
 
-    let currentVersion;
-    try {
-      currentVersion = await deps.getCurrentVersion();
-    } catch (error) {
-      safeWarn("读取当前版本失败", error);
-      return { status: "version-failed" };
+  function emitStage(options, stage, details = {}) {
+    if (typeof options.onStage === "function") {
+      options.onStage({ stage, ...details });
     }
-    if (!currentVersion) {
-      return { status: "skipped" };
-    }
+  }
 
-    let rawManifest;
-    try {
-      rawManifest = await deps.requestManifest();
-    } catch (error) {
-      safeWarn("读取更新清单失败", error);
-      return { status: "request-failed" };
+  function emitProgress(options, progress) {
+    if (typeof options.onProgress === "function") {
+      options.onProgress(Math.max(0, Math.min(100, Number(progress) || 0)));
     }
+  }
 
+  async function installManifest(rawManifest, options = {}) {
     let manifest;
     try {
       manifest = validateUpdateManifest(rawManifest);
     } catch (error) {
       safeWarn("更新清单无效", error);
+      emitStage(options, "invalid-manifest", { error: errorMessage(error) });
       return { status: "invalid-manifest" };
     }
-    if (!isUpdateAvailable(currentVersion, manifest)) {
-      return { status: "up-to-date", version: manifest.version };
-    }
 
+    emitStage(options, "downloading", { version: manifest.version });
     let downloadResult;
     try {
-      downloadResult = await deps.download(manifest.wgt_url, () => {});
+      downloadResult = await deps.download(manifest.wgt_url, (progress) => {
+        emitProgress(options, progress);
+      });
       if (!downloadResult || !downloadResult.tempFilePath) {
         throw new Error("没有得到 WGT 临时文件");
       }
     } catch (error) {
       safeWarn("下载 WGT 失败", error);
+      setLastCheckAt(0);
+      emitStage(options, "download-failed", { version: manifest.version, error: errorMessage(error) });
       return { status: "download-failed", version: manifest.version };
     }
 
@@ -215,34 +198,42 @@ export function createUpdateService(deps = {}, options = {}) {
     if (manifest.size_bytes !== undefined) {
       if (typeof deps.getFileSize !== "function") {
         await removeFile();
+        setLastCheckAt(0);
+        emitStage(options, "size-check-failed", { version: manifest.version });
         return { status: "size-check-failed", version: manifest.version };
       }
       try {
         const actualSize = await deps.getFileSize(localPath);
         if (Number(actualSize) !== manifest.size_bytes) {
           await removeFile();
+          setLastCheckAt(0);
+          emitStage(options, "size-mismatch", { version: manifest.version });
           return { status: "size-mismatch", version: manifest.version };
         }
       } catch (error) {
         await removeFile();
+        setLastCheckAt(0);
         safeWarn("读取 WGT 文件大小失败", error);
+        emitStage(options, "size-check-failed", { version: manifest.version, error: errorMessage(error) });
         return { status: "size-check-failed", version: manifest.version };
       }
     }
 
     if (typeof deps.isPlaybackActive === "function" && deps.isPlaybackActive()) {
       await removeFile();
-      if (typeof deps.setLastCheckAt === "function") {
-        deps.setLastCheckAt(0);
-      }
+      setLastCheckAt(0);
+      emitStage(options, "blocked-playing", { version: manifest.version });
       return { status: "blocked-playing", version: manifest.version };
     }
 
+    emitStage(options, "installing", { version: manifest.version });
     try {
       await deps.install(localPath);
     } catch (error) {
       await removeFile();
+      setLastCheckAt(0);
       safeWarn("安装 WGT 失败", error);
+      emitStage(options, "install-failed", { version: manifest.version, error: errorMessage(error) });
       return { status: "install-failed", version: manifest.version };
     }
     await removeFile();
@@ -254,23 +245,102 @@ export function createUpdateService(deps = {}, options = {}) {
     } catch (error) {
       safeWarn("重启 App 失败", error);
     }
+    emitStage(options, "installed", { version: manifest.version });
     return { status: "installed", version: manifest.version };
   }
 
+  async function runCheck(options = {}) {
+    const force = options.force === true;
+    const autoInstall = options.autoInstall !== false;
+    emitStage(options, "checking");
+    if (typeof deps.getCurrentVersion !== "function" || typeof deps.requestManifest !== "function") {
+      emitStage(options, "skipped");
+      return { status: "skipped" };
+    }
+
+    if (typeof deps.isPlaybackActive === "function" && deps.isPlaybackActive()) {
+      emitStage(options, "blocked-playing");
+      return { status: "blocked-playing" };
+    }
+
+    const now = getNow();
+    const lastCheckAt = getLastCheckAt();
+    if (!force && lastCheckAt > 0 && now >= lastCheckAt && now - lastCheckAt < checkIntervalMs) {
+      emitStage(options, "cooldown");
+      return { status: "cooldown" };
+    }
+    setLastCheckAt(now);
+
+    let currentVersion;
+    try {
+      currentVersion = await deps.getCurrentVersion();
+    } catch (error) {
+      safeWarn("读取当前版本失败", error);
+      setLastCheckAt(0);
+      emitStage(options, "version-failed", { error: errorMessage(error) });
+      return { status: "version-failed" };
+    }
+    if (!currentVersion) {
+      emitStage(options, "skipped");
+      return { status: "skipped" };
+    }
+
+    let rawManifest;
+    try {
+      rawManifest = await deps.requestManifest();
+    } catch (error) {
+      safeWarn("读取更新清单失败", error);
+      setLastCheckAt(0);
+      emitStage(options, "request-failed", { error: errorMessage(error) });
+      return { status: "request-failed" };
+    }
+
+    let manifest;
+    try {
+      manifest = validateUpdateManifest(rawManifest);
+    } catch (error) {
+      safeWarn("更新清单无效", error);
+      setLastCheckAt(0);
+      emitStage(options, "invalid-manifest", { error: errorMessage(error) });
+      return { status: "invalid-manifest" };
+    }
+    if (!isUpdateAvailable(currentVersion, manifest)) {
+      emitStage(options, "up-to-date", { version: manifest.version });
+      return { status: "up-to-date", version: manifest.version };
+    }
+    if (!autoInstall) {
+      emitStage(options, "update-available", { version: manifest.version, manifest });
+      return { status: "update-available", version: manifest.version, manifest };
+    }
+    return installManifest(manifest, options);
+  }
+
+  let installInFlight = null;
   return {
-    check() {
+    check(options = {}) {
       if (inFlight) {
         return inFlight;
       }
-      inFlight = runCheck()
+      inFlight = runCheck(options)
         .catch((error) => {
           safeWarn("自动更新失败", error);
+          setLastCheckAt(0);
+          emitStage(options, "failed", { error: errorMessage(error) });
           return { status: "failed" };
         })
         .finally(() => {
           inFlight = null;
         });
       return inFlight;
+    },
+    install(manifest, options = {}) {
+      if (installInFlight) {
+        return installInFlight;
+      }
+      installInFlight = installManifest(manifest, options).finally(() => {
+        installInFlight = null;
+      });
+      return installInFlight;
     }
   };
 }
